@@ -14,16 +14,16 @@ export default function Hero() {
 
         {/* Heading */}
         <h1 className="font-serif text-clamp-hero font-bold leading-[1.12] tracking-[-0.02em] text-ink mb-6 max-w-[820px]">
-          Body corporate management,{' '}
+          Stop managing schemes.{' '}
           <br />
-          <em className="text-muted not-italic italic">done properly.</em>
+          <em className="text-muted not-italic italic">Start running them.</em>
         </h1>
 
         {/* Subheading */}
         <p className="text-clamp-sub text-ink-2 max-w-[560px] leading-[1.65] mb-9">
-          One platform for managing agents, trustees and residents. Levy
-          collections, maintenance, communications and AGMs — clear, connected
-          and under control.
+          StrataHQ replaces the levy spreadsheets, the WhatsApp maintenance threads,
+          and the AGM chaos — with one platform that actually knows what needs your
+          attention next.
         </p>
 
         {/* CTAs */}

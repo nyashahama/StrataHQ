@@ -3,6 +3,7 @@ import Hero from '@/components/Hero'
 import StatsBar from '@/components/StatsBar'
 import ProblemSection from '@/components/ProblemSection'
 import FeaturesSection from '@/components/FeaturesSection'
+import InsightsSection from '@/components/InsightsSection'
 import ModulesSection from '@/components/ModulesSection'
 import RolesSection from '@/components/RolesSection'
 import DemoTeaser from '@/components/DemoTeaser'
@@ -20,6 +21,7 @@ export default function Home() {
         <StatsBar />
         <ProblemSection />
         <FeaturesSection />
+        <InsightsSection />
         <ModulesSection />
         <RolesSection />
         <DemoTeaser />

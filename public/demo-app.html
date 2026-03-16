@@ -790,7 +790,7 @@ function navigate(viewId) {
 
 function setupTopbar(view) {
   const map = {
-    'dashboard': `<button class="tb-btn tb-solid" onclick="openModal('Add New Scheme',addSchemeBody(),addSchemeFooter)">+ Add Scheme</button>`,
+    'dashboard': `<span style="font-size:12px;color:var(--muted);margin-right:4px">Portfolio ·</span><button class="tb-btn tb-ghost" onclick="toast('Report exported to PDF')">↓ Export Report</button><button class="tb-btn tb-solid" onclick="openModal('Add New Scheme',addSchemeBody(),addSchemeFooter)">+ Add Scheme</button>`,
     'levies':    `<button class="tb-btn tb-ghost" onclick="toast('Statements sent to all 48 owners','success')">Send All Statements</button>`,
     'maintenance':`<button class="tb-btn tb-solid" onclick="openNewJob()">+ New Work Order</button>`,
     'comms':     ``,
@@ -839,55 +839,118 @@ const VIEWS = {
    AGENT: DASHBOARD
    ---------------------------------------------------------------- */
 'dashboard': () => {
-  const overdue = countOverdueAgent();
-  return `
-<div class="g4 mb14">
-  <div class="stat-card"><div class="sc-label">Schemes Managed</div><div class="sc-val">12</div><div class="sc-delta neu">Active portfolio</div></div>
-  <div class="stat-card"><div class="sc-label">Levy Collection</div><div class="sc-val">${Math.round((S.levies.agent.filter(l=>l.status==='paid').length/S.levies.agent.length)*100)}%</div><div class="sc-delta up">↑ +2.1% vs last month</div></div>
-  <div class="stat-card"><div class="sc-label">Open Work Orders</div><div class="sc-val">${S.maintenance.filter(m=>!m.resolved&&m.role.includes('agent')).length}</div><div class="sc-delta ${S.maintenance.filter(m=>m.slaDone&&!m.resolved).length>0?'down':'neu'}">${S.maintenance.filter(m=>m.slaDone&&!m.resolved).length} SLA breached</div></div>
-  <div class="stat-card"><div class="sc-label">Total Arrears</div><div class="sc-val">R ${(S.levies.agent.reduce((a,l)=>a+l.balance,0)/1000).toFixed(0)}K</div><div class="sc-delta down">${overdue} unit${overdue!==1?'s':''} overdue</div></div>
+const overdue = countOverdueAgent();
+const openJobs = S.maintenance.filter(m=>!m.resolved&&m.role.includes('agent')).length;
+const slaBreached = S.maintenance.filter(m=>m.slaDone&&!m.resolved).length;
+
+// Portfolio health ring
+const healthScore = 87;
+const hColor = 'var(--green)';
+const hLabel = 'Strong';
+const r=30, circ=+(2*Math.PI*r).toFixed(2);
+const ringDash=+((healthScore/100)*circ).toFixed(2);
+const ringOffset=+(circ*0.25).toFixed(2);
+
+// Scheme data with collection pct for mini rings
+const schemes=[
+  {icon:'🌿',name:'Rosewood Estate',sub:'48 units · Sandown',pct:94,c:'var(--green)',arr:'R 14.1K'},
+  {icon:'🏙️',name:'Parkview Towers',sub:'62 units · Rosebank',pct:89,c:'var(--yellow)',arr:'R 18.6K'},
+  {icon:'🌊',name:'Seapoint Villas',sub:'24 units · Cape Town',pct:97,c:'var(--green)',arr:'R 1.8K'},
+  {icon:'🏡',name:'Bryanston Gardens',sub:'36 units · Bryanston',pct:74,c:'var(--red)',arr:'R 22.0K'},
+  {icon:'🌄',name:'Midrand Heights',sub:'55 units · Midrand',pct:91,c:'var(--green)',arr:'R 4.5K'},
+];
+
+// SVG bar chart data (collection rate %)
+const cData=[{m:'May',v:87},{m:'Jun',v:89},{m:'Jul',v:88},{m:'Aug',v:91},{m:'Sep',v:92},{m:'Oct',v:94}];
+const bW=30,bGap=9,svgH=72,svgMin=80,svgRange=20;
+const svgW=cData.length*(bW+bGap)-bGap;
+
+return `
+<div style="display:flex;gap:14px;align-items:stretch;margin-bottom:14px">
+  <div class="stat-card" style="display:flex;align-items:center;gap:16px;min-width:200px;flex-shrink:0">
+    <div style="position:relative;width:76px;height:76px;flex-shrink:0">
+      <svg width="76" height="76" viewBox="0 0 76 76" style="display:block">
+        <circle cx="38" cy="38" r="${r}" fill="none" stroke="var(--border)" stroke-width="7"/>
+        <circle cx="38" cy="38" r="${r}" fill="none" stroke="${hColor}" stroke-width="7"
+          stroke-dasharray="${ringDash} ${+(circ-ringDash).toFixed(2)}"
+          stroke-dashoffset="${ringOffset}" stroke-linecap="round"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div style="font-family:var(--font-serif);font-size:20px;font-weight:700;color:var(--ink);line-height:1">${healthScore}</div>
+        <div style="font-size:8px;color:var(--muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-top:1px">Score</div>
+      </div>
+    </div>
+    <div>
+      <div class="sc-label">Portfolio Health</div>
+      <div style="font-size:14px;font-weight:700;color:${hColor};margin-bottom:3px">${hLabel}</div>
+      <div style="font-size:11px;color:var(--muted)">12 schemes · 486 units</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;flex:1">
+    <div class="stat-card"><div class="sc-label">Levy Collection</div><div class="sc-val">94%</div><div class="sc-delta up">↑ +2.1pp vs Sep</div></div>
+    <div class="stat-card"><div class="sc-label">Total Arrears</div><div class="sc-val">R 61K</div><div class="sc-delta down">${overdue} units overdue</div></div>
+    <div class="stat-card"><div class="sc-label">Open Work Orders</div><div class="sc-val">${openJobs}</div><div class="sc-delta ${slaBreached>0?'down':'neu'}">${slaBreached} SLA breached</div></div>
+    <div class="stat-card"><div class="sc-label">Upcoming AGMs</div><div class="sc-val">3</div><div class="sc-delta neu">Next: 14 Nov</div></div>
+  </div>
 </div>
-<div class="g2">
-  <div>
-    <div class="card mb14">
-      <div class="card-hd"><div class="card-title">Schemes Overview</div><span class="pill p-grey">12 active</span></div>
-      <div class="card-bd-0">
-        ${[
-          {icon:'🌿',name:'Rosewood Estate',sub:'48 units · Sandown',val:'R 117,600',tag:'94% collected',t:'p-green'},
-          {icon:'🏙️',name:'Parkview Towers',sub:'62 units · Rosebank',val:'R 151,900',tag:'89% collected',t:'p-yellow'},
-          {icon:'🌊',name:'Seapoint Villas',sub:'24 units · Cape Town',val:'R 58,800',tag:'97% collected',t:'p-green'},
-          {icon:'🏡',name:'Bryanston Gardens',sub:'36 units · Bryanston',val:'R 88,200',tag:'3 arrears',t:'p-red'},
-          {icon:'🌄',name:'Midrand Heights',sub:'55 units · Midrand',val:'R 134,750',tag:'91% collected',t:'p-green'},
-        ].map(s=>`
-          <div class="scheme-item">
-            <div class="si-icon">${s.icon}</div>
-            <div><div class="si-name">${s.name}</div><div class="si-meta">${s.sub}</div></div>
-            <div class="si-right"><div class="si-val">${s.val}</div><span class="pill ${s.t}">${s.tag}</span></div>
-          </div>`).join('')}
+<div class="g2 mb14">
+  <div class="card">
+    <div class="card-hd"><div><div class="card-title">Needs Attention</div><div class="card-sub">Flagged by StrataHQ Intelligence</div></div><span class="pill p-red">3 alerts</span></div>
+    <div class="card-bd-0" style="padding:0 16px">
+      <div class="act-item">
+        <div style="width:34px;height:34px;border-radius:8px;background:var(--red-bg);border:1px solid rgba(155,44,44,.15);display:grid;place-items:center;flex-shrink:0;font-size:15px">⚖️</div>
+        <div class="act-body"><strong>Unit 5C · Rosewood</strong> — R 9,300 outstanding<br><span style="font-size:11px;color:var(--muted)">90+ days overdue · Payment probability <strong style="color:var(--red)">9%</strong>. Attorney window closing in ~10 days.</span></div>
+        <button class="btn btn-red btn-sm" onclick="toast('Referred to Strebel &amp; Associates — confirmation sent','success')">Refer →</button>
+      </div>
+      <div class="act-item">
+        <div style="width:34px;height:34px;border-radius:8px;background:var(--yellow-bg);border:1px solid rgba(146,64,14,.15);display:grid;place-items:center;flex-shrink:0;font-size:15px">📉</div>
+        <div class="act-body"><strong>Parkview Towers</strong> — collection dipped to 89%<br><span style="font-size:11px;color:var(--muted)"><strong style="color:var(--yellow)">−5pp vs September</strong>. 7 units unpaid. Automated reminders not yet sent.</span></div>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Reminders sent to 7 Parkview owners','success')">Remind all</button>
+      </div>
+      <div class="act-item" style="border-bottom:none">
+        <div style="width:34px;height:34px;border-radius:8px;background:var(--accent-bg);border:1px solid rgba(43,108,176,.15);display:grid;place-items:center;flex-shrink:0;font-size:15px">🏊</div>
+        <div class="act-body"><strong>Pool pump · Rosewood</strong> — trustee approval overdue<br><span style="font-size:11px;color:var(--muted)">R 8,400 AquaFix quote pending <strong style="color:var(--yellow)">14 days</strong>. Work halted. SLA at risk.</span></div>
+        <button class="btn btn-secondary btn-sm" onclick="navigate('maintenance')">Review →</button>
       </div>
     </div>
   </div>
-  <div>
-    <div class="card mb14">
-      <div class="card-hd"><div class="card-title">Recent Activity</div></div>
-      <div class="card-bd-0" style="padding:0 16px">
-        ${[
-          {c:'#276749',t:'<strong>Unit 14B · Rosewood</strong> levy payment received',a:'2m'},
-          {c:'#2B6CB0',t:'<strong>Pool pump</strong> work order assigned to AquaFix',a:'14m'},
-          {c:'#9B2C2C',t:'<strong>Parkview Unit 7</strong> — 60-day arrears reminder sent',a:'1h'},
-          {c:'#276749',t:'<strong>AGM notice</strong> sent to 48 owners — Rosewood',a:'2h'},
-          {c:'#92400E',t:'<strong>SLA breach</strong> — parking lights, Bryanston',a:'3h'},
-        ].map(a=>`<div class="act-item"><div class="act-dot" style="background:${a.c}"></div><div class="act-body">${a.t}</div><div class="act-time">${a.a}</div></div>`).join('')}
-      </div>
+  <div class="card">
+    <div class="card-hd"><div class="card-title">Schemes Overview</div><span class="pill p-grey">12 active</span></div>
+    <div class="card-bd-0">
+      ${schemes.map(s=>{const mr=12,mc=+(2*Math.PI*mr).toFixed(2),md=+((s.pct/100)*mc).toFixed(2),mg=+(mc-md).toFixed(2),mo=+(mc*0.25).toFixed(2);return `<div class="scheme-item">
+        <svg width="32" height="32" viewBox="0 0 32 32" style="flex-shrink:0">
+          <circle cx="16" cy="16" r="${mr}" fill="none" stroke="var(--border)" stroke-width="3.5"/>
+          <circle cx="16" cy="16" r="${mr}" fill="none" stroke="${s.c}" stroke-width="3.5"
+            stroke-dasharray="${md} ${mg}" stroke-dashoffset="${mo}" stroke-linecap="round"/>
+          <text x="16" y="20" text-anchor="middle" font-size="7.5" font-weight="700" fill="${s.c}" font-family="DM Sans,sans-serif">${s.pct}</text>
+        </svg>
+        <div style="flex:1;min-width:0"><div class="si-name">${s.name}</div><div class="si-meta">${s.sub}</div></div>
+        <div class="si-right"><div style="font-size:12px;font-weight:700;color:var(--ink)">${s.pct}%</div><div class="si-meta">${s.arr} arrears</div></div>
+      </div>`;}).join('')}
+      <div style="padding:10px 15px;font-size:11px;color:var(--accent);border-top:1px solid var(--border);cursor:pointer;font-weight:500" onclick="toast('Full portfolio view — 12 schemes')">+ 7 more schemes →</div>
     </div>
-    <div class="card">
-      <div class="card-hd"><div class="card-title">Levy Income — 6 Months</div></div>
-      <div class="card-bd">
-        <div class="bar-chart">
-          ${[62,71,68,75,73,94].map((h,i)=>`<div class="bc-bar" style="height:${h}%;background:${i===5?'var(--accent)':'var(--border)'}"></div>`).join('')}
-        </div>
-        <div class="bc-labels">${['May','Jun','Jul','Aug','Sep','Oct'].map(m=>`<div class="bc-lbl">${m}</div>`).join('')}</div>
-      </div>
+  </div>
+</div>
+<div class="g2">
+  <div class="card">
+    <div class="card-hd"><div class="card-title">Live Activity</div></div>
+    <div class="card-bd-0" style="padding:0 16px">
+      ${[
+        {c:'var(--green)',t:'<strong>Unit 14B · Rosewood</strong> levy payment received — R 2,450',a:'2m'},
+        {c:'var(--accent)',t:'<strong>Pool pump</strong> quote submitted by AquaFix — awaiting approval',a:'14m'},
+        {c:'var(--red)',t:'<strong>Parkview Unit 7</strong> — automated 60-day arrears notice sent',a:'1h'},
+        {c:'var(--accent)',t:'<strong>AGM notice</strong> distributed to 48 owners — Rosewood Estate',a:'2h'},
+        {c:'var(--yellow)',t:'<strong>SLA breach</strong> — parking lights, Bryanston Gardens · Auto-escalated',a:'3h'},
+      ].map(a=>`<div class="act-item"><div class="act-dot" style="background:${a.c}"></div><div class="act-body">${a.t}</div><div class="act-time">${a.a}</div></div>`).join('')}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><div><div class="card-title">Levy Collection Rate</div><div class="card-sub">Portfolio average · 6 months</div></div><span class="pill p-green">↑ +7pp YoY</span></div>
+    <div class="card-bd" style="padding-top:14px">
+      <svg viewBox="0 0 ${svgW} ${svgH+22}" style="width:100%;display:block;overflow:visible">
+        ${cData.map((d,i)=>{const bH=((d.v-svgMin)/svgRange)*svgH;const x=i*(bW+bGap);const y=svgH-bH;const last=i===cData.length-1;return `<rect x="${x}" y="${y.toFixed(1)}" width="${bW}" height="${bH.toFixed(1)}" rx="3" fill="${last?'var(--accent)':'var(--border)'}"/><text x="${+(x+bW/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="${last?700:500}" fill="${last?'var(--accent)':'var(--muted)'}" font-family="DM Sans,sans-serif">${d.v}%</text><text x="${+(x+bW/2).toFixed(1)}" y="${svgH+16}" text-anchor="middle" font-size="9" fill="var(--muted-2)" font-family="DM Sans,sans-serif">${d.m}</text>`;}).join('')}
+      </svg>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">Portfolio average across all 12 schemes · Updated daily</div>
     </div>
   </div>
 </div>`;
@@ -898,8 +961,40 @@ const VIEWS = {
    ---------------------------------------------------------------- */
 'levies': () => {
   const overdue = countOverdueAgent();
+  const totalArrears = S.levies.agent.reduce((a,l)=>a+l.balance,0);
+  const aging = [
+    {label:'Current (< 30 days)',amt:2450,pct:24,c:'var(--accent)'},
+    {label:'30–60 days',amt:1225,pct:12,c:'var(--yellow)'},
+    {label:'60–90 days',amt:4900,pct:48,c:'var(--red)'},
+    {label:'90+ days',amt:1600,pct:16,c:'#7B1D1D'},
+  ];
   return `
-${overdue>0?`<div class="alert a-red"><span class="alert-icon">⚠</span><span>${overdue} unit${overdue!==1?'s are':' is'} more than 60 days overdue. <a onclick="toast('Escalation workflow triggered — attorneys notified','success')">Trigger escalation →</a></span></div>`:''}
+${overdue>0?`<div class="alert a-red"><span class="alert-icon">⚠</span><span><strong>${overdue} units</strong> are 60+ days overdue — total exposure R ${totalArrears.toLocaleString()}. <a onclick="toast('Escalation workflow triggered — Strebel &amp; Associates notified','success')">Trigger attorney escalation →</a></span></div>`:''}
+<div class="g2 mb14">
+  <div class="card">
+    <div class="card-hd"><div><div class="card-title">Debtors Ageing Analysis</div><div class="card-sub">Rosewood Estate · Oct 2025</div></div><span class="pill p-red">R ${totalArrears.toLocaleString()} total</span></div>
+    <div class="card-bd">
+      ${aging.map(a=>`
+        <div style="margin-bottom:11px">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;margin-bottom:4px">
+            <span style="color:var(--ink-2)">${a.label}</span>
+            <span style="font-weight:600;color:var(--ink)">R ${a.amt.toLocaleString()} <span style="font-weight:400;color:var(--muted)">(${a.pct}%)</span></span>
+          </div>
+          <div class="prog-track"><div class="prog-fill" style="width:${a.pct}%;background:${a.c}"></div></div>
+        </div>`).join('')}
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-red btn-sm" onclick="toast('Attorney escalation submitted for Unit 5C &amp; 14B — confirmation sent','success')" style="margin-right:6px">⚖️ Escalate 90+ day cases</button>
+        <button class="btn btn-secondary btn-sm" onclick="toast('Reminders sent to all arrear units','success')">Send all reminders</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hd"><div class="card-title">Collection Rate Trend</div></div>
+    <div class="card-bd" style="padding-top:14px">
+      ${(()=>{const cd=[{m:'May',v:87},{m:'Jun',v:89},{m:'Jul',v:88},{m:'Aug',v:91},{m:'Sep',v:92},{m:'Oct',v:94}];const bW=28,bGap=8,svgH=64,svgMin=80,svgRange=20,svgW=cd.length*(bW+bGap)-bGap;return `<svg viewBox="0 0 ${svgW} ${svgH+20}" style="width:100%;display:block;overflow:visible">${cd.map((d,i)=>{const bH=((d.v-svgMin)/svgRange)*svgH;const x=i*(bW+bGap);const y=svgH-bH;const last=i===cd.length-1;const barFill=last?'var(--accent)':'var(--border)';return `<rect x="${x}" y="${y.toFixed(1)}" width="${bW}" height="${bH.toFixed(1)}" rx="3" fill="${barFill}"/><text x="${+(x+bW/2).toFixed(1)}" y="${(y-4).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="${last?700:500}" fill="${last?'var(--accent)':'var(--muted)'}" font-family="DM Sans,sans-serif">${d.v}%</text><text x="${+(x+bW/2).toFixed(1)}" y="${svgH+15}" text-anchor="middle" font-size="8.5" fill="var(--muted-2)" font-family="DM Sans,sans-serif">${d.m}</text>`;}).join('')}</svg><div style="margin-top:8px;font-size:11px;color:var(--green);font-weight:600">↑ Trending up — 7pp improvement over 6 months</div>`;})()}
+    </div>
+  </div>
+</div>
 <div class="card">
   <div class="card-hd">
     <div><div class="card-title">Levy Roll — Rosewood Estate</div><div class="card-sub">October 2025 · 48 units</div></div>

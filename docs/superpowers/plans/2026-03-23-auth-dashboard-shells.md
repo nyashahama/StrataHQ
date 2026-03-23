@@ -57,6 +57,9 @@ components/
     RegisterForm.tsx
   wizard/
     SetupWizard.tsx
+
+lib/
+  actions/
     wizard-actions.ts  ← server actions (createOrganisation, createScheme, etc.)
 
 supabase/
@@ -221,6 +224,8 @@ create extension if not exists "pgcrypto";
 create table organisations (
   id              uuid primary key default gen_random_uuid(),
   name            text not null,
+  contact_email   text,
+  phone           text,
   type            text not null default 'managing_agent',
   wizard_progress text not null default 'firm'
     check (wizard_progress in ('firm','scheme','units','levies','invite','complete')),
@@ -371,20 +376,34 @@ export async function middleware(request: NextRequest) {
   // Set headers for layouts to consume (avoids second DB query)
   response.headers.set('x-user-role', role)
   response.headers.set('x-user-scheme-id', schemeId)
+  // x-user-org-name set below (agent-only, after org fetch)
 
-  // Agent setup route
+  // Fetch org name for agents (for x-user-org-name header)
+  let orgName = ''
+  if (role === 'agent') {
+    const { data: agentMembership } = await supabase
+      .from('memberships')
+      .select('schemes(org_id, organisations(name, wizard_progress))')
+      .eq('user_id', user.id)
+      .eq('role', 'agent')
+      .single()
+    const org = (agentMembership?.schemes as any)?.organisations
+    orgName = org?.name ?? ''
+    response.headers.set('x-user-org-name', orgName)
+
+    // Agent setup route
+    if (pathname === '/agent/setup') {
+      if (org?.wizard_progress === 'complete') {
+        return NextResponse.redirect(new URL('/agent', request.url))
+      }
+      return response
+    }
+  }
+
+  // Agent setup route (no membership yet — new agent)
   if (pathname === '/agent/setup') {
     if (!role) return response // new agent, allow
     if (role !== 'agent') return NextResponse.redirect(new URL(`/app/${schemeId}`, request.url))
-    // Agent who already completed setup → portfolio
-    const { data: org } = await supabase
-      .from('organisations')
-      .select('wizard_progress')
-      .eq('id', user.id) // org lookup via membership is more accurate in real impl
-      .single()
-    if (org?.wizard_progress === 'complete') {
-      return NextResponse.redirect(new URL('/agent', request.url))
-    }
     return response
   }
 
@@ -1301,7 +1320,7 @@ git commit -m "feat: agent portfolio layout and placeholder pages"
 - Create: `components/wizard/SetupWizard.tsx`
 - Create: `app/agent/setup/page.tsx`
 
-- [ ] **Step 1: Create `components/wizard/wizard-actions.ts`** (server actions — all use `supabaseAdmin`)
+- [ ] **Step 1: Create `lib/actions/wizard-actions.ts`** (server actions — all use `supabaseAdmin`)
 
 ```ts
 'use server'
@@ -1320,7 +1339,7 @@ export async function createOrganisation(data: { name: string; email: string; ph
   const user = await getUser()
   const { data: org, error } = await supabaseAdmin
     .from('organisations')
-    .insert({ name: data.name, wizard_progress: 'firm' })
+    .insert({ name: data.name, contact_email: data.email, phone: data.phone, wizard_progress: 'firm' })
     .select('id')
     .single()
   if (error) throw new Error(error.message)
@@ -1374,14 +1393,25 @@ export async function sendInvites(data: {
   await supabaseAdmin.from('organisations').update({ wizard_progress: 'invite' }).eq('id', data.orgId)
 }
 
-export async function completeWizard(data: { orgId: string; schemeId: string; userId: string }) {
+export async function completeWizard(data: { orgId: string; schemeId: string }) {
+  // Derive userId server-side — never trust client-passed userId for a service-role write
+  const user = await getUser()
   await supabaseAdmin.from('organisations').update({ wizard_progress: 'complete' }).eq('id', data.orgId)
   await supabaseAdmin.from('memberships').insert({
-    user_id: data.userId,
+    user_id: user.id,
     scheme_id: data.schemeId,
     role: 'agent',
     unit_id: null,
   })
+}
+
+export async function getWizardProgress(orgId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('organisations')
+    .select('wizard_progress')
+    .eq('id', orgId)
+    .single()
+  return data?.wizard_progress ?? null
 }
 ```
 
@@ -1394,7 +1424,7 @@ import { useState } from 'react'
 import {
   createOrganisation, createScheme, createUnits,
   updateSchemeLevies, sendInvites, completeWizard,
-} from './wizard-actions'
+} from '@/lib/actions/wizard-actions'
 
 type LevyPeriod = 'monthly' | 'quarterly' | 'bi-annual' | 'annual'
 
@@ -1402,13 +1432,16 @@ interface WizardState {
   step: number
   orgId: string
   schemeId: string
-  userId: string
 }
 
 const STEPS = ['Firm', 'Scheme', 'Units', 'Levies', 'Invite']
 
-export default function SetupWizard({ userId }: { userId: string }) {
-  const [state, setState] = useState<WizardState>({ step: 1, orgId: '', schemeId: '', userId })
+const PROGRESS_TO_STEP: Record<string, number> = {
+  firm: 2, scheme: 3, units: 4, levies: 5, invite: 5, complete: 5,
+}
+
+export default function SetupWizard({ initialOrgId, initialStep }: { initialOrgId?: string; initialStep?: number }) {
+  const [state, setState] = useState<WizardState>({ step: initialStep ?? 1, orgId: initialOrgId ?? '', schemeId: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -1438,9 +1471,13 @@ export default function SetupWizard({ userId }: { userId: string }) {
         await updateSchemeLevies({ schemeId, orgId, baselevy: +levies.base, adminlevy: +levies.admin, levyPeriod: levies.period })
         setState(s => ({ ...s, step: 5 }))
       } else if (step === 5) {
-        const parsed = invites.split('\n').map(l => l.trim()).filter(Boolean).map(email => ({ email, role: 'trustee' as const }))
+        // Parse "email role" lines, e.g. "alice@example.com trustee"
+        const parsed = invites.split('\n').map(l => l.trim()).filter(Boolean).map(line => {
+          const [email, role] = line.split(/\s+/)
+          return { email, role: (role === 'resident' ? 'resident' : 'trustee') as 'trustee' | 'resident' }
+        })
         if (parsed.length > 0) await sendInvites({ orgId, schemeId, invites: parsed })
-        await completeWizard({ orgId, schemeId, userId })
+        await completeWizard({ orgId, schemeId })
         window.location.href = '/agent'
       }
     } catch (e: any) {
@@ -1512,8 +1549,8 @@ export default function SetupWizard({ userId }: { userId: string }) {
           {state.step === 5 && (
             <div>
               <label className={labelClass}>Invite trustees (optional)</label>
-              <p className="text-[12px] text-muted mb-2">One email per line. They&apos;ll receive an invitation email.</p>
-              <textarea className={`${inputClass} h-28 resize-none`} value={invites} onChange={e => setInvites(e.target.value)} placeholder={"trustee@example.com\nanother@example.com"} />
+              <p className="text-[12px] text-muted mb-2">One per line: email then role (trustee or resident). E.g. <code>alice@example.com trustee</code></p>
+              <textarea className={`${inputClass} h-28 resize-none font-mono`} value={invites} onChange={e => setInvites(e.target.value)} placeholder={"trustee@example.com trustee\nowner@example.com resident"} />
             </div>
           )}
         </div>
@@ -1528,7 +1565,11 @@ export default function SetupWizard({ userId }: { userId: string }) {
             </button>
           )}
           {state.step === 5 && (
-            <button onClick={() => { completeWizard({ orgId: state.orgId, schemeId: state.schemeId, userId: state.userId }).then(() => { window.location.href = '/agent' }) }} className="px-5 py-[10px] text-[14px] text-muted border border-border rounded hover:bg-[#f0efe9] transition-colors ml-auto">
+            <button
+              onClick={handleNext}
+              disabled={loading}
+              className="px-5 py-[10px] text-[14px] text-muted border border-border rounded hover:bg-[#f0efe9] transition-colors ml-auto disabled:opacity-50"
+            >
               Skip for now
             </button>
           )}
@@ -1548,18 +1589,39 @@ export default function SetupWizard({ userId }: { userId: string }) {
 
 - [ ] **Step 3: Create `app/agent/setup/page.tsx`**
 
+This server component reads existing wizard progress from the DB so the wizard resumes at the right step if the user closed mid-way.
+
 ```tsx
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import SetupWizard from '@/components/wizard/SetupWizard'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export const metadata = { title: 'Set up your account — StrataHQ' }
+
+const PROGRESS_TO_STEP: Record<string, number> = {
+  firm: 2, scheme: 3, units: 4, levies: 5, invite: 5, complete: 5,
+}
 
 export default async function SetupPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
-  return <SetupWizard userId={user.id} />
+
+  // Look for a partially-created org belonging to this user's email (wizard was started before membership exists)
+  // We find it by contact_email matching the user's email
+  const { data: org } = await supabaseAdmin
+    .from('organisations')
+    .select('id, wizard_progress')
+    .eq('contact_email', user.email!)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  const initialOrgId = org?.id
+  const initialStep = org ? (PROGRESS_TO_STEP[org.wizard_progress] ?? 1) : 1
+
+  return <SetupWizard initialOrgId={initialOrgId} initialStep={initialStep} />
 }
 ```
 
@@ -1611,10 +1673,10 @@ export default async function SchemeLayout({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
-  // Fetch all user memberships (for scheme switcher)
+  // Fetch all user memberships (for scheme switcher), including unit identifier for residents
   const { data: memberships } = await supabase
     .from('memberships')
-    .select('role, scheme_id, unit_id, schemes(name)')
+    .select('role, scheme_id, unit_id, schemes(name), units(identifier)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: true })
 
@@ -1624,15 +1686,15 @@ export default async function SchemeLayout({
 
   const role = thisMembership.role as 'agent' | 'trustee' | 'resident'
   const schemeName = (thisMembership.schemes as any)?.name ?? 'Scheme'
-  const unitId = thisMembership.unit_id
+  const unitIdentifier = (thisMembership.units as any)?.identifier  // e.g. "4B"
 
   // Resolve sidebar role type
   const sidebarRole: SidebarRole =
     role === 'agent' ? 'agent-scheme' :
     role === 'trustee' ? 'trustee' : 'resident'
 
-  const headerLabel = role === 'resident' && unitId
-    ? `Unit ${unitId} · ${schemeName}`
+  const headerLabel = role === 'resident' && unitIdentifier
+    ? `Unit ${unitIdentifier} · ${schemeName}`
     : schemeName
 
   const allMemberships: SidebarMembership[] = (memberships ?? []).map(m => ({

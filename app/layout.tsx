@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Lora, DM_Sans } from 'next/font/google'
 import './globals.css'
+import { MockAuthProvider } from '@/lib/mock-auth'
 
 const lora = Lora({
   subsets: ['latin'],
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${lora.variable} ${dmSans.variable}`}>
       <body className="bg-page text-ink font-sans antialiased leading-relaxed">
-        {children}
+        <MockAuthProvider>{children}</MockAuthProvider>
       </body>
     </html>
   )

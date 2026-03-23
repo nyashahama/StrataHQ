@@ -46,14 +46,14 @@ export default function Nav() {
             Live demo
           </Link>
           <Link
-            href="#"
+            href="/auth/login"
             className="px-[14px] py-[10px] text-[14px] font-medium text-ink-2 bg-transparent
               border border-border-2 rounded hover:bg-[rgba(55,53,47,0.04)] transition-colors duration-150 no-underline"
           >
             Log in
           </Link>
           <Link
-            href="#"
+            href="/auth/register"
             className="px-4 py-[10px] text-[14px] font-medium text-white bg-ink
               border border-ink rounded hover:bg-ink-2 transition-colors duration-150 no-underline"
           >

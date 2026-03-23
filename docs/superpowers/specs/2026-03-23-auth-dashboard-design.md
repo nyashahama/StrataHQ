@@ -38,16 +38,43 @@ Build the complete auth flow and role-based dashboard shells for StrataHQ's thre
 
 ### `/auth/callback/route.ts`
 Server-side route handler:
-1. Exchange Supabase code for session
-2. Query `memberships WHERE user_id = me`
-3. No memberships + registered as managing agent → redirect `/agent/setup`
-4. No memberships + registered via invite → redirect `/auth/pending`
-5. Has memberships → branch on `memberships[0].role`:
-   - `agent` → `/agent`
-   - `trustee` / `resident` → `/app/[memberships[0].scheme_id]`
+1. Exchange Supabase code for session via `supabase.auth.exchangeCodeForSession(code)`
+2. Call `supabase.auth.getUser()` — use this, not `getSession()`, to get the verified user
+3. Query `memberships WHERE user_id = me ORDER BY created_at ASC`
+4. **No memberships + user registered as managing agent** → redirect `/agent/setup`
+   - How to detect: store `registered_as` in `user_metadata` during `signUp` call (`{ data: { registered_as: 'agent' | 'invited' } }`)
+5. **No memberships + user registered as invited** → redirect `/auth/pending`
+6. **Has memberships** → pick first membership, branch on `role`:
+   - `'agent'` → `/agent`
+   - `'trustee'` → `/app/[scheme_id]`
+   - `'resident'` → `/app/[scheme_id]`
+   - Any other value → redirect `/auth/login?error=unknown_role` (future-proof fallback)
+7. **Error exchanging code** → redirect `/auth/login?error=auth_failed`
+
+Note: A user can only hold one role in V1. `memberships[0]` is always the primary. Multi-role support is out of scope.
 
 ### `/auth/pending`
-Static holding page: "Your access is being set up. You'll receive an email when you're ready to log in." No action required from user.
+Static holding page shown to invited users who have not yet been accepted.
+
+- Copy: "Your access is being set up. You'll receive an email once your account is activated."
+- Shows a "Refresh" button that re-queries memberships and redirects if they now exist
+- The agent activates the user by completing their invitation in `/agent/invitations` (separate flow, out of scope for this spec — the endpoint will exist, the page is a placeholder)
+- If user revisits `/auth/login` after being activated, the callback will route them normally
+
+### Invitation flow
+Trustees and residents are invited via Supabase's `auth.admin.inviteUserByEmail()` called from the wizard step 5 and from `/agent/invitations`. The invite email contains a token. When the invited user clicks the link:
+- Supabase handles the token exchange automatically and redirects to `/auth/callback`
+- The callback reads `user_metadata` set by the invite (role + scheme_id + unit_id, stored when the invite was created)
+- A `memberships` row is created server-side in the callback before redirecting
+- Expired/invalid token: Supabase returns an error code; redirect to `/auth/login?error=invalid_invite`
+
+### Form error states
+- **Login — wrong password / user not found**: inline error below password field: "Incorrect email or password."
+- **Login — email not confirmed**: "Please confirm your email before logging in."
+- **Login — network error**: "Something went wrong. Please try again."
+- **Register — email already in use**: "An account with this email already exists. Log in instead."
+- **Register — success**: replace form with: "Check your email — we've sent you a confirmation link."
+- All errors use Supabase error codes; do not expose raw error messages to the user.
 
 ---
 
@@ -215,13 +242,39 @@ memberships (
 
 RLS enabled on all tables. Policies filter by `scheme_id` matching user's memberships.
 
+Valid `memberships.role` values: `'agent'` | `'trustee'` | `'resident'` — enforced via CHECK constraint.
+
+All tables include `created_at timestamptz default now()` and `updated_at timestamptz default now()`.
+
+**RLS policy pattern (example for `schemes`):**
+```sql
+-- Users can read schemes they have a membership on
+create policy "scheme_select" on schemes for select
+  using (id in (select scheme_id from memberships where user_id = auth.uid()));
+```
+Each table follows this same pattern. Agents additionally have insert/update access on tables scoped to their org's schemes.
+
 ---
 
 ## Route Guards — `middleware.ts`
 
-- Unauthenticated request to any non-`/auth/*` route → redirect `/auth/login`
-- Authenticated request to `/agent/*` where role ≠ `agent` → redirect `/app/[their_scheme_id]`
-- Authenticated request to `/app/[schemeId]/*` where user has no membership on that scheme → 404
+Middleware uses `@supabase/ssr` `createServerClient` and calls `supabase.auth.getUser()` on every request to refresh the session token. It does **not** trust `getSession()` alone.
+
+**Role × route matrix:**
+
+| Request path | Unauthenticated | Agent | Trustee/Resident | No membership yet |
+|---|---|---|---|---|
+| `/auth/*` | allow | allow | allow | allow |
+| `/agent/setup` | → `/auth/login` | allow | → `/app/[scheme_id]` | allow (new agent) |
+| `/agent/*` (other) | → `/auth/login` | allow | → `/app/[scheme_id]` | → `/agent/setup` |
+| `/app/[schemeId]/*` | → `/auth/login` | allow (agent can view any scheme they manage) | allow if membership exists on that scheme | → `/auth/pending` |
+| `/app/[schemeId]/*` where user has no membership on that scheme | — | 404 | 404 | — |
+| `/auth/pending` | allow | allow | allow | allow |
+
+The middleware reads `user_metadata.registered_as` and queries memberships to determine routing. For performance, memberships are checked once per request and the result is passed via request headers to layouts.
+
+### Scheme switcher (trustees on 2+ schemes)
+When a trustee has memberships on multiple schemes, the sidebar header shows a dropdown: scheme name + "▾". Clicking it reveals a list of schemes by name. Selecting one navigates to `/app/[schemeId]`. The switcher is rendered by `Sidebar.tsx` and receives `allMemberships` as a prop from the scheme layout server component. In V1, up to 10 schemes per trustee. This UI is implemented as part of the sidebar, not as a separate page.
 
 ---
 

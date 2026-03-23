@@ -35,12 +35,12 @@ export default function Footer() {
               <div className="text-[12px] font-semibold text-ink tracking-[0.04em] uppercase mb-3">
                 {heading}
               </div>
-              <ul className="flex flex-col gap-[7px]">
+              <ul className="flex flex-col">
                 {links.map((link) => (
                   <li key={link}>
                     <Link
                       href="#"
-                      className="text-[13px] text-muted no-underline hover:text-ink transition-colors duration-150"
+                      className="inline-block text-[13px] text-muted no-underline hover:text-ink transition-colors duration-150 py-[6px]"
                     >
                       {link}
                     </Link>

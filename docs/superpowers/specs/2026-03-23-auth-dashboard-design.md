@@ -62,11 +62,24 @@ Static holding page shown to invited users who have not yet been accepted.
 - If user revisits `/auth/login` after being activated, the callback will route them normally
 
 ### Invitation flow
-Trustees and residents are invited via Supabase's `auth.admin.inviteUserByEmail()` called from the wizard step 5 and from `/agent/invitations`. The invite email contains a token. When the invited user clicks the link:
-- Supabase handles the token exchange automatically and redirects to `/auth/callback`
-- The callback reads `user_metadata` set by the invite (role + scheme_id + unit_id, stored when the invite was created)
-- A `memberships` row is created server-side in the callback before redirecting
-- Expired/invalid token: Supabase returns an error code; redirect to `/auth/login?error=invalid_invite`
+Trustees and residents are invited via Supabase's `auth.admin.inviteUserByEmail()` (called from wizard step 5 server action using the service role key). The call embeds the membership data in the invite:
+
+```ts
+await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+  data: { role: 'trustee' | 'resident', scheme_id: '...', unit_id: '...' | null }
+})
+```
+
+When the invited user clicks the email link, Supabase exchanges the token and redirects to `/auth/callback`. Invited users **do not** go through `/auth/register` — the invite link takes them directly to the callback. The `registered_as` metadata check in the callback is only relevant for users who signed up via the register form.
+
+The callback then:
+1. Reads `user.user_metadata` (contains `role`, `scheme_id`, `unit_id` from the invite)
+2. Inserts a `memberships` row using the **Supabase service role client** (bypasses RLS — the invited user has no existing membership to satisfy the INSERT policy)
+3. Redirects to `/app/[scheme_id]`
+
+Expired/invalid token: Supabase returns an error; redirect to `/auth/login?error=invalid_invite`.
+
+The "I was invited" option on the register form is shown purely to handle users who arrive at `/auth/register` without a valid invite link. On submit, instead of creating an account, show: "You need an invitation to join StrataHQ. Contact your managing agent." No account is created.
 
 ### Form error states
 - **Login — wrong password / user not found**: inline error below password field: "Incorrect email or password."
@@ -80,19 +93,23 @@ Trustees and residents are invited via Supabase's `auth.admin.inviteUserByEmail(
 
 ## Setup Wizard — `/agent/setup`
 
-Shown only to new managing agents (no memberships). Saves data incrementally — each step commits before advancing so closing mid-wizard doesn't lose work.
+Shown only to new managing agents (no memberships). Saves data incrementally — each step calls a server action before advancing so closing mid-wizard doesn't lose work.
 
-| Step | Fields | Notes |
-|------|--------|-------|
-| 1 — Firm | Company name, contact email, phone | Creates `organisations` row |
-| 2 — Scheme | Scheme name, physical address, scheme number (SS XX/YYYY) | Creates `schemes` row |
-| 3 — Units | Unit count, unit identifiers (e.g. 1A, 1B, 2A) | Creates `units` rows |
-| 4 — Levies | Base levy amount, admin levy, levy period | Stored on scheme for now |
-| 5 — Invite | Email addresses for trustees + residents, assign unit per resident | Sends Supabase invite emails; skippable |
+**RLS note:** The setup wizard server actions run using the **service role key** (via `supabaseAdmin`), because the agent has no `memberships` row yet and therefore cannot satisfy row-level security on `organisations` or `schemes`. After wizard completion the agent's membership row exists and all subsequent operations use the standard anon key + RLS.
 
-Progress bar shows current step. "Back" is always available. "Skip for now" available on step 5.
+If the wizard is abandoned mid-way, the partially-created org/scheme is cleaned up on next login (the callback sees no memberships, detects `registered_as: 'agent'`, and redirects back to `/agent/setup` which resumes from the last completed step — stored in `wizard_progress` field on the `organisations` row, values: `'firm' | 'scheme' | 'units' | 'levies' | 'invite' | 'complete'`).
 
-On completion → redirect to `/agent`.
+| Step | Fields | Server action | Notes |
+|------|--------|--------------|-------|
+| 1 — Firm | Company name, contact email, phone | `createOrganisation()` | Creates `organisations` row; stores `wizard_progress: 'firm'` |
+| 2 — Scheme | Scheme name, physical address, scheme number (SS XX/YYYY) | `createScheme()` | Creates `schemes` row linked to org |
+| 3 — Units | Unit count; list of unit identifiers (e.g. 1A, 1B, 2A) | `createUnits()` | Creates one `units` row per identifier |
+| 4 — Levies | Base levy (ZAR), admin levy (ZAR), levy period | `updateSchemeLevies()` | Levy period values: `'monthly' \| 'quarterly' \| 'bi-annual' \| 'annual'` |
+| 5 — Invite | List of { email, role, unit_id? } | `sendInvites()` | Calls `supabaseAdmin.auth.admin.inviteUserByEmail`; skippable |
+
+On completion: set `wizard_progress: 'complete'`, create agent's own `memberships` row (`role: 'agent'`, `scheme_id` of first scheme, `unit_id: null`), then redirect to `/agent`.
+
+Progress bar shows current step (1–5). "Back" is always available. "Skip for now" on step 5 only.
 
 ---
 
@@ -192,7 +209,7 @@ middleware.ts            ← route guards
 Layout wrapper: sidebar + main content area. Accepts `sidebar` slot and `children`. Used by both agent and scheme layouts.
 
 ### `components/Sidebar.tsx`
-Role-aware nav list. Reads role from Supabase session JWT claims. Renders the correct nav items and scheme/org name in header. Handles scheme switcher UI when trustee has 2+ schemes.
+Role-aware nav list. Receives `role`, `orgName`/`schemeName`, and `allMemberships` as props from the parent layout server component (which fetches these from Supabase). Does **not** read from JWT claims — role comes from the DB via props. Renders the correct nav items and name in header. Handles scheme switcher dropdown when trustee has 2+ memberships.
 
 ### `components/SetupWizard.tsx`
 Client component. Step state managed locally (1–5). Each "Next" calls a server action to persist the step's data before advancing. Shows linear progress bar. Renders step-specific form fields.
@@ -242,7 +259,13 @@ memberships (
 
 RLS enabled on all tables. Policies filter by `scheme_id` matching user's memberships.
 
-Valid `memberships.role` values: `'agent'` | `'trustee'` | `'resident'` — enforced via CHECK constraint.
+Valid `memberships.role` values: `'agent'` | `'trustee'` | `'resident'` — enforced via `CHECK (role IN ('agent','trustee','resident'))`.
+
+Add `wizard_progress` to `organisations`:
+```sql
+wizard_progress text default 'firm'
+  check (wizard_progress in ('firm','scheme','units','levies','invite','complete'))
+```
 
 All tables include `created_at timestamptz default now()` and `updated_at timestamptz default now()`.
 
@@ -258,20 +281,25 @@ Each table follows this same pattern. Agents additionally have insert/update acc
 
 ## Route Guards — `middleware.ts`
 
-Middleware uses `@supabase/ssr` `createServerClient` and calls `supabase.auth.getUser()` on every request to refresh the session token. It does **not** trust `getSession()` alone.
+Middleware uses `@supabase/ssr` `createServerClient` and calls `supabase.auth.getUser()` on every request to refresh the session token. Does **not** trust `getSession()` alone.
+
+Middleware queries `memberships WHERE user_id = me` once per request. Results are set as request headers for layouts to consume without a second DB call:
+- `x-user-role`: `'agent' | 'trustee' | 'resident' | ''`
+- `x-user-scheme-id`: primary `scheme_id` (first membership) or `''`
+- `x-user-org-name`: organisation name (agents only) or `''`
 
 **Role × route matrix:**
 
-| Request path | Unauthenticated | Agent | Trustee/Resident | No membership yet |
+| Request path | Unauthenticated | Agent | Trustee/Resident | Invited, no membership |
 |---|---|---|---|---|
 | `/auth/*` | allow | allow | allow | allow |
-| `/agent/setup` | → `/auth/login` | allow | → `/app/[scheme_id]` | allow (new agent) |
+| `/agent/setup` | → `/auth/login` | → `/agent` if wizard complete; allow if not | → `/app/[scheme_id]` | allow (new agent) |
 | `/agent/*` (other) | → `/auth/login` | allow | → `/app/[scheme_id]` | → `/agent/setup` |
-| `/app/[schemeId]/*` | → `/auth/login` | allow (agent can view any scheme they manage) | allow if membership exists on that scheme | → `/auth/pending` |
-| `/app/[schemeId]/*` where user has no membership on that scheme | — | 404 | 404 | — |
+| `/app/[schemeId]/*` | → `/auth/login` | allow if agent's org manages that scheme | allow if has membership on that schemeId | → `/auth/pending` |
+| `/app/[schemeId]/*` (wrong scheme) | — | 404 | 404 | — |
 | `/auth/pending` | allow | allow | allow | allow |
 
-The middleware reads `user_metadata.registered_as` and queries memberships to determine routing. For performance, memberships are checked once per request and the result is passed via request headers to layouts.
+"Wizard complete" detected by `wizard_progress = 'complete'` on the agent's `organisations` row.
 
 ### Scheme switcher (trustees on 2+ schemes)
 When a trustee has memberships on multiple schemes, the sidebar header shows a dropdown: scheme name + "▾". Clicking it reveals a list of schemes by name. Selecting one navigates to `/app/[schemeId]`. The switcher is rendered by `Sidebar.tsx` and receives `allMemberships` as a prop from the scheme layout server component. In V1, up to 10 schemes per trustee. This UI is implemented as part of the sidebar, not as a separate page.

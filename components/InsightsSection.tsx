@@ -175,10 +175,13 @@ export default function InsightsSection() {
                 <button
                   key={i}
                   onClick={() => setActiveAlert(i)}
-                  className={`h-[3px] flex-1 rounded-full border-none transition-colors duration-150 cursor-pointer ${
+                  className="flex-1 py-[10px] border-none bg-transparent cursor-pointer"
+                  aria-label={`Alert ${i + 1}`}
+                >
+                  <span className={`block h-[3px] w-full rounded-full transition-colors duration-150 ${
                     activeAlert === i ? 'bg-[rgba(247,246,243,0.8)]' : 'bg-[rgba(247,246,243,0.2)]'
-                  }`}
-                />
+                  }`} />
+                </button>
               ))}
             </div>
 

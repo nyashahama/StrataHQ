@@ -26,7 +26,7 @@ export default function Nav() {
             <li key={label}>
               <Link
                 href={href}
-                className="px-[10px] py-[5px] rounded-sm text-[14px] text-muted no-underline font-normal
+                className="px-[10px] py-[11px] rounded-sm text-[14px] text-muted no-underline font-normal
                   hover:text-ink hover:bg-[rgba(55,53,47,0.06)] transition-colors duration-150"
               >
                 {label}
@@ -39,7 +39,7 @@ export default function Nav() {
         <div className="flex items-center gap-2">
           <Link
             href="/demo"
-            className="hidden sm:inline-flex items-center gap-[6px] px-[14px] py-[6px] text-[14px] font-medium text-accent
+            className="hidden sm:inline-flex items-center gap-[6px] px-[14px] py-[10px] text-[14px] font-medium text-accent
               bg-accent-bg border border-[rgba(43,108,176,0.2)] rounded hover:bg-[rgba(43,108,176,0.12)] transition-colors duration-150 no-underline"
           >
             <span className="w-[5px] h-[5px] rounded-full bg-accent flex-shrink-0" />
@@ -47,14 +47,14 @@ export default function Nav() {
           </Link>
           <Link
             href="#"
-            className="px-[14px] py-[6px] text-[14px] font-medium text-ink-2 bg-transparent
+            className="px-[14px] py-[10px] text-[14px] font-medium text-ink-2 bg-transparent
               border border-border-2 rounded hover:bg-[rgba(55,53,47,0.04)] transition-colors duration-150 no-underline"
           >
             Log in
           </Link>
           <Link
             href="#"
-            className="px-4 py-[6px] text-[14px] font-medium text-white bg-ink
+            className="px-4 py-[10px] text-[14px] font-medium text-white bg-ink
               border border-ink rounded hover:bg-ink-2 transition-colors duration-150 no-underline"
           >
             Get started

@@ -6,17 +6,18 @@ import AppShell from '@/components/AppShell'
 import Sidebar, { type SidebarRole } from '@/components/Sidebar'
 
 export default function SchemeLayout({ children }: { children: React.ReactNode }) {
-  const { user } = useMockAuth()
+  const { user, loading } = useMockAuth()
   const router = useRouter()
   const params = useParams()
   const schemeId = params.schemeId as string
 
   useEffect(() => {
+    if (loading) return
     if (!user) { router.replace('/auth/login'); return }
     if (user.schemeId !== schemeId) router.replace(`/app/${user.schemeId}`)
-  }, [user, router, schemeId])
+  }, [user, loading, router, schemeId])
 
-  if (!user) return null
+  if (loading || !user) return null
 
   const sidebarRole: SidebarRole =
     user.role === 'agent' ? 'agent-scheme' :

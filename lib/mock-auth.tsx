@@ -13,6 +13,7 @@ export interface MockUser {
 
 interface MockAuthContextValue {
   user: MockUser | null
+  loading: boolean
   login: (user: MockUser) => void
   logout: () => void
 }
@@ -23,6 +24,7 @@ const MockAuthContext = createContext<MockAuthContextValue | null>(null)
 
 export function MockAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     try {
@@ -32,6 +34,8 @@ export function MockAuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // ignore parse errors
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -46,7 +50,7 @@ export function MockAuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <MockAuthContext.Provider value={{ user, login, logout }}>
+    <MockAuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </MockAuthContext.Provider>
   )

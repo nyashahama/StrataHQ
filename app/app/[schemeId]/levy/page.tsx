@@ -1,5 +1,6 @@
 'use client'
 import { useMockAuth } from '@/lib/mock-auth'
+import { useToast } from '@/lib/toast'
 import { mockLevyRoll, mockLevyPeriod, mockCollectionTrend, mockUnit4BPayments } from '@/lib/mock/levy'
 
 function formatRand(cents: number): string {
@@ -15,6 +16,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function LevyPaymentsPage() {
   const { user } = useMockAuth()
+  const { addToast } = useToast()
 
   if (user?.role === 'resident') {
     const myAccount = mockLevyRoll.find(a => a.unit_identifier === user.unitIdentifier)
@@ -51,7 +53,7 @@ export default function LevyPaymentsPage() {
           ))}
         </div>
 
-        <button className="text-[12px] text-accent font-medium border border-accent rounded px-4 py-2 hover:bg-accent-dim transition-colors">
+        <button onClick={() => addToast('Statement download started — check your downloads folder.', 'info')} className="text-[12px] text-accent font-medium border border-accent rounded px-4 py-2 hover:bg-accent-dim transition-colors">
           Download statement (PDF)
         </button>
       </div>
@@ -131,7 +133,7 @@ export default function LevyPaymentsPage() {
                   {account.status.charAt(0).toUpperCase() + account.status.slice(1)}
                 </span>
                 {canEdit && account.status === 'overdue' && (
-                  <button className="text-[11px] text-accent font-medium hover:underline">Remind</button>
+                  <button onClick={() => addToast(`Reminder sent to ${account.owner_name}`, 'info')} className="text-[11px] text-accent font-medium hover:underline">Remind</button>
                 )}
               </div>
             </div>

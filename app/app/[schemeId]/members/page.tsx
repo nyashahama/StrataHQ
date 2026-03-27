@@ -1,6 +1,9 @@
 'use client'
+import { useState } from 'react'
 import { useMockAuth } from '@/lib/mock-auth'
-import { mockMembers } from '@/lib/mock/members'
+import { mockMembers, type Member } from '@/lib/mock/members'
+import { useToast } from '@/lib/toast'
+import Modal from '@/components/Modal'
 
 const ROLE_STYLES: Record<string, string> = {
   trustee:  'bg-accent-bg text-accent',
@@ -10,10 +13,33 @@ const ROLE_STYLES: Record<string, string> = {
 
 export default function MembersPage() {
   const { user } = useMockAuth()
+  const { addToast } = useToast()
 
-  // Resident: trustees only
+  const [members, setMembers] = useState<Member[]>([...mockMembers])
+  const [showModal, setShowModal] = useState(false)
+  const [form, setForm] = useState({ name: '', email: '', unit: '', role: 'owner' as 'owner' | 'resident' })
+
+  function handleInvite() {
+    if (!form.name.trim() || !form.email.trim() || !form.unit.trim()) return
+    const newMember: Member = {
+      id: `member-${Date.now()}`,
+      scheme_id: 'scheme-001',
+      unit_id: `unit-${form.unit.toLowerCase()}`,
+      unit_identifier: form.unit.toUpperCase(),
+      name: form.name.trim(),
+      role: form.role,
+      email: form.email.trim(),
+      phone: null,
+      is_trustee_committee: false,
+    }
+    setMembers(prev => [...prev, newMember])
+    setShowModal(false)
+    setForm({ name: '', email: '', unit: '', role: 'owner' })
+    addToast(`Invite sent to ${form.email.trim()}`, 'success')
+  }
+
   if (user?.role === 'resident') {
-    const trustees = mockMembers.filter(m => m.is_trustee_committee)
+    const trustees = members.filter(m => m.is_trustee_committee)
     return (
       <div className="px-8 py-8 max-w-[900px]">
         <p className="text-[12px] text-muted mb-4">Scheme › Members</p>
@@ -34,10 +60,9 @@ export default function MembersPage() {
     )
   }
 
-  // Agent / Trustee: full roster
   const canEdit = user?.role === 'agent'
-  const trustees = mockMembers.filter(m => m.is_trustee_committee)
-  const owners = mockMembers.filter(m => !m.is_trustee_committee)
+  const trustees = members.filter(m => m.is_trustee_committee)
+  const owners = members.filter(m => !m.is_trustee_committee)
 
   return (
     <div className="px-8 py-8 max-w-[900px]">
@@ -45,12 +70,11 @@ export default function MembersPage() {
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Members</h1>
       <p className="text-[14px] text-muted mb-8">Owners, trustees, and contact information.</p>
 
-      {/* Stat cards */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         {[
-          { label: 'Total members', value: String(mockMembers.length) },
-          { label: 'Trustees', value: String(trustees.length) },
-          { label: 'Owners', value: String(owners.length) },
+          { label: 'Total members', value: String(members.length) },
+          { label: 'Trustees',      value: String(trustees.length) },
+          { label: 'Owners',        value: String(owners.length) },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
             <div className="text-[24px] font-semibold text-ink font-serif mb-1">{value}</div>
@@ -59,12 +83,14 @@ export default function MembersPage() {
         ))}
       </div>
 
-      {/* Members table */}
       <div className="bg-white border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <span className="text-[13px] font-semibold text-ink">All members</span>
           {canEdit && (
-            <button className="text-[12px] font-semibold bg-accent text-white px-3 py-1.5 rounded hover:bg-[#245a96] transition-colors">
+            <button
+              onClick={() => setShowModal(true)}
+              className="text-[12px] font-semibold bg-accent text-white px-3 py-1.5 rounded hover:bg-[#245a96] transition-colors"
+            >
               + Invite member
             </button>
           )}
@@ -73,8 +99,8 @@ export default function MembersPage() {
           <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
             <span>Unit</span><span>Name</span><span>Contact</span><span>Role</span>
           </div>
-          {mockMembers.map((m, i) => (
-            <div key={m.id} className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center py-3 text-[13px] ${i < mockMembers.length - 1 ? 'border-b border-border' : ''}`}>
+          {members.map((m, i) => (
+            <div key={m.id} className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center py-3 text-[13px] ${i < members.length - 1 ? 'border-b border-border' : ''}`}>
               <span className="font-semibold text-ink w-8">{m.unit_identifier}</span>
               <span className="text-ink">{m.name}</span>
               <span className="text-[12px] text-muted">{m.phone ?? '—'}</span>
@@ -85,6 +111,69 @@ export default function MembersPage() {
           ))}
         </div>
       </div>
+
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Invite member">
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Full name *</label>
+            <input
+              type="text"
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. Nkosi, A."
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Email *</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              placeholder="e.g. nkosi@email.co.za"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[12px] font-semibold text-ink block mb-1">Unit *</label>
+              <input
+                type="text"
+                value={form.unit}
+                onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                placeholder="e.g. 9A"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              />
+            </div>
+            <div>
+              <label className="text-[12px] font-semibold text-ink block mb-1">Role</label>
+              <select
+                value={form.role}
+                onChange={e => setForm(f => ({ ...f, role: e.target.value as 'owner' | 'resident' }))}
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              >
+                <option value="owner">Owner</option>
+                <option value="resident">Resident</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleInvite}
+              disabled={!form.name.trim() || !form.email.trim() || !form.unit.trim()}
+              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Send invite
+            </button>
+            <button
+              onClick={() => setShowModal(false)}
+              className="px-4 text-[13px] font-medium text-muted hover:text-ink border border-border rounded py-2 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

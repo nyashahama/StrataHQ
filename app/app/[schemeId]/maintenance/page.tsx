@@ -43,10 +43,18 @@ export default function MaintenancePage() {
   const [jobs, setJobs] = useState<MaintenanceRequest[]>([...mockMaintenanceRequests])
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ title: '', category: 'other', description: '' })
+  const [approveJobId, setApproveJobId] = useState<string | null>(null)
+  const [contractorForm, setContractorForm] = useState({ name: '', phone: '' })
 
-  function handleApprove(id: string) {
-    setJobs(prev => prev.map(j => j.id === id ? { ...j, status: 'in_progress' as const } : j))
-    addToast('Job approved and moved to In Progress', 'success')
+  function handleApproveConfirm() {
+    if (!approveJobId || !contractorForm.name.trim()) return
+    setJobs(prev => prev.map(j => j.id === approveJobId
+      ? { ...j, status: 'in_progress' as const, contractor_name: contractorForm.name.trim(), contractor_phone: contractorForm.phone.trim() || null }
+      : j
+    ))
+    setApproveJobId(null)
+    setContractorForm({ name: '', phone: '' })
+    addToast('Job approved and contractor assigned', 'success')
   }
 
   function handleSubmit() {
@@ -204,10 +212,24 @@ export default function MaintenancePage() {
                   </span>
                   {canEdit && req.status === 'pending_approval' && (
                     <button
-                      onClick={() => handleApprove(req.id)}
+                      onClick={() => { setApproveJobId(req.id); setContractorForm({ name: '', phone: '' }) }}
                       className="text-[11px] text-accent font-medium hover:underline"
                     >
                       Approve
+                    </button>
+                  )}
+                  {canEdit && req.status === 'in_progress' && (
+                    <button
+                      onClick={() => {
+                        setJobs(prev => prev.map(j => j.id === req.id
+                          ? { ...j, status: 'resolved' as const, resolved_at: new Date().toISOString() }
+                          : j
+                        ))
+                        addToast('Job marked as resolved', 'success')
+                      }}
+                      className="text-[11px] text-green font-medium hover:underline"
+                    >
+                      Resolve
                     </button>
                   )}
                 </div>
@@ -216,6 +238,42 @@ export default function MaintenancePage() {
           })}
         </div>
       </div>
+
+      <Modal open={approveJobId !== null} onClose={() => setApproveJobId(null)} title="Approve job">
+        <div className="flex flex-col gap-4">
+          <p className="text-[13px] text-muted">Assign a contractor before approving this job.</p>
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Contractor name *</label>
+            <input
+              type="text"
+              value={contractorForm.name}
+              onChange={e => setContractorForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. AquaFix Plumbing"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Contractor phone</label>
+            <input
+              type="tel"
+              value={contractorForm.phone}
+              onChange={e => setContractorForm(f => ({ ...f, phone: e.target.value }))}
+              placeholder="+27 21 555 0199"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button onClick={() => setApproveJobId(null)} className="text-[12px] text-muted hover:text-ink px-3 py-2">Cancel</button>
+            <button
+              onClick={handleApproveConfirm}
+              disabled={!contractorForm.name.trim()}
+              className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Approve &amp; assign
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title={modalTitle}>
         <JobForm form={form} setForm={setForm} onSubmit={handleSubmit} onCancel={() => setShowModal(false)} />

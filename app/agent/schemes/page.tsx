@@ -1,3 +1,5 @@
+'use client'
+import { useMockAuth } from '@/lib/mock-auth'
 import { mockPortfolio } from '@/lib/mock/scheme'
 
 const HEALTH_STYLES = {
@@ -7,6 +9,7 @@ const HEALTH_STYLES = {
 }
 
 export default function SchemesPage() {
+  useMockAuth()
   return (
     <div className="px-8 py-8 max-w-[900px]">
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">All schemes</h1>

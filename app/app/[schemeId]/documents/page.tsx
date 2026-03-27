@@ -40,11 +40,18 @@ export default function DocumentsPage() {
   const { addToast } = useToast()
 
   const [documents, setDocuments] = useState<SchemeDocument[]>([...mockDocuments])
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ name: '', category: 'other' as SchemeDocument['category'], file_type: 'pdf' as SchemeDocument['file_type'] })
 
   const canUpload = user?.role === 'agent'
-  const grouped = groupByCategory(documents)
+  const allGrouped = groupByCategory(documents)
+  const grouped = categoryFilter === 'all'
+    ? allGrouped
+    : Object.fromEntries(Object.entries(allGrouped).filter(([key]) => {
+        const categoryKey = Object.entries(CATEGORY_LABELS).find(([, label]) => label === key)?.[0]
+        return categoryKey === categoryFilter
+      }))
 
   function handleUpload() {
     if (!form.name.trim()) return
@@ -80,6 +87,22 @@ export default function DocumentsPage() {
             + Upload document
           </button>
         )}
+      </div>
+
+      <div className="mb-4 flex items-center gap-3">
+        <label className="text-[12px] font-semibold text-muted">Category:</label>
+        <select
+          value={categoryFilter}
+          onChange={e => setCategoryFilter(e.target.value)}
+          className="border border-border rounded px-3 py-1.5 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+        >
+          <option value="all">All categories</option>
+          <option value="rules">Conduct Rules</option>
+          <option value="minutes">AGM Minutes</option>
+          <option value="insurance">Insurance</option>
+          <option value="financial">Financial</option>
+          <option value="other">Other</option>
+        </select>
       </div>
 
       <div className="flex flex-col gap-6">

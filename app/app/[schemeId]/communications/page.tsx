@@ -24,11 +24,14 @@ export default function CommunicationsPage() {
   const { addToast } = useToast()
 
   const [notices, setNotices] = useState<Notice[]>([...mockNotices])
+  const [typeFilter, setTypeFilter] = useState<string>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ title: '', body: '', type: 'general' as Notice['type'] })
 
   const canCompose = user?.role === 'agent'
+
+  const filteredNotices = typeFilter === 'all' ? notices : notices.filter(n => n.type === typeFilter)
 
   function handleCompose() {
     if (!form.title.trim() || !form.body.trim()) return
@@ -66,8 +69,25 @@ export default function CommunicationsPage() {
         )}
       </div>
 
+      <div className="mb-4 flex items-center gap-3">
+        <label className="text-[12px] font-semibold text-muted">Filter:</label>
+        <select
+          value={typeFilter}
+          onChange={e => setTypeFilter(e.target.value)}
+          className="border border-border rounded px-3 py-1.5 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+        >
+          <option value="all">All notices</option>
+          <option value="general">General</option>
+          <option value="urgent">Urgent</option>
+          <option value="agm">AGM</option>
+          <option value="levy">Levy</option>
+        </select>
+      </div>
+
       <div className="flex flex-col gap-3">
-        {notices.map(notice => (
+        {filteredNotices.length === 0 ? (
+          <div className="bg-[#f0efe9] border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">No notices match the selected filter.</div>
+        ) : filteredNotices.map(notice => (
           <div key={notice.id} className="bg-white border border-border rounded-lg overflow-hidden">
             <button
               className="w-full px-5 py-4 flex items-start justify-between gap-4 text-left hover:bg-page transition-colors"
@@ -95,6 +115,7 @@ export default function CommunicationsPage() {
           </div>
         ))}
       </div>
+
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Compose notice">
         <div className="flex flex-col gap-4">

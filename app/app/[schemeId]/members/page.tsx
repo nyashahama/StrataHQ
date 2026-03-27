@@ -16,6 +16,7 @@ export default function MembersPage() {
   const { addToast } = useToast()
 
   const [members, setMembers] = useState<Member[]>([...mockMembers])
+  const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', unit: '', role: 'owner' as 'owner' | 'resident' })
 
@@ -64,6 +65,12 @@ export default function MembersPage() {
   const trustees = members.filter(m => m.is_trustee_committee)
   const owners = members.filter(m => !m.is_trustee_committee)
 
+  const filteredMembers = members.filter(m =>
+    search === '' ||
+    m.name.toLowerCase().includes(search.toLowerCase()) ||
+    m.unit_identifier.toLowerCase().includes(search.toLowerCase())
+  )
+
   return (
     <div className="px-8 py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Members</p>
@@ -96,19 +103,32 @@ export default function MembersPage() {
           )}
         </div>
         <div className="px-5">
+          <div className="mb-4 pt-4">
+            <input
+              type="text"
+              placeholder="Search by name or unit…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full max-w-xs border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
           <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
             <span>Unit</span><span>Name</span><span>Contact</span><span>Role</span>
           </div>
-          {members.map((m, i) => (
-            <div key={m.id} className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center py-3 text-[13px] ${i < members.length - 1 ? 'border-b border-border' : ''}`}>
-              <span className="font-semibold text-ink w-8">{m.unit_identifier}</span>
-              <span className="text-ink">{m.name}</span>
-              <span className="text-[12px] text-muted">{m.phone ?? '—'}</span>
-              <span className={`text-[11px] font-semibold px-2 py-[2px] rounded-full ${ROLE_STYLES[m.role]}`}>
-                {m.is_trustee_committee ? 'Trustee' : m.role.charAt(0).toUpperCase() + m.role.slice(1)}
-              </span>
-            </div>
-          ))}
+          {filteredMembers.length === 0 ? (
+            <div className="text-[13px] text-muted text-center py-8">No members match your search.</div>
+          ) : (
+            filteredMembers.map((m, i) => (
+              <div key={m.id} className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center py-3 text-[13px] ${i < filteredMembers.length - 1 ? 'border-b border-border' : ''}`}>
+                <span className="font-semibold text-ink w-8">{m.unit_identifier}</span>
+                <span className="text-ink">{m.name}</span>
+                <span className="text-[12px] text-muted">{m.phone ?? '—'}</span>
+                <span className={`text-[11px] font-semibold px-2 py-[2px] rounded-full ${ROLE_STYLES[m.role]}`}>
+                  {m.is_trustee_committee ? 'Trustee' : m.role.charAt(0).toUpperCase() + m.role.slice(1)}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

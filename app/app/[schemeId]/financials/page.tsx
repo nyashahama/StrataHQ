@@ -1,6 +1,7 @@
 'use client'
 import { useMockAuth } from '@/lib/mock-auth'
 import { mockBudgetLines, mockReserveFund } from '@/lib/mock/financials'
+import { useToast } from '@/lib/toast'
 
 function formatRand(cents: number): string {
   return `R ${(cents / 100).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`
@@ -8,6 +9,7 @@ function formatRand(cents: number): string {
 
 export default function FinancialsPage() {
   const { user } = useMockAuth()
+  const { addToast } = useToast()
 
   const totalBudgeted = mockBudgetLines.reduce((s, l) => s + l.budgeted_cents, 0)
   const totalActual   = mockBudgetLines.reduce((s, l) => s + l.actual_cents, 0)
@@ -50,7 +52,15 @@ export default function FinancialsPage() {
   return (
     <div className="px-8 py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Financials</p>
-      <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Financials</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="font-serif text-[28px] font-semibold text-ink">Financials</h1>
+        <button
+          onClick={() => addToast('Budget export downloaded', 'info')}
+          className="text-[12px] font-semibold border border-border bg-white text-ink px-3 py-2 rounded hover:bg-[#f0efe9] transition-colors"
+        >
+          Export CSV
+        </button>
+      </div>
       <p className="text-[14px] text-muted mb-8">Budget, expenditure, and reserve fund.</p>
 
       {/* Stat cards */}

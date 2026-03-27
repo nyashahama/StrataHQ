@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useMockAuth } from '@/lib/mock-auth'
 import { mockAgmMeeting, mockAgmResolutions, mockUpcomingAgm, type AgmResolution } from '@/lib/mock/agm'
 import { useToast } from '@/lib/toast'
+import Modal from '@/components/Modal'
 
 export default function AgmVotingPage() {
   const { user } = useMockAuth()
@@ -10,6 +11,8 @@ export default function AgmVotingPage() {
 
   const [resolutions, setResolutions] = useState<AgmResolution[]>([...mockAgmResolutions])
   const [voted, setVoted] = useState<Set<string>>(new Set())
+  const [showScheduleModal, setShowScheduleModal] = useState(false)
+  const [scheduleForm, setScheduleForm] = useState({ date: '', venue: '' })
 
   const meeting = mockAgmMeeting
   const upcoming = mockUpcomingAgm
@@ -30,7 +33,17 @@ export default function AgmVotingPage() {
   return (
     <div className="px-8 py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › AGM & Voting</p>
-      <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">AGM & Voting</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="font-serif text-[28px] font-semibold text-ink">AGM & Voting</h1>
+        {user?.role === 'agent' && (
+          <button
+            onClick={() => setShowScheduleModal(true)}
+            className="text-[12px] font-semibold bg-accent text-white px-3 py-2 rounded hover:bg-[#245a96] transition-colors"
+          >
+            + Schedule AGM
+          </button>
+        )}
+      </div>
       <p className="text-[14px] text-muted mb-8">Annual general meetings and trustee resolutions.</p>
 
       <div className="grid grid-cols-3 gap-4 mb-8">
@@ -114,6 +127,49 @@ export default function AgmVotingPage() {
           })}
         </div>
       </div>
+
+      <Modal open={showScheduleModal} onClose={() => setShowScheduleModal(false)} title="Schedule AGM">
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Date</label>
+            <input
+              type="date"
+              value={scheduleForm.date}
+              onChange={e => setScheduleForm(f => ({ ...f, date: e.target.value }))}
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Venue</label>
+            <input
+              type="text"
+              value={scheduleForm.venue}
+              onChange={e => setScheduleForm(f => ({ ...f, venue: e.target.value }))}
+              placeholder="e.g. Sunridge Heights Common Room"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              onClick={() => setShowScheduleModal(false)}
+              className="text-[12px] text-muted hover:text-ink px-3 py-2"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                if (!scheduleForm.date || !scheduleForm.venue) return
+                setShowScheduleModal(false)
+                setScheduleForm({ date: '', venue: '' })
+                addToast('AGM scheduled', 'success')
+              }}
+              className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+            >
+              Schedule
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

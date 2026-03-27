@@ -8,7 +8,7 @@ import { mockUpcomingAgm } from '@/lib/mock/agm'
 import { mockNotices } from '@/lib/mock/communications'
 
 function daysUntil(dateStr: string): number {
-  const now = new Date('2025-10-16')
+  const now = new Date()
   const target = new Date(dateStr)
   return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
@@ -69,7 +69,7 @@ export default function SchemeOverviewPage() {
   // Agent / Trustee view
   const slaBreaches = openMaintenance.filter(r => {
     const created = new Date(r.created_at).getTime()
-    const now = new Date('2025-10-16T12:00:00Z').getTime()
+    const now = new Date().getTime()
     return (now - created) / (1000 * 60 * 60) > r.sla_hours
   })
 

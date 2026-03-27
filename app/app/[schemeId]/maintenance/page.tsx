@@ -31,7 +31,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 function isSlaBreached(req: MaintenanceRequest): boolean {
   if (req.status === 'resolved') return false
   const created = new Date(req.created_at).getTime()
-  const now = new Date('2025-10-16T12:00:00Z').getTime()
+  const now = new Date().getTime()
   const hoursElapsed = (now - created) / (1000 * 60 * 60)
   return hoursElapsed > req.sla_hours
 }

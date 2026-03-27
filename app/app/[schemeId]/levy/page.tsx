@@ -41,17 +41,32 @@ export default function LevyPaymentsPage() {
 
         {/* Payment history */}
         <h2 className="text-[14px] font-semibold text-ink mb-3">Payment history</h2>
-        <div className="bg-white border border-border rounded-lg overflow-hidden mb-6">
-          {mockUnit4BPayments.map((p, i) => (
-            <div key={p.id} className={`flex items-center justify-between px-5 py-3 text-[13px] ${i < mockUnit4BPayments.length - 1 ? 'border-b border-border' : ''}`}>
-              <div>
-                <span className="font-medium text-ink">{formatRand(p.amount_cents)}</span>
-                <span className="text-muted ml-3">{new Date(p.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        {(() => {
+          const myLevyAccount2 = mockLevyRoll.find(a => a.unit_identifier === user?.unitIdentifier)
+          const myPayments = myLevyAccount2
+            ? mockUnit4BPayments.filter(p => p.levy_account_id === myLevyAccount2.id)
+            : []
+          if (myPayments.length === 0) {
+            return (
+              <div className="bg-[#f0efe9] border border-border rounded-lg px-6 py-8 text-center text-muted text-[13px] mb-6">
+                No payment history available for this unit.
               </div>
-              <span className="text-[11px] text-muted font-mono">{p.reference}</span>
+            )
+          }
+          return (
+            <div className="bg-white border border-border rounded-lg overflow-hidden mb-6">
+              {myPayments.map((p, i) => (
+                <div key={p.id} className={`flex items-center justify-between px-5 py-3 text-[13px] ${i < myPayments.length - 1 ? 'border-b border-border' : ''}`}>
+                  <div>
+                    <span className="font-medium text-ink">{formatRand(p.amount_cents)}</span>
+                    <span className="text-muted ml-3">{new Date(p.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                  </div>
+                  <span className="text-[11px] text-muted font-mono">{p.reference}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )
+        })()}
 
         <button onClick={() => addToast('Statement download started — check your downloads folder.', 'info')} className="text-[12px] text-accent font-medium border border-accent rounded px-4 py-2 hover:bg-accent-dim transition-colors">
           Download statement (PDF)

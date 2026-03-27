@@ -75,13 +75,23 @@ export default function SchemeOverviewPage() {
 
   const overdueLevy = mockLevyRoll.filter(a => a.status === 'overdue')
 
-  const recentActivity = [
-    { text: `Unit 1A levy received — R2,450`,                     time: '2 hours ago',  type: 'levy' },
-    { text: `Pool pump replacement approved — AquaFix R8,400`,    time: '4 hours ago',  type: 'maintenance' },
-    { text: `Water supply notice sent to all residents`,           time: '1 day ago',    type: 'comms' },
-    { text: `Unit 6C levy overdue — reminder sent`,               time: '2 days ago',   type: 'levy' },
-    { text: `Parking bay lights — job opened`,                    time: '2 days ago',   type: 'maintenance' },
-  ]
+  const maintenanceEvents = mockMaintenanceRequests
+    .filter(r => r.status !== 'resolved')
+    .slice(0, 3)
+    .map(r => ({
+      text: `${r.title} — ${r.status === 'pending_approval' ? 'awaiting approval' : r.status === 'in_progress' ? 'in progress' : 'open'}`,
+      time: new Date(r.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }),
+      type: 'maintenance' as const,
+    }))
+
+  const noticeEvents = mockNotices.slice(0, 2).map(n => ({
+    text: `Notice: ${n.title}`,
+    time: new Date(n.sent_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }),
+    type: 'comms' as const,
+  }))
+
+  const recentActivity = [...maintenanceEvents, ...noticeEvents]
+    .slice(0, 5)
 
   return (
     <div className="px-8 py-8 max-w-[900px]">

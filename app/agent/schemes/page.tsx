@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useMockAuth } from '@/lib/mock-auth'
 import { mockPortfolio } from '@/lib/mock/scheme'
 
@@ -30,7 +31,7 @@ export default function SchemesPage() {
               <span className={`text-[11px] font-semibold px-2 py-[2px] rounded-full ${HEALTH_STYLES[scheme.health]}`}>
                 {scheme.health.charAt(0).toUpperCase() + scheme.health.slice(1)}
               </span>
-              <a href={`/app/${scheme.id}`} className="text-[12px] text-accent font-medium">View →</a>
+              <Link href={`/app/${scheme.id}`} className="text-[12px] text-accent font-medium">View →</Link>
             </div>
           </div>
         ))}

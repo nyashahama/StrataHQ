@@ -1,6 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { useMockAuth } from '@/lib/mock-auth'
 
 export type SidebarRole = 'agent-portfolio' | 'agent-scheme' | 'trustee' | 'resident'
 
@@ -163,6 +165,7 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
       { icon: <MegaphoneIcon />, label: 'Communications', href: `${base}/communications` },
       { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },
       { icon: <ChartIcon />, label: 'Financials', href: `${base}/financials` },
+      { icon: <UsersIcon />, label: 'Members', href: `${base}/members` },
     ]
   }
 
@@ -171,8 +174,10 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
     { icon: <GridIcon />, label: 'Overview', href: base, exactMatch: true },
     { icon: <CreditCardIcon />, label: 'My Levy', href: `${base}/levy` },
     { icon: <WrenchIcon />, label: 'Maintenance', href: `${base}/maintenance` },
+    { icon: <VoteIcon />, label: 'AGM & Voting', href: `${base}/agm` },
     { icon: <MegaphoneIcon />, label: 'Notices', href: `${base}/communications` },
     { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },
+    { icon: <ChartIcon />, label: 'Financials', href: `${base}/financials` },
   ]
 }
 
@@ -200,7 +205,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
     : pathname.startsWith(item.href)
 
   return (
-    <a
+    <Link
       href={item.href}
       className={
         `flex items-center gap-2 px-3 py-[7px] text-[12px] border-l-2 transition-colors ` +
@@ -211,7 +216,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
     >
       {item.icon}
       {item.label}
-    </a>
+    </Link>
   )
 }
 
@@ -220,6 +225,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
 export default function Sidebar({ role, headerLabel, schemeId, allMemberships }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { logout } = useMockAuth()
 
   const navItems = getNavItems(role, schemeId)
   const bottomItem = getBottomItem(role, schemeId)
@@ -268,6 +274,15 @@ export default function Sidebar({ role, headerLabel, schemeId, allMemberships }:
       {/* Bottom section */}
       <div className="border-t border-border py-2 flex-shrink-0">
         <NavLink item={bottomItem} pathname={pathname} />
+        <button
+          onClick={() => { logout(); router.push('/auth/login') }}
+          className="flex items-center gap-2 px-3 py-[7px] text-[12px] text-muted hover:text-ink hover:bg-[#f0efe9] w-full transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M5 2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2M9 10l3-3-3-3M12 7H5" />
+          </svg>
+          Log out
+        </button>
       </div>
     </aside>
   )

@@ -1,296 +1,181 @@
 'use client'
-
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMockAuth } from '@/lib/mock-auth'
+import LogoIcon from '@/components/LogoIcon'
 
-interface SetupWizardProps {
-  initialStep?: number
-}
+type Step = 1 | 2 | 3
 
-const STEP_NAMES = ['Firm', 'Scheme', 'Units', 'Levies', 'Invite']
-
-const INPUT_CLASS =
-  'border border-border rounded px-3 py-[10px] text-[14px] text-ink bg-white w-full focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent'
-const LABEL_CLASS = 'text-[13px] font-medium text-ink mb-1 block'
-
-function FieldGroup({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="mb-4">
-      <label className={LABEL_CLASS}>{label}</label>
-      {children}
-    </div>
-  )
-}
-
-export default function SetupWizard({ initialStep = 1 }: SetupWizardProps) {
-  const { login } = useMockAuth()
+export default function SetupWizard() {
   const router = useRouter()
+  const { user, login } = useMockAuth()
+  const [step, setStep] = useState<Step>(1)
 
-  const [step, setStep] = useState(initialStep)
-  const [error, setError] = useState('')
-
-  // Step 1 — Firm
-  const [firmName, setFirmName] = useState('')
+  const [orgName, setOrgName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
-  const [phone, setPhone] = useState('')
-
-  // Step 2 — Scheme
   const [schemeName, setSchemeName] = useState('')
-  const [physicalAddress, setPhysicalAddress] = useState('')
-  const [schemeNumber, setSchemeNumber] = useState('')
+  const [address, setAddress] = useState('')
+  const [unitCount, setUnitCount] = useState('')
 
-  // Step 3 — Units
-  const [unitsText, setUnitsText] = useState('')
-
-  // Step 4 — Levies
-  const [baseLevy, setBaseLevy] = useState('')
-  const [adminLevy, setAdminLevy] = useState('')
-  const [levyPeriod, setLevyPeriod] = useState('Monthly')
-
-  // Step 5 — Invite
-  const [invitesText, setInvitesText] = useState('')
-
-  function validate(): boolean {
-    setError('')
-    if (step === 1) {
-      if (!firmName.trim()) {
-        setError('Company name is required.')
-        return false
-      }
-      if (!contactEmail.trim()) {
-        setError('Contact email is required.')
-        return false
-      }
-    }
-    if (step === 2) {
-      if (!schemeName.trim()) {
-        setError('Scheme name is required.')
-        return false
-      }
-    }
-    return true
+  function handleStep1(e: React.FormEvent) {
+    e.preventDefault()
+    setStep(2)
   }
 
-  function handleNext() {
-    if (!validate()) return
-    setStep((s) => s + 1)
-  }
-
-  function handleBack() {
-    setError('')
-    setStep((s) => s - 1)
+  function handleStep2(e: React.FormEvent) {
+    e.preventDefault()
+    setStep(3)
   }
 
   function handleFinish() {
-    login({
-      role: 'agent',
-      orgName: firmName || 'My Firm',
-      schemeName: schemeName || 'My Scheme',
-      schemeId: 'scheme-001',
-      isWizardComplete: true,
-    })
-    router.push('/agent')
+    if (user) {
+      login({
+        ...user,
+        orgName,
+        schemeName,
+        isWizardComplete: true,
+      })
+    }
+    router.replace('/agent')
   }
 
-  const stepName = STEP_NAMES[step - 1]
+  const STEP_LABELS = ['Organisation', 'First scheme', 'Done']
 
   return (
-    <div className="min-h-screen bg-page flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-[480px]">
-        <h1 className="font-serif text-[26px] font-semibold text-ink">
-          Set up your account
-        </h1>
-        <p className="text-[14px] text-muted mb-8">
-          Step {step} of 5 — {stepName}
-        </p>
-
-        {/* Progress bar */}
-        <div className="flex gap-1.5 mb-8">
-          {STEP_NAMES.map((_, i) => (
-            <div
-              key={i}
-              className={`flex-1 h-1 rounded-full ${i < step ? 'bg-accent' : 'bg-border'}`}
-            />
-          ))}
+    <main className="min-h-screen bg-page flex items-center justify-center px-4">
+      <div className="w-full max-w-md py-12">
+        {/* Logo */}
+        <div className="flex items-center gap-2 mb-10">
+          <LogoIcon className="w-6 h-6 fill-ink" />
+          <span className="font-serif font-semibold text-ink text-lg tracking-tight">StrataHQ</span>
         </div>
 
-        {/* Step content */}
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 mb-8">
+          {STEP_LABELS.map((label, i) => {
+            const s = (i + 1) as Step
+            const active = s === step
+            const done = s < step
+            return (
+              <div key={label} className="flex items-center gap-2">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 ${done ? 'bg-green text-white' : active ? 'bg-accent text-white' : 'bg-border text-muted'}`}>
+                  {done ? '✓' : s}
+                </div>
+                <span className={`text-[12px] ${active ? 'text-ink font-semibold' : 'text-muted'}`}>{label}</span>
+                {i < STEP_LABELS.length - 1 && <div className="w-8 h-px bg-border mx-1" />}
+              </div>
+            )
+          })}
+        </div>
+
         {step === 1 && (
           <div>
-            <FieldGroup label="Company name">
-              <input
-                type="text"
-                className={INPUT_CLASS}
-                value={firmName}
-                onChange={(e) => setFirmName(e.target.value)}
-                placeholder="Acme Property Management"
-              />
-            </FieldGroup>
-            <FieldGroup label="Contact email">
-              <input
-                type="email"
-                className={INPUT_CLASS}
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-                placeholder="admin@acme.co.za"
-              />
-            </FieldGroup>
-            <FieldGroup label="Phone">
-              <input
-                type="tel"
-                className={INPUT_CLASS}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+27 11 000 0000"
-              />
-            </FieldGroup>
+            <h1 className="font-serif text-2xl font-semibold text-ink mb-1">Set up your organisation</h1>
+            <p className="text-muted text-sm mb-8">Tell us about your property management company.</p>
+            <form onSubmit={handleStep1} className="space-y-5">
+              <div>
+                <label htmlFor="orgName" className="block text-sm font-medium text-ink mb-1">Organisation name</label>
+                <input
+                  id="orgName"
+                  type="text"
+                  required
+                  value={orgName}
+                  onChange={e => setOrgName(e.target.value)}
+                  placeholder="e.g. Acme Property Management"
+                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <label htmlFor="contactEmail" className="block text-sm font-medium text-ink mb-1">Contact email</label>
+                <input
+                  id="contactEmail"
+                  type="email"
+                  required
+                  value={contactEmail}
+                  onChange={e => setContactEmail(e.target.value)}
+                  placeholder="admin@acme.co.za"
+                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                />
+              </div>
+              <button type="submit" className="w-full rounded bg-ink text-page py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity">
+                Continue →
+              </button>
+            </form>
           </div>
         )}
 
         {step === 2 && (
           <div>
-            <FieldGroup label="Scheme name">
-              <input
-                type="text"
-                className={INPUT_CLASS}
-                value={schemeName}
-                onChange={(e) => setSchemeName(e.target.value)}
-                placeholder="Sunset Gardens"
-              />
-            </FieldGroup>
-            <FieldGroup label="Physical address">
-              <input
-                type="text"
-                className={INPUT_CLASS}
-                value={physicalAddress}
-                onChange={(e) => setPhysicalAddress(e.target.value)}
-                placeholder="12 Oak Avenue, Johannesburg"
-              />
-            </FieldGroup>
-            <FieldGroup label="Scheme number">
-              <input
-                type="text"
-                className={INPUT_CLASS}
-                value={schemeNumber}
-                onChange={(e) => setSchemeNumber(e.target.value)}
-                placeholder="SS 42/2010"
-              />
-            </FieldGroup>
+            <h1 className="font-serif text-2xl font-semibold text-ink mb-1">Add your first scheme</h1>
+            <p className="text-muted text-sm mb-8">You can add more schemes later from your dashboard.</p>
+            <form onSubmit={handleStep2} className="space-y-5">
+              <div>
+                <label htmlFor="schemeName" className="block text-sm font-medium text-ink mb-1">Scheme name</label>
+                <input
+                  id="schemeName"
+                  type="text"
+                  required
+                  value={schemeName}
+                  onChange={e => setSchemeName(e.target.value)}
+                  placeholder="e.g. Sunridge Heights"
+                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <label htmlFor="address" className="block text-sm font-medium text-ink mb-1">Physical address</label>
+                <input
+                  id="address"
+                  type="text"
+                  required
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  placeholder="e.g. 14 Ocean Drive, Cape Town"
+                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <label htmlFor="unitCount" className="block text-sm font-medium text-ink mb-1">Number of units</label>
+                <input
+                  id="unitCount"
+                  type="number"
+                  min="1"
+                  required
+                  value={unitCount}
+                  onChange={e => setUnitCount(e.target.value)}
+                  placeholder="e.g. 24"
+                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setStep(1)} className="px-4 py-2.5 text-sm font-medium text-muted hover:text-ink border border-border rounded transition-colors">
+                  ← Back
+                </button>
+                <button type="submit" className="flex-1 rounded bg-ink text-page py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity">
+                  Continue →
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
         {step === 3 && (
           <div>
-            <FieldGroup label="Unit identifiers">
-              <textarea
-                className={`${INPUT_CLASS} h-32 resize-none`}
-                value={unitsText}
-                onChange={(e) => setUnitsText(e.target.value)}
-                placeholder="1A&#10;1B&#10;2A"
-              />
-            </FieldGroup>
-            <p className="text-[13px] text-muted -mt-2">
-              One per line or comma-separated (e.g. 1A, 1B, 2A)
-            </p>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div>
-            <FieldGroup label="Base levy (ZAR)">
-              <input
-                type="number"
-                className={INPUT_CLASS}
-                value={baseLevy}
-                onChange={(e) => setBaseLevy(e.target.value)}
-                min={0}
-                step={0.01}
-                placeholder="1200.00"
-              />
-            </FieldGroup>
-            <FieldGroup label="Admin levy (ZAR)">
-              <input
-                type="number"
-                className={INPUT_CLASS}
-                value={adminLevy}
-                onChange={(e) => setAdminLevy(e.target.value)}
-                min={0}
-                step={0.01}
-                placeholder="1200.00"
-              />
-            </FieldGroup>
-            <FieldGroup label="Levy period">
-              <select
-                className={INPUT_CLASS}
-                value={levyPeriod}
-                onChange={(e) => setLevyPeriod(e.target.value)}
-              >
-                <option value="Monthly">Monthly</option>
-                <option value="Quarterly">Quarterly</option>
-                <option value="Bi-annual">Bi-annual</option>
-                <option value="Annual">Annual</option>
-              </select>
-            </FieldGroup>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div>
-            <FieldGroup label="Invite trustees and residents">
-              <textarea
-                className={`${INPUT_CLASS} h-28 resize-none font-mono`}
-                value={invitesText}
-                onChange={(e) => setInvitesText(e.target.value)}
-                placeholder={'alice@example.com trustee\nbob@example.com resident'}
-              />
-            </FieldGroup>
-            <p className="text-[13px] text-muted -mt-2">
-              One per line: email then role (trustee or resident). E.g.
-              &quot;alice@example.com trustee&quot;
-            </p>
-          </div>
-        )}
-
-        {error && <p className="text-[13px] text-red mt-4">{error}</p>}
-
-        {/* Action bar */}
-        <div className="flex gap-3 mt-8">
-          {step > 1 && (
+            <div className="bg-green-bg border border-green/20 rounded-xl px-6 py-8 text-center mb-6">
+              <div className="text-3xl mb-3">✓</div>
+              <h1 className="font-serif text-2xl font-semibold text-ink mb-2">You&apos;re all set!</h1>
+              <p className="text-sm text-muted">
+                <strong className="text-ink">{orgName}</strong> and your first scheme <strong className="text-ink">{schemeName}</strong> have been created. You can now invite trustees and residents from the Members page.
+              </p>
+            </div>
             <button
-              type="button"
-              onClick={handleBack}
-              className="px-5 py-[10px] text-[14px] font-medium text-ink border border-border rounded hover:bg-[#f0efe9]"
-            >
-              Back
-            </button>
-          )}
-
-          {step === 5 && (
-            <button
-              type="button"
               onClick={handleFinish}
-              className="px-5 py-[10px] text-[14px] font-medium text-muted border border-border rounded hover:bg-[#f0efe9]"
+              className="w-full rounded bg-ink text-page py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
             >
-              Skip for now
+              Go to dashboard →
             </button>
-          )}
-
-          <button
-            type="button"
-            onClick={step < 5 ? handleNext : handleFinish}
-            className="flex-1 bg-ink text-white text-[14px] font-medium py-[10px] rounded hover:bg-ink-2"
-          >
-            {step === 5 ? 'Finish' : 'Next →'}
-          </button>
-        </div>
+          </div>
+        )}
       </div>
-    </div>
+    </main>
   )
 }

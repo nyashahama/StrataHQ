@@ -2,6 +2,8 @@
 import { useState } from 'react'
 import { useMockAuth } from '@/lib/mock-auth'
 import { mockNotices, type Notice } from '@/lib/mock/communications'
+import { useToast } from '@/lib/toast'
+import Modal from '@/components/Modal'
 
 const TYPE_STYLES: Record<Notice['type'], string> = {
   general: 'bg-[#f0efe9] text-muted',
@@ -19,8 +21,32 @@ const TYPE_LABELS: Record<Notice['type'], string> = {
 
 export default function CommunicationsPage() {
   const { user } = useMockAuth()
+  const { addToast } = useToast()
+
+  const [notices, setNotices] = useState<Notice[]>([...mockNotices])
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [form, setForm] = useState({ title: '', body: '', type: 'general' as Notice['type'] })
+
   const canCompose = user?.role === 'agent'
+
+  function handleCompose() {
+    if (!form.title.trim() || !form.body.trim()) return
+    const newNotice: Notice = {
+      id: `notice-${Date.now()}`,
+      scheme_id: 'scheme-001',
+      title: form.title.trim(),
+      body: form.body.trim(),
+      sent_at: new Date().toISOString(),
+      sent_by_name: user?.orgName ?? 'Managing Agent',
+      type: form.type,
+    }
+    setNotices(prev => [newNotice, ...prev])
+    setExpanded(newNotice.id)
+    setShowModal(false)
+    setForm({ title: '', body: '', type: 'general' })
+    addToast('Notice sent to all residents', 'success')
+  }
 
   return (
     <div className="px-8 py-8 max-w-[900px]">
@@ -29,16 +55,19 @@ export default function CommunicationsPage() {
       <p className="text-[14px] text-muted mb-8">Notices, announcements, and correspondence.</p>
 
       <div className="flex items-center justify-between mb-6">
-        <span className="text-[13px] text-muted">{mockNotices.length} notices</span>
+        <span className="text-[13px] text-muted">{notices.length} notices</span>
         {canCompose && (
-          <button className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors">
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+          >
             + Compose notice
           </button>
         )}
       </div>
 
       <div className="flex flex-col gap-3">
-        {mockNotices.map(notice => (
+        {notices.map(notice => (
           <div key={notice.id} className="bg-white border border-border rounded-lg overflow-hidden">
             <button
               className="w-full px-5 py-4 flex items-start justify-between gap-4 text-left hover:bg-page transition-colors"
@@ -66,6 +95,62 @@ export default function CommunicationsPage() {
           </div>
         ))}
       </div>
+
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Compose notice">
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[12px] font-semibold text-ink block mb-1">Type</label>
+              <select
+                value={form.type}
+                onChange={e => setForm(f => ({ ...f, type: e.target.value as Notice['type'] }))}
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              >
+                <option value="general">General</option>
+                <option value="urgent">Urgent</option>
+                <option value="agm">AGM</option>
+                <option value="levy">Levy</option>
+              </select>
+            </div>
+            <div />
+          </div>
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Subject *</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="Notice subject"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+            />
+          </div>
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Body *</label>
+            <textarea
+              value={form.body}
+              onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+              placeholder="Write your notice here…"
+              rows={5}
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent resize-none"
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleCompose}
+              disabled={!form.title.trim() || !form.body.trim()}
+              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Send to all residents
+            </button>
+            <button
+              onClick={() => setShowModal(false)}
+              className="px-4 text-[13px] font-medium text-muted hover:text-ink border border-border rounded py-2 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

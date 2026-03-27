@@ -41,7 +41,7 @@ export const mockLevyPeriod: LevyPeriod = {
 export const mockLevyRoll: LevyAccount[] = [
   { id: 'la-001', unit_id: 'unit-1a', unit_identifier: '1A', owner_name: 'Henderson, T.',    period_id: 'period-oct-2025', amount_cents: 245000, paid_cents: 245000, status: 'paid',    due_date: '2025-10-01', paid_date: '2025-09-28' },
   { id: 'la-002', unit_id: 'unit-2b', unit_identifier: '2B', owner_name: 'Molefe, S.',        period_id: 'period-oct-2025', amount_cents: 245000, paid_cents: 120000, status: 'partial', due_date: '2025-10-01', paid_date: '2025-10-03' },
-  { id: 'la-003', unit_id: 'unit-3a', unit_identifier: '3A', owner_name: 'van der Berg, L.', period_id: 'period-oct-2025', amount_cents: 310000, paid_cents: 0,      status: 'overdue', due_date: '2025-10-01', paid_date: null },
+  { id: 'la-003', unit_id: 'unit-3a', unit_identifier: '3A', owner_name: 'van der Berg, L.', period_id: 'period-oct-2025', amount_cents: 245000, paid_cents: 0,      status: 'overdue', due_date: '2025-10-01', paid_date: null },
   { id: 'la-004', unit_id: 'unit-4b', unit_identifier: '4B', owner_name: 'Naidoo, R.',       period_id: 'period-oct-2025', amount_cents: 245000, paid_cents: 245000, status: 'paid',    due_date: '2025-10-01', paid_date: '2025-09-30' },
   { id: 'la-005', unit_id: 'unit-5a', unit_identifier: '5A', owner_name: 'Khumalo, B.',      period_id: 'period-oct-2025', amount_cents: 245000, paid_cents: 245000, status: 'paid',    due_date: '2025-10-01', paid_date: '2025-10-01' },
   { id: 'la-006', unit_id: 'unit-6c', unit_identifier: '6C', owner_name: 'Abrahams, J.',    period_id: 'period-oct-2025', amount_cents: 245000, paid_cents: 0,      status: 'overdue', due_date: '2025-10-01', paid_date: null },

@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useMockAuth } from '@/lib/mock-auth'
 import { mockScheme } from '@/lib/mock/scheme'
 import { mockLevyRoll, mockCollectionTrend } from '@/lib/mock/levy'
@@ -50,7 +51,7 @@ export default function SchemeOverviewPage() {
         <h2 className="text-[13px] font-semibold text-ink mb-3">Recent notices</h2>
         <div className="flex flex-col gap-2">
           {recentNotices.map(n => (
-            <div key={n.id} className="bg-white border border-border rounded-lg px-5 py-3 flex items-center justify-between">
+            <Link key={n.id} href={`/app/${mockScheme.id}/communications`} className="bg-white border border-border rounded-lg px-5 py-3 flex items-center justify-between hover:bg-page transition-colors">
               <div>
                 <div className="text-[13px] font-medium text-ink">{n.title}</div>
                 <div className="text-[11px] text-muted mt-0.5">
@@ -58,7 +59,7 @@ export default function SchemeOverviewPage() {
                 </div>
               </div>
               <span className="text-[12px] text-accent font-medium">Read →</span>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

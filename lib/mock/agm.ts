@@ -70,3 +70,26 @@ export const mockUpcomingAgm: AgmMeeting = {
   quorum_present: 0,
   status: 'upcoming',
 }
+
+export const mockUpcomingResolutions: AgmResolution[] = [
+  {
+    id: 'res-004',
+    meeting_id: 'agm-2026',
+    title: 'Approval of 2027 maintenance budget',
+    description: 'Proposed total maintenance budget of R520,000 for financial year 2027, reflecting a 7% increase over 2026 actuals.',
+    votes_for: 0,
+    votes_against: 0,
+    total_eligible: 48,
+    status: 'open',
+  },
+  {
+    id: 'res-005',
+    meeting_id: 'agm-2026',
+    title: 'Levy increase — 5% from January 2027',
+    description: 'Proposed increase of standard levy from R2,597 to R2,727 per month effective 1 January 2027, in line with projected CPI.',
+    votes_for: 0,
+    votes_against: 0,
+    total_eligible: 48,
+    status: 'open',
+  },
+]

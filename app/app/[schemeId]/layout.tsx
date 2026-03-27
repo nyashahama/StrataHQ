@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useMockAuth } from '@/lib/mock-auth'
 import AppShell from '@/components/AppShell'
 import Sidebar, { type SidebarRole } from '@/components/Sidebar'
+import { ToastProvider } from '@/lib/toast'
 
 export default function SchemeLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useMockAuth()
@@ -29,16 +30,18 @@ export default function SchemeLayout({ children }: { children: React.ReactNode }
       : user.schemeName
 
   return (
-    <AppShell
-      sidebar={
-        <Sidebar
-          role={sidebarRole}
-          headerLabel={headerLabel}
-          schemeId={schemeId}
-        />
-      }
-    >
-      {children}
-    </AppShell>
+    <ToastProvider>
+      <AppShell
+        sidebar={
+          <Sidebar
+            role={sidebarRole}
+            headerLabel={headerLabel}
+            schemeId={schemeId}
+          />
+        }
+      >
+        {children}
+      </AppShell>
+    </ToastProvider>
   )
 }

@@ -29,13 +29,13 @@ export default function SchemeOverviewPage() {
     const recentNotices = mockNotices.slice(0, 3)
 
     return (
-      <div className="px-8 py-8 max-w-[900px]">
+      <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">
           {mockScheme.name}
         </h1>
         <p className="text-[14px] text-muted mb-8">Unit {user.unitIdentifier} · Welcome back.</p>
 
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
           {[
             { label: 'My levy', value: myLevyAccount ? (myLevyAccount.status === 'paid' ? 'Paid ✓' : 'Due') : '—' },
             { label: 'Open requests', value: String(myRequests.length) },
@@ -100,7 +100,7 @@ export default function SchemeOverviewPage() {
       </h1>
       <p className="text-[14px] text-muted mb-8">Scheme at a glance.</p>
 
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
         {[
           { label: 'Total units',          value: String(mockScheme.unit_count) },
           { label: 'Levies collected',     value: `${collectionPct}%` },
@@ -114,7 +114,7 @@ export default function SchemeOverviewPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         {/* Activity feed */}
         <div>
           <h2 className="text-[13px] font-semibold text-ink mb-3">Recent activity</h2>

@@ -18,7 +18,7 @@ export default function AgentSettingsPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-[700px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[700px]">
       <p className="text-[12px] text-muted mb-4">Settings</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Settings</h1>
       <p className="text-[14px] text-muted mb-8">Organisation and account settings.</p>

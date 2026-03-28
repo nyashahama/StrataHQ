@@ -30,15 +30,15 @@ export default function Hero() {
         <div className="flex flex-wrap items-center gap-[10px] mb-4">
           <Link
             href="#"
-            className="px-6 py-[10px] text-[15px] font-medium text-white bg-ink border border-ink
-              rounded hover:bg-ink-2 transition-colors duration-150 no-underline"
+            className="px-6 py-[10px] text-[15px] font-medium text-white bg-accent border border-accent
+              rounded hover:opacity-90 transition-opacity duration-150 no-underline"
           >
             Start free trial →
           </Link>
           <Link
             href="/demo"
             className="inline-flex items-center gap-2 px-6 py-[10px] text-[15px] font-medium text-accent
-              bg-accent-bg border border-[rgba(43,108,176,0.2)] rounded hover:bg-[rgba(43,108,176,0.12)] transition-colors duration-150 no-underline"
+              bg-accent-bg border border-[rgba(43,108,176,0.2)] rounded hover:bg-accent-dim transition-colors duration-150 no-underline"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60" />

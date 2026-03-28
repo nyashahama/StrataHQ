@@ -91,7 +91,7 @@ export default function ProblemSection() {
               {timeline.map(({ time, icon, color, dotColor, event, detail }) => (
                 <div
                   key={time}
-                  className="flex gap-4 px-[18px] py-4 rounded-lg hover:bg-[rgba(55,53,47,0.03)] transition-colors duration-150 cursor-default"
+                  className="flex gap-4 px-[18px] py-4 rounded-lg hover:bg-hover-subtle transition-colors duration-150 cursor-default"
                 >
                   {/* Dot */}
                   <div className="relative flex-shrink-0 pt-[3px] hidden sm:block">

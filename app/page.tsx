@@ -14,7 +14,7 @@ import Footer from '@/components/Footer'
 
 export default function Home() {
   return (
-    <div className="landing">
+    <>
       <Nav />
       <main>
         <Hero />
@@ -30,6 +30,6 @@ export default function Home() {
         <CTASection />
       </main>
       <Footer />
-    </div>
+    </>
   )
 }

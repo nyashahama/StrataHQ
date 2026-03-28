@@ -179,8 +179,8 @@ export default function RolesSection() {
                 onClick={() => setActiveId(role.id)}
                 className={`w-full text-left px-[14px] py-[11px] rounded border-none text-[14px] cursor-pointer flex items-center gap-[10px] transition-colors duration-150
                   ${activeId === role.id
-                    ? 'bg-[rgba(55,53,47,0.06)] text-ink font-medium'
-                    : 'bg-transparent text-muted font-normal hover:bg-[rgba(55,53,47,0.06)] hover:text-ink'
+                    ? 'bg-hover-subtle text-ink font-medium'
+                    : 'bg-transparent text-muted font-normal hover:bg-hover-subtle hover:text-ink'
                   }`}
               >
                 {roleIcons[role.id]}

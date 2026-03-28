@@ -65,8 +65,8 @@ export default function DemoTeaser() {
 
             <Link
               href="/demo"
-              className="inline-flex items-center gap-2 px-7 py-3 text-[15px] font-medium text-white bg-ink
-                border border-ink rounded hover:bg-ink-2 transition-colors duration-150 no-underline"
+              className="inline-flex items-center gap-2 px-7 py-3 text-[15px] font-medium text-white bg-accent
+                border border-accent rounded hover:opacity-90 transition-opacity duration-150 no-underline"
             >
               Open interactive demo →
             </Link>
@@ -95,7 +95,7 @@ export default function DemoTeaser() {
                 {/* Sidebar */}
                 <div className="w-[140px] flex-shrink-0 bg-surface border-r border-border flex flex-col py-2 px-1.5 gap-[1px]">
                   <div className="flex items-center gap-1.5 px-2 py-1.5 mb-1">
-                    <div className="w-[18px] h-[18px] bg-ink rounded-[3px] grid place-items-center flex-shrink-0">
+                    <div className="w-[18px] h-[18px] bg-sidebar-header rounded-[3px] grid place-items-center flex-shrink-0">
                       <svg viewBox="0 0 16 16" className="w-[9px] h-[9px] fill-white"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 10h5v4H2v-4zm7 1h2v-2h2v2h2v2h-2v2H9v-2H7v-2h2v-2z"/></svg>
                     </div>
                     <span className="text-[11px] font-semibold text-ink">StrataHQ</span>
@@ -110,12 +110,12 @@ export default function DemoTeaser() {
                   ].map(({ icon, label, active, badge }) => (
                     <div
                       key={label}
-                      className={`flex items-center gap-1.5 px-2 py-[5px] rounded text-[11px] ${active ? 'bg-[rgba(55,53,47,0.07)] text-ink font-medium' : 'text-ink-2'}`}
+                      className={`flex items-center gap-1.5 px-2 py-[5px] rounded text-[11px] ${active ? 'bg-hover-subtle text-ink font-medium' : 'text-ink-2'}`}
                     >
                       <span className="text-[11px] w-[14px] text-center flex-shrink-0">{icon}</span>
                       <span className="flex-1 truncate">{label}</span>
                       {badge && (
-                        <span className="text-[9px] font-bold bg-[#EBF2FA] text-accent px-[5px] py-[1px] rounded-full">{badge}</span>
+                        <span className="text-[9px] font-bold bg-accent-bg text-accent px-[5px] py-[1px] rounded-full">{badge}</span>
                       )}
                     </div>
                   ))}

@@ -15,8 +15,8 @@ export default function CTASection() {
           <div className="flex flex-wrap items-center justify-center gap-[10px] mb-[14px]">
             <Link
               href="#"
-              className="px-7 py-3 text-[15px] font-medium text-white bg-ink border border-ink
-                rounded hover:bg-ink-2 transition-colors duration-150 no-underline"
+              className="px-7 py-3 text-[15px] font-medium text-white bg-accent border border-accent
+                rounded hover:opacity-90 transition-opacity duration-150 no-underline"
             >
               Start free trial →
             </Link>

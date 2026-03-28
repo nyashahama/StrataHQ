@@ -17,11 +17,11 @@ const alerts = [
     icon: '📉',
     color: 'bg-yellowbg border-[rgba(146,64,14,0.15)]',
     label: 'COLLECTION ALERT',
-    labelColor: 'text-[#92400E]',
+    labelColor: 'text-amber',
     title: 'Parkview Towers — collection dipped',
     body: '89% collected vs 94% last month. 7 units unpaid. Automated reminders not yet sent — act now.',
     action: 'Send reminders →',
-    actionColor: 'bg-accent-bg border-[rgba(43,108,176,0.2)] text-accent hover:bg-[rgba(43,108,176,0.12)]',
+    actionColor: 'bg-accent-bg border-[rgba(43,108,176,0.2)] text-accent hover:bg-accent-dim',
   },
   {
     icon: '📅',
@@ -31,11 +31,10 @@ const alerts = [
     title: 'Seapoint Villas — fund depletion risk',
     body: 'At current spend, reserve fund depletes in 7.4 years. Recommend R 120/unit/month increase to meet 10-year plan.',
     action: 'Model scenarios →',
-    actionColor: 'bg-page border-border-2 text-ink-2 hover:bg-border',
+    actionColor: 'bg-page border-border-2 text-ink-2 hover:bg-hover-subtle',
   },
 ]
 
-// SVG donut component inlined as JSX
 function HealthRing({ score, color }: { score: number; color: string }) {
   const r = 36
   const circ = 2 * Math.PI * r
@@ -43,11 +42,11 @@ function HealthRing({ score, color }: { score: number; color: string }) {
   const offset = circ * 0.25
   return (
     <svg width="96" height="96" viewBox="0 0 96 96">
-      <circle cx="48" cy="48" r={r} fill="none" stroke="#E3E2DF" strokeWidth="8" />
+      <circle cx="48" cy="48" r={r} fill="none" style={{ stroke: 'var(--color-border)' }} strokeWidth="8" />
       <circle
         cx="48" cy="48" r={r}
         fill="none"
-        stroke={color}
+        style={{ stroke: color }}
         strokeWidth="8"
         strokeDasharray={`${dash.toFixed(1)} ${(circ - dash).toFixed(1)}`}
         strokeDashoffset={offset.toFixed(1)}
@@ -58,11 +57,11 @@ function HealthRing({ score, color }: { score: number; color: string }) {
 }
 
 const schemes = [
-  { name: 'Rosewood Estate', pct: 94, color: '#276749' },
-  { name: 'Seapoint Villas', pct: 97, color: '#276749' },
-  { name: 'Midrand Heights', pct: 91, color: '#276749' },
-  { name: 'Parkview Towers', pct: 89, color: '#92400E' },
-  { name: 'Bryanston Gardens', pct: 74, color: '#9B2C2C' },
+  { name: 'Rosewood Estate',   pct: 94, color: 'var(--color-green)' },
+  { name: 'Seapoint Villas',   pct: 97, color: 'var(--color-green)' },
+  { name: 'Midrand Heights',   pct: 91, color: 'var(--color-green)' },
+  { name: 'Parkview Towers',   pct: 89, color: 'var(--color-amber)' },
+  { name: 'Bryanston Gardens', pct: 74, color: 'var(--color-red)'   },
 ]
 
 function MiniRing({ pct, color }: { pct: number; color: string }) {
@@ -72,11 +71,11 @@ function MiniRing({ pct, color }: { pct: number; color: string }) {
   const offset = circ * 0.25
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" className="flex-shrink-0">
-      <circle cx="14" cy="14" r={r} fill="none" stroke="#E3E2DF" strokeWidth="3" />
+      <circle cx="14" cy="14" r={r} fill="none" style={{ stroke: 'var(--color-border)' }} strokeWidth="3" />
       <circle
         cx="14" cy="14" r={r}
         fill="none"
-        stroke={color}
+        style={{ stroke: color }}
         strokeWidth="3"
         strokeDasharray={`${dash.toFixed(1)} ${(circ - dash).toFixed(1)}`}
         strokeDashoffset={offset.toFixed(1)}
@@ -87,7 +86,7 @@ function MiniRing({ pct, color }: { pct: number; color: string }) {
         textAnchor="middle"
         fontSize="6.5"
         fontWeight="700"
-        fill={color}
+        style={{ fill: color }}
         fontFamily="DM Sans, sans-serif"
       >{pct}</text>
     </svg>
@@ -128,10 +127,9 @@ export default function InsightsSection() {
               Portfolio Health Score
             </p>
 
-            {/* Big ring */}
             <div className="flex items-center gap-4 mb-5">
               <div className="relative flex-shrink-0">
-                <HealthRing score={87} color="#276749" />
+                <HealthRing score={87} color="var(--color-green)" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="font-serif text-[22px] font-bold text-ink leading-none">87</span>
                   <span className="text-[9px] font-semibold text-muted uppercase tracking-[0.05em] mt-[2px]">/ 100</span>
@@ -145,7 +143,6 @@ export default function InsightsSection() {
               </div>
             </div>
 
-            {/* Scheme mini rings */}
             <div className="flex flex-col gap-[6px]">
               {schemes.map(({ name, pct, color }) => (
                 <div key={name} className="flex items-center gap-2">
@@ -158,10 +155,10 @@ export default function InsightsSection() {
             </div>
           </div>
 
-          {/* Panel 2: Predictive Alerts (featured) */}
-          <div className="bg-ink rounded-lg p-5 lg:col-span-1">
+          {/* Panel 2: Predictive Alerts (always-dark navy panel) */}
+          <div className="bg-sidebar-header rounded-lg p-5 lg:col-span-1">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-[rgba(247,246,243,0.5)]">
+              <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-white/50">
                 Predictive Alerts
               </p>
               <span className="text-[10px] font-semibold px-2 py-[3px] rounded-full bg-red-bg text-red">
@@ -179,7 +176,7 @@ export default function InsightsSection() {
                   aria-label={`Alert ${i + 1}`}
                 >
                   <span className={`block h-[3px] w-full rounded-full transition-colors duration-150 ${
-                    activeAlert === i ? 'bg-[rgba(247,246,243,0.8)]' : 'bg-[rgba(247,246,243,0.2)]'
+                    activeAlert === i ? 'bg-white/80' : 'bg-white/20'
                   }`} />
                 </button>
               ))}
@@ -195,8 +192,8 @@ export default function InsightsSection() {
                   <span className="text-[12px]">{a.icon}</span>
                   <span className={`text-[10px] font-bold tracking-[0.07em] ${a.labelColor}`}>{a.label}</span>
                 </div>
-                <div className="text-[14px] font-semibold text-page leading-[1.3] mb-2">{a.title}</div>
-                <div className="text-[12px] text-[rgba(247,246,243,0.6)] leading-[1.6] mb-4">{a.body}</div>
+                <div className="text-[14px] font-semibold text-white leading-[1.3] mb-2">{a.title}</div>
+                <div className="text-[12px] text-white/60 leading-[1.6] mb-4">{a.body}</div>
                 <button
                   className={`text-[12px] font-medium px-3 py-[6px] rounded border transition-colors duration-150 cursor-pointer ${a.actionColor}`}
                   onClick={() => {}}
@@ -206,8 +203,8 @@ export default function InsightsSection() {
               </div>
             ))}
 
-            <div className="mt-5 pt-4 border-t border-[rgba(247,246,243,0.1)]">
-              <div className="text-[12px] text-[rgba(247,246,243,0.4)] leading-[1.55]">
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <div className="text-[12px] text-white/40 leading-[1.55]">
                 Alerts are generated from live scheme data — not static rules. StrataHQ learns from payment patterns, SLA history, and fund trajectories.
               </div>
             </div>
@@ -219,7 +216,6 @@ export default function InsightsSection() {
               Portfolio Analytics
             </p>
 
-            {/* Mini stat row */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               {[
                 { label: 'Avg Collection', val: '94%', delta: '↑ +7pp YoY', up: true },
@@ -235,7 +231,6 @@ export default function InsightsSection() {
               ))}
             </div>
 
-            {/* Mini bar chart */}
             <div className="bg-surface border border-border rounded p-3">
               <div className="text-[11px] font-semibold text-ink mb-3">Monthly levy collection rate</div>
               <div className="flex items-end gap-[5px] h-[48px]">
@@ -244,14 +239,14 @@ export default function InsightsSection() {
                   const heightPct = ((v - 80) / 20) * 100
                   return (
                     <div key={i} className="flex-1 flex flex-col items-center justify-end gap-[2px]">
-                      <span className="text-[8px] font-semibold" style={{ color: last ? '#2B6CB0' : '#787672' }}>
+                      <span className="text-[8px] font-semibold" style={{ color: last ? 'var(--color-accent)' : 'var(--color-muted)' }}>
                         {v}%
                       </span>
                       <div
                         className="w-full rounded-sm"
                         style={{
                           height: `${heightPct}%`,
-                          background: last ? '#2B6CB0' : '#E3E2DF',
+                          background: last ? 'var(--color-accent)' : 'var(--color-border)',
                           minHeight: 4,
                         }}
                       />

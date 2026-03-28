@@ -47,28 +47,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Landing page: always light mode regardless of user theme ─── */
-.landing,
-.landing * {
-  --color-page:            #F7F6F3;
-  --color-surface:         #FFFFFF;
-  --color-ink:             #37352F;
-  --color-ink-2:           #4D4B45;
-  --color-muted:           #787672;
-  --color-muted-2:         #A8A49E;
-  --color-border:          #E3E2DF;
-  --color-border-2:        #CECDCA;
-  --color-accent:          #2B6CB0;
-  --color-accent-bg:       #EBF2FA;
-  --color-accent-dim:      rgba(43,108,176,0.08);
-  --color-green:           #276749;
-  --color-green-bg:        #F0FFF4;
-  --color-red:             #9B2C2C;
-  --color-red-bg:          #FFF5F5;
-  --color-yellowbg:        #FFFBEB;
-  --color-amber:           #92400E;
-  --color-sidebar-header:  #2D4A6E;
-  --color-hover-subtle:    #F0EFE9;
+/* ─── Nav glass surface — adapts to dark mode ─── */
+.nav-surface {
+  background: rgba(247, 246, 243, 0.92);
+}
+.dark .nav-surface {
+  background: rgba(15, 15, 14, 0.90);
 }
 
 /* ─── Scroll Reveal ─── */

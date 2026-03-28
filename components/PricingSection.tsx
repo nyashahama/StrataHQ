@@ -73,32 +73,32 @@ export default function PricingSection() {
               key={name}
               className={`relative rounded-lg p-[clamp(22px,3vw,32px)] border transition-shadow duration-200 hover:shadow
                 ${featured
-                  ? 'bg-ink border-ink text-page'
+                  ? 'bg-sidebar-header border-sidebar-header'
                   : 'bg-surface border-border'
                 }`}
             >
               {featured && (
-                <span className="absolute -top-[11px] left-1/2 -translate-x-1/2 text-[11px] font-semibold text-page bg-ink px-3 py-[3px] rounded-full whitespace-nowrap tracking-[0.04em]">
+                <span className="absolute -top-[11px] left-1/2 -translate-x-1/2 text-[11px] font-semibold text-white bg-accent px-3 py-[3px] rounded-full whitespace-nowrap tracking-[0.04em]">
                   Most popular
                 </span>
               )}
 
-              <div className={`text-[13px] font-semibold mb-3 ${featured ? 'text-[rgba(247,246,243,0.5)]' : 'text-muted'}`}>
+              <div className={`text-[13px] font-semibold mb-3 ${featured ? 'text-white/50' : 'text-muted'}`}>
                 {name}
               </div>
-              <div className={`font-serif text-clamp-price font-bold tracking-[-0.03em] leading-none mb-1 ${featured ? 'text-page' : 'text-ink'}`}>
+              <div className={`font-serif text-clamp-price font-bold tracking-[-0.03em] leading-none mb-1 ${featured ? 'text-white' : 'text-ink'}`}>
                 {amount}
               </div>
-              <div className={`text-[13px] mb-5 ${featured ? 'text-[rgba(247,246,243,0.5)]' : 'text-muted'}`}>
+              <div className={`text-[13px] mb-5 ${featured ? 'text-white/50' : 'text-muted'}`}>
                 {per}
               </div>
 
-              <hr className={`border-none border-t my-4 ${featured ? 'border-[rgba(247,246,243,0.12)]' : 'border-border'}`} style={{ borderTopWidth: 1 }} />
+              <hr className={`border-none border-t my-4 ${featured ? 'border-white/[0.12]' : 'border-border'}`} style={{ borderTopWidth: 1 }} />
 
               <ul className="flex flex-col gap-2">
                 {features.map((f) => (
-                  <li key={f} className={`text-[13px] flex items-center gap-2 ${featured ? 'text-[rgba(247,246,243,0.75)]' : 'text-ink-2'}`}>
-                    <span className={`text-[11px] flex-shrink-0 ${featured ? 'text-[#68d391]' : 'text-green'}`}>✓</span>
+                  <li key={f} className={`text-[13px] flex items-center gap-2 ${featured ? 'text-white/75' : 'text-ink-2'}`}>
+                    <span className={`text-[11px] flex-shrink-0 ${featured ? 'text-green' : 'text-green'}`}>✓</span>
                     {f}
                   </li>
                 ))}
@@ -108,8 +108,8 @@ export default function PricingSection() {
                 href="#"
                 className={`block w-full mt-6 py-[10px] text-center text-[14px] font-medium rounded border no-underline transition-colors duration-150
                   ${featured
-                    ? 'bg-page border-page text-ink hover:bg-[#e8e7e3]'
-                    : 'bg-page border-border-2 text-ink hover:bg-border'
+                    ? 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                    : 'bg-page border-border-2 text-ink hover:bg-hover-subtle'
                   }`}
               >
                 {cta}

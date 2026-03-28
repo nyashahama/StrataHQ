@@ -21,7 +21,9 @@ func TestHealthz(t *testing.T) {
 	var resp struct {
 		Data map[string]string `json:"data"`
 	}
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if resp.Data["status"] != "ok" {
 		t.Errorf("data.status = %q, want %q", resp.Data["status"], "ok")
 	}

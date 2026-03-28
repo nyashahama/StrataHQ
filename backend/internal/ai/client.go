@@ -9,8 +9,8 @@ import (
 )
 
 type Client struct {
-	client openai.Client
 	model  string
+	client openai.Client
 }
 
 func NewClient(cfg Config) *Client {

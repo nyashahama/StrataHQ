@@ -28,19 +28,19 @@ type ErrorBody struct {
 func JSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(SuccessResponse{Data: data})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Data: data})
 }
 
 func JSONList(w http.ResponseWriter, status int, data any, meta Meta) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(SuccessResponse{Data: data, Meta: &meta})
+	_ = json.NewEncoder(w).Encode(SuccessResponse{Data: data, Meta: &meta})
 }
 
 func Error(w http.ResponseWriter, status int, code string, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(ErrorResponse{
+	_ = json.NewEncoder(w).Encode(ErrorResponse{
 		Err: ErrorBody{Code: code, Message: message},
 	})
 }

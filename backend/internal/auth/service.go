@@ -37,8 +37,8 @@ type OrgInfo struct {
 type AuthResponse struct {
 	AccessToken  string   `json:"access_token"`
 	RefreshToken string   `json:"refresh_token"`
-	ExpiresIn    int      `json:"expires_in"` // seconds
 	User         UserInfo `json:"user"`
+	ExpiresIn    int      `json:"expires_in"` // seconds
 }
 
 type RefreshResponse struct {
@@ -134,7 +134,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*AuthRespo
 		return nil, ErrInvalidCredentials
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, ErrInvalidCredentials
 	}
 

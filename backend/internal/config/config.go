@@ -8,26 +8,20 @@ import (
 )
 
 type Config struct {
-	Port string
-	Env  string
-
-	DatabaseURL string
-	RedisURL    string
-
-	JWTSecret     string
-	JWTExpiry     time.Duration
-	RefreshExpiry time.Duration
-
+	Port                string
+	Env                 string
+	DatabaseURL         string
+	RedisURL            string
+	JWTSecret           string
 	StripeSecretKey     string
 	StripeWebhookSecret string
-
-	ResendAPIKey string
-
-	AIBaseURL string
-	AIAPIKey  string
-	AIModel   string
-
-	AllowedOrigins []string
+	ResendAPIKey        string
+	AIBaseURL           string
+	AIAPIKey            string
+	AIModel             string
+	AllowedOrigins      []string
+	JWTExpiry           time.Duration
+	RefreshExpiry       time.Duration
 }
 
 func Load() (*Config, error) {

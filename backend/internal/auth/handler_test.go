@@ -101,7 +101,9 @@ func TestRegister_Success(t *testing.T) {
 	var resp struct {
 		Data AuthResponse `json:"data"`
 	}
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if resp.Data.AccessToken == "" {
 		t.Error("expected access_token in response")
 	}
@@ -251,7 +253,9 @@ func TestMe_Success(t *testing.T) {
 	var resp struct {
 		Data MeResponse `json:"data"`
 	}
-	json.NewDecoder(w.Body).Decode(&resp)
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
 	if resp.Data.Role != "admin" {
 		t.Errorf("role = %q, want admin", resp.Data.Role)
 	}

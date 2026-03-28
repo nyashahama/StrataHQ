@@ -1,0 +1,258 @@
+package auth
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+// mockService is a test double for Servicer.
+type mockService struct {
+	registerFn func(ctx context.Context, email, password, fullName, orgName string) (*AuthResponse, error)
+	loginFn    func(ctx context.Context, email, password string) (*AuthResponse, error)
+	refreshFn  func(ctx context.Context, refreshToken string) (*RefreshResponse, error)
+	logoutFn   func(ctx context.Context, refreshToken string) error
+	meFn       func(ctx context.Context, userID, orgID string) (*MeResponse, error)
+}
+
+func (m *mockService) Register(ctx context.Context, email, password, fullName, orgName string) (*AuthResponse, error) {
+	return m.registerFn(ctx, email, password, fullName, orgName)
+}
+func (m *mockService) Login(ctx context.Context, email, password string) (*AuthResponse, error) {
+	return m.loginFn(ctx, email, password)
+}
+func (m *mockService) Refresh(ctx context.Context, refreshToken string) (*RefreshResponse, error) {
+	return m.refreshFn(ctx, refreshToken)
+}
+func (m *mockService) Logout(ctx context.Context, refreshToken string) error {
+	return m.logoutFn(ctx, refreshToken)
+}
+func (m *mockService) Me(ctx context.Context, userID, orgID string) (*MeResponse, error) {
+	return m.meFn(ctx, userID, orgID)
+}
+
+// helpers
+
+func body(t *testing.T, m map[string]string) *bytes.Reader {
+	t.Helper()
+	b, _ := json.Marshal(m)
+	return bytes.NewReader(b)
+}
+
+// --- Register ---
+
+func TestRegister_BadJSON(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBufferString("not-json"))
+	w := httptest.NewRecorder()
+	h.Register(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestRegister_MissingFields(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{"email": "a@b.com"}))
+	w := httptest.NewRecorder()
+	h.Register(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestRegister_DuplicateEmail(t *testing.T) {
+	svc := &mockService{
+		registerFn: func(_ context.Context, _, _, _, _ string) (*AuthResponse, error) {
+			return nil, ErrEmailExists
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
+		"email": "a@b.com", "password": "pass", "full_name": "A B", "org_name": "Org",
+	}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Register(w, req)
+	if w.Code != http.StatusConflict {
+		t.Errorf("status = %d, want 409", w.Code)
+	}
+}
+
+func TestRegister_Success(t *testing.T) {
+	svc := &mockService{
+		registerFn: func(_ context.Context, _, _, _, _ string) (*AuthResponse, error) {
+			return &AuthResponse{
+				AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 900,
+				User: UserInfo{ID: "u1", Email: "a@b.com", FullName: "A B"},
+			}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
+		"email": "a@b.com", "password": "pass", "full_name": "A B", "org_name": "Org",
+	}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Register(w, req)
+	if w.Code != http.StatusCreated {
+		t.Errorf("status = %d, want 201", w.Code)
+	}
+	var resp struct {
+		Data AuthResponse `json:"data"`
+	}
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Data.AccessToken == "" {
+		t.Error("expected access_token in response")
+	}
+}
+
+// --- Login ---
+
+func TestLogin_BadJSON(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBufferString("bad"))
+	w := httptest.NewRecorder()
+	h.Login(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestLogin_InvalidCredentials(t *testing.T) {
+	svc := &mockService{
+		loginFn: func(_ context.Context, _, _ string) (*AuthResponse, error) {
+			return nil, ErrInvalidCredentials
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/login", body(t, map[string]string{
+		"email": "a@b.com", "password": "wrong",
+	}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Login(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestLogin_Success(t *testing.T) {
+	svc := &mockService{
+		loginFn: func(_ context.Context, _, _ string) (*AuthResponse, error) {
+			return &AuthResponse{
+				AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 900,
+				User: UserInfo{ID: "u1", Email: "a@b.com", FullName: "A B"},
+			}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/login", body(t, map[string]string{
+		"email": "a@b.com", "password": "pass",
+	}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Login(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+}
+
+// --- Refresh ---
+
+func TestRefresh_MissingToken(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/refresh", body(t, map[string]string{}))
+	w := httptest.NewRecorder()
+	h.Refresh(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestRefresh_InvalidToken(t *testing.T) {
+	svc := &mockService{
+		refreshFn: func(_ context.Context, _ string) (*RefreshResponse, error) {
+			return nil, ErrInvalidToken
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/refresh", body(t, map[string]string{"refresh_token": "bad"}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Refresh(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestRefresh_Success(t *testing.T) {
+	svc := &mockService{
+		refreshFn: func(_ context.Context, _ string) (*RefreshResponse, error) {
+			return &RefreshResponse{AccessToken: "new", RefreshToken: "new-rt", ExpiresIn: 900}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/refresh", body(t, map[string]string{"refresh_token": "old"}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Refresh(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+}
+
+// --- Logout ---
+
+func TestLogout_NoContent(t *testing.T) {
+	svc := &mockService{logoutFn: func(_ context.Context, _ string) error { return nil }}
+	req := httptest.NewRequest(http.MethodPost, "/logout", body(t, map[string]string{"refresh_token": "tok"}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Logout(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("status = %d, want 204", w.Code)
+	}
+}
+
+func TestLogout_Idempotent(t *testing.T) {
+	svc := &mockService{logoutFn: func(_ context.Context, _ string) error {
+		return errors.New("not found")
+	}}
+	req := httptest.NewRequest(http.MethodPost, "/logout", body(t, map[string]string{"refresh_token": "gone"}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Logout(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("status = %d, want 204 even on service error", w.Code)
+	}
+}
+
+// --- Me ---
+
+func TestMe_MissingContext(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	w := httptest.NewRecorder()
+	h.Me(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestMe_Success(t *testing.T) {
+	svc := &mockService{
+		meFn: func(_ context.Context, _, _ string) (*MeResponse, error) {
+			return &MeResponse{
+				ID: "u1", Email: "a@b.com", FullName: "A B",
+				Org: OrgInfo{ID: "o1", Name: "Org"}, Role: "admin",
+			}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/me", nil)
+	ctx := context.WithValue(req.Context(), UserIDKey, "u1")
+	ctx = context.WithValue(ctx, OrgIDKey, "o1")
+	req = req.WithContext(ctx)
+	w := httptest.NewRecorder()
+	NewHandler(svc).Me(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+	var resp struct {
+		Data MeResponse `json:"data"`
+	}
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Data.Role != "admin" {
+		t.Errorf("role = %q, want admin", resp.Data.Role)
+	}
+}

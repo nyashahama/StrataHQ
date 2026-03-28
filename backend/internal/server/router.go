@@ -8,12 +8,26 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/levy"
+	"github.com/stratahq/backend/internal/maintenance"
 	"github.com/stratahq/backend/internal/middleware"
 	"github.com/stratahq/backend/internal/platform/health"
+	"github.com/stratahq/backend/internal/scheme"
 )
 
-func NewRouter(cfg *config.Config, logger *slog.Logger, healthHandler *health.Handler, rdb *redis.Client) *chi.Mux {
+type Handlers struct {
+	Health      *health.Handler
+	Auth        *auth.Handler
+	Scheme      *scheme.Handler
+	Levy        *levy.Handler
+	Maintenance *maintenance.Handler
+	Billing     *billing.Handler
+}
+
+func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Handlers) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware stack
@@ -24,26 +38,25 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, healthHandler *health.Ha
 	r.Use(middleware.RateLimit(rdb, 100, 1*time.Minute))
 
 	// Health & metrics (outside /api/v1, no auth)
-	r.Get("/healthz", healthHandler.Healthz)
-	r.Get("/readyz", healthHandler.Readyz)
+	r.Get("/healthz", h.Health.Healthz)
+	r.Get("/readyz", h.Health.Readyz)
 	r.Handle("/metrics", promhttp.Handler())
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public routes
 		r.Group(func(r chi.Router) {
-			// Auth routes will be mounted here
-			// Stripe webhook routes will be mounted here
+			r.Mount("/auth", h.Auth.Routes())
+			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
 		})
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret))
-			// Domain routes will be mounted here:
-			// r.Mount("/schemes", scheme.Routes())
-			// r.Mount("/levies", levy.Routes())
-			// r.Mount("/maintenance", maintenance.Routes())
-			// r.Mount("/billing", billing.Routes())
+			r.Mount("/schemes", h.Scheme.Routes())
+			r.Mount("/levies", h.Levy.Routes())
+			r.Mount("/maintenance", h.Maintenance.Routes())
+			r.Mount("/billing", h.Billing.Routes())
 		})
 	})
 

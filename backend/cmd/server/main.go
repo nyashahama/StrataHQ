@@ -7,10 +7,15 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/levy"
+	"github.com/stratahq/backend/internal/maintenance"
 	"github.com/stratahq/backend/internal/platform/cache"
 	"github.com/stratahq/backend/internal/platform/database"
 	"github.com/stratahq/backend/internal/platform/health"
+	"github.com/stratahq/backend/internal/scheme"
 	"github.com/stratahq/backend/internal/server"
 )
 
@@ -53,11 +58,25 @@ func main() {
 	defer rdb.Close()
 	logger.Info("redis connected")
 
-	// Health
-	healthHandler := health.New(db, &redisChecker{rdb})
+	// Services
+	authService := auth.NewService(db, rdb)
+	schemeService := scheme.NewService(db)
+	levyService := levy.NewService(db)
+	maintenanceService := maintenance.NewService(db)
+	billingService := billing.NewService(db)
+
+	// Handlers
+	handlers := server.Handlers{
+		Health:      health.New(db, &redisChecker{rdb}),
+		Auth:        auth.NewHandler(authService),
+		Scheme:      scheme.NewHandler(schemeService),
+		Levy:        levy.NewHandler(levyService),
+		Maintenance: maintenance.NewHandler(maintenanceService),
+		Billing:     billing.NewHandler(billingService),
+	}
 
 	// Router & Server
-	router := server.NewRouter(cfg, logger, healthHandler, rdb)
+	router := server.NewRouter(cfg, logger, rdb, handlers)
 	srv := server.New(router, cfg.Port, logger)
 
 	logger.Info("starting server", "port", cfg.Port, "env", cfg.Env)

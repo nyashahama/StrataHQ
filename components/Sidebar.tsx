@@ -122,6 +122,24 @@ function GearIcon() {
   )
 }
 
+function WhatsAppIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M7 1C3.69 1 1 3.69 1 7c0 1.18.32 2.28.87 3.23L1 13l2.87-.85A5.96 5.96 0 007 13c3.31 0 6-2.69 6-6S10.31 1 7 1z" strokeLinejoin="round" />
+      <path d="M5 5.5c0-.28.22-.5.5-.5h.5c.28 0 .5.22.5.5v.5c0 .83-.67 1.5-1.5 1.5M9 8.5c-.28 0-.5-.22-.5-.5V7.5c0-.28.22-.5.5-.5h.5c.28 0 .5.22.5.5C10 8.33 9.33 9 8.5 9" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M7 1L2 3v4c0 3 2.24 4.95 5 6 2.76-1.05 5-3 5-6V3L7 1z" strokeLinejoin="round" />
+      <polyline points="4.5,7 6.5,9 9.5,5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 // --- Nav item type ---
 
 interface NavItem {
@@ -154,6 +172,8 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
       { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },
       { icon: <ChartIcon />, label: 'Financials', href: `${base}/financials` },
       { icon: <UsersIcon />, label: 'Members', href: `${base}/members` },
+      { icon: <WhatsAppIcon />, label: 'WhatsApp', href: `${base}/whatsapp` },
+      { icon: <ShieldIcon />, label: 'Compliance', href: `${base}/compliance` },
     ]
   }
 
@@ -167,6 +187,8 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
       { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },
       { icon: <ChartIcon />, label: 'Financials', href: `${base}/financials` },
       { icon: <UsersIcon />, label: 'Members', href: `${base}/members` },
+      { icon: <WhatsAppIcon />, label: 'WhatsApp', href: `${base}/whatsapp` },
+      { icon: <ShieldIcon />, label: 'Compliance', href: `${base}/compliance` },
     ]
   }
 
@@ -179,6 +201,7 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
     { icon: <MegaphoneIcon />, label: 'Notices', href: `${base}/communications` },
     { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },
     { icon: <ChartIcon />, label: 'Financials', href: `${base}/financials` },
+    { icon: <WhatsAppIcon />, label: 'WhatsApp', href: `${base}/whatsapp` },
   ]
 }
 

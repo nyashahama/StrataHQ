@@ -47,9 +47,9 @@ export default function AgmVotingPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-[900px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › AGM & Voting</p>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
         <h1 className="font-serif text-[28px] font-semibold text-ink">AGM & Voting</h1>
         {user?.role === 'agent' && (
           <button
@@ -62,7 +62,7 @@ export default function AgmVotingPage() {
       </div>
       <p className="text-[14px] text-muted mb-8">Annual general meetings and trustee resolutions.</p>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
           { label: 'Last AGM',  value: new Date(meeting.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) },
           { label: 'Next AGM',  value: new Date(upcoming.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) },

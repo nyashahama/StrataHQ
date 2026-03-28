@@ -72,12 +72,12 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-[900px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Documents</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Documents</h1>
       <p className="text-[14px] text-muted mb-8">Scheme rules, minutes, and shared files.</p>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span className="text-[13px] text-muted">{documents.length} documents</span>
         {canUpload && (
           <button
@@ -89,7 +89,7 @@ export default function DocumentsPage() {
         )}
       </div>
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="text-[12px] font-semibold text-muted">Category:</label>
         <select
           value={categoryFilter}
@@ -111,7 +111,7 @@ export default function DocumentsPage() {
             <h2 className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-3">{category}</h2>
             <div className="bg-surface border border-border rounded-lg overflow-hidden">
               {docs.map((doc, i) => (
-                <div key={doc.id} className={`flex items-center gap-4 px-5 py-3 text-[13px] ${i < docs.length - 1 ? 'border-b border-border' : ''}`}>
+                <div key={doc.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-5 py-3 text-[13px] ${i < docs.length - 1 ? 'border-b border-border' : ''}`}>
                   <span className={`text-[10px] font-bold px-[6px] py-[2px] rounded uppercase ${FILE_TYPE_STYLES[doc.file_type] ?? 'bg-page text-muted'}`}>
                     {doc.file_type}
                   </span>

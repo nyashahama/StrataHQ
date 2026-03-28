@@ -52,12 +52,12 @@ export default function CommunicationsPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-[900px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Communications</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Communications</h1>
       <p className="text-[14px] text-muted mb-8">Notices, announcements, and correspondence.</p>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span className="text-[13px] text-muted">{notices.length} notices</span>
         {canCompose && (
           <button
@@ -69,7 +69,7 @@ export default function CommunicationsPage() {
         )}
       </div>
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <label className="text-[12px] font-semibold text-muted">Filter:</label>
         <select
           value={typeFilter}

@@ -113,7 +113,7 @@ export default function LevyPaymentsPage() {
             const isLast = i === mockCollectionTrend.length - 1
             const heightPct = ((d.pct - 80) / 20) * 100
             return (
-              <div key={d.month} className="flex-1 flex flex-col items-center justify-end gap-1">
+              <div key={d.month} className="flex-1 h-full flex flex-col items-center justify-end gap-1">
                 <span className="text-[9px] font-semibold leading-none" style={{ color: isLast ? '#2B6CB0' : '#A8A49E' }}>{d.pct}%</span>
                 <div className="w-full rounded-[2px]" style={{ height: `${Math.max(heightPct, 8)}%`, background: isLast ? '#2B6CB0' : '#E3E2DF' }} />
               </div>

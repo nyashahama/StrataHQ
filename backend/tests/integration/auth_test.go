@@ -2,7 +2,10 @@
 
 package integration
 
-const testJWTSigningKey = "for-integration-tests-only"
+const (
+	testJWTSigningKey = "for-integration-tests-only"
+	testPassword      = "Tr0ub4dor&3-test-only"
+)
 
 import (
 	"bytes"
@@ -38,7 +41,7 @@ func TestAuth_RegisterLoginRefreshLogout(t *testing.T) {
 
 	// --- Register ---
 	regBody, _ := json.Marshal(map[string]string{
-		"email": email, "password": "password123",
+		"email": email, "password": testPassword,
 		"full_name": "Integration User", "org_name": "Integration Org",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(regBody))
@@ -67,7 +70,7 @@ func TestAuth_RegisterLoginRefreshLogout(t *testing.T) {
 	}
 
 	// --- Login ---
-	loginBody, _ := json.Marshal(map[string]string{"email": email, "password": "password123"})
+	loginBody, _ := json.Marshal(map[string]string{"email": email, "password": testPassword})
 	req = httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(loginBody))
 	w = httptest.NewRecorder()
 	h.Login(w, req)
@@ -153,7 +156,7 @@ func TestAuth_Me(t *testing.T) {
 	email := uniqueEmail(t)
 
 	regBody, _ := json.Marshal(map[string]string{
-		"email": email, "password": "pass123",
+		"email": email, "password": testPassword,
 		"full_name": "Me User", "org_name": "Me Org",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(regBody))

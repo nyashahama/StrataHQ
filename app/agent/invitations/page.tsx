@@ -45,16 +45,16 @@ export default function InvitationsPage() {
       <p className="text-[14px] text-muted mb-8">Pending trustee and resident invitations.</p>
 
       {invitations.length === 0 ? (
-        <div className="bg-[#f0efe9] border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
+        <div className="bg-hover-subtle border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           No pending invitations
         </div>
       ) : (
-        <div className="bg-surface border border-border rounded-lg overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg">
           <div className="px-5 py-3 border-b border-border flex items-center justify-between">
             <span className="text-[13px] font-semibold text-ink">Pending</span>
             <span className="text-[11px] font-semibold px-2 py-[2px] rounded-full bg-yellowbg text-amber">{invitations.length} pending</span>
           </div>
-          <div className="overflow-x-auto -mx-5">
+          <div className="overflow-x-auto">
             <div className="px-5 min-w-[480px]">
             <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
               <span>Invitee</span><span>Unit</span><span>Role</span><span>Actions</span>

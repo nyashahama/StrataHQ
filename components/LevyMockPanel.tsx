@@ -26,7 +26,7 @@ export default function LevyMockPanel() {
             const last = i === trendData.length - 1
             const heightPct = ((v - 80) / 20) * 100
             return (
-              <div key={i} className="flex-1 flex flex-col items-center justify-end gap-[2px]">
+              <div key={i} className="flex-1 h-full flex flex-col items-center justify-end gap-[2px]">
                 <span
                   className="text-[8.5px] font-semibold leading-none"
                   style={{ color: last ? '#2B6CB0' : '#A8A49E' }}

@@ -5,6 +5,7 @@ import { useMockAuth } from '@/lib/mock-auth'
 import AppShell from '@/components/AppShell'
 import Sidebar, { type SidebarRole } from '@/components/Sidebar'
 import { ToastProvider } from '@/lib/toast'
+import Copilot from '@/components/Copilot'
 
 export default function SchemeLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useMockAuth()
@@ -43,6 +44,7 @@ export default function SchemeLayout({ children }: { children: React.ReactNode }
       >
         {children}
       </AppShell>
+      <Copilot />
     </ToastProvider>
   )
 }

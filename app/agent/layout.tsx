@@ -5,6 +5,7 @@ import { useMockAuth } from '@/lib/mock-auth'
 import AppShell from '@/components/AppShell'
 import Sidebar from '@/components/Sidebar'
 import { ToastProvider } from '@/lib/toast'
+import Copilot from '@/components/Copilot'
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useMockAuth()
@@ -31,6 +32,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
       >
         {children}
       </AppShell>
+      <Copilot />
     </ToastProvider>
   )
 }

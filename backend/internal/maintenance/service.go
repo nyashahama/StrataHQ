@@ -1,11 +1,11 @@
 package maintenance
 
-import "github.com/jackc/pgx/v5/pgxpool"
+import "github.com/stratahq/backend/internal/platform/database"
 
 type Service struct {
-	db *pgxpool.Pool
+	db *database.Pool
 }
 
-func NewService(db *pgxpool.Pool) *Service {
+func NewService(db *database.Pool) *Service {
 	return &Service{db: db}
 }

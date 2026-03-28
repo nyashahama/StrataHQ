@@ -1,7 +1,10 @@
 'use client'
+import { useState } from 'react'
 import { useMockAuth } from '@/lib/mock-auth'
 import { useToast } from '@/lib/toast'
 import { mockLevyRoll, mockLevyPeriod, mockCollectionTrend, mockUnit4BPayments } from '@/lib/mock/levy'
+import type { LevyAccount } from '@/lib/mock/levy'
+import ReconcileModal from '@/components/ReconcileModal'
 
 function formatRand(cents: number): string {
   return `R ${(cents / 100).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`
@@ -17,9 +20,30 @@ const STATUS_STYLES: Record<string, string> = {
 export default function LevyPaymentsPage() {
   const { user } = useMockAuth()
   const { addToast } = useToast()
+  const [levyRoll, setLevyRoll] = useState<LevyAccount[]>(mockLevyRoll)
+  const [reconcileOpen, setReconcileOpen] = useState(false)
+
+  function handleReconcileConfirm(
+    updates: Array<{ id: string; paid_cents: number; status: LevyAccount['status'] }>
+  ) {
+    setLevyRoll(prev =>
+      prev.map(account => {
+        const update = updates.find(u => u.id === account.id)
+        if (!update) return account
+        return {
+          ...account,
+          paid_cents: update.paid_cents,
+          status: update.status,
+          paid_date: new Date().toISOString(),
+        }
+      })
+    )
+    setReconcileOpen(false)
+    addToast(`Reconciliation applied — ${updates.length} accounts updated.`, 'success')
+  }
 
   if (user?.role === 'resident') {
-    const myAccount = mockLevyRoll.find(a => a.unit_identifier === user.unitIdentifier)
+    const myAccount = levyRoll.find(a => a.unit_identifier === user.unitIdentifier)
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <p className="text-[12px] text-muted mb-4">Scheme › My Levy</p>
@@ -42,7 +66,7 @@ export default function LevyPaymentsPage() {
         {/* Payment history */}
         <h2 className="text-[14px] font-semibold text-ink mb-3">Payment history</h2>
         {(() => {
-          const myLevyAccount2 = mockLevyRoll.find(a => a.unit_identifier === user?.unitIdentifier)
+          const myLevyAccount2 = levyRoll.find(a => a.unit_identifier === user?.unitIdentifier)
           const myPayments = myLevyAccount2
             ? mockUnit4BPayments.filter(p => p.levy_account_id === myLevyAccount2.id)
             : []
@@ -79,16 +103,31 @@ export default function LevyPaymentsPage() {
 
   // Agent / Trustee view
   const canEdit = user?.role === 'agent'
-  const collected = mockLevyRoll.filter(a => a.status === 'paid').length
-  const overdue = mockLevyRoll.filter(a => a.status === 'overdue').length
-  const totalCollected = mockLevyRoll.reduce((sum, a) => sum + a.paid_cents, 0)
+  const overdue = levyRoll.filter(a => a.status === 'overdue').length
+  const totalCollected = levyRoll.reduce((sum, a) => sum + a.paid_cents, 0)
   const latestPct = mockCollectionTrend[mockCollectionTrend.length - 1].pct
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
-      <p className="text-[12px] text-muted mb-4">Scheme › Levy & Payments</p>
-      <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Levy & Payments</h1>
-      <p className="text-[14px] text-muted mb-8">Levy collection, statements, and payment history.</p>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <p className="text-[12px] text-muted mb-1">Scheme › Levy & Payments</p>
+          <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Levy & Payments</h1>
+          <p className="text-[14px] text-muted">Levy collection, statements, and payment history.</p>
+        </div>
+        {canEdit && (
+          <button
+            onClick={() => setReconcileOpen(true)}
+            className="flex-shrink-0 flex items-center gap-2 text-[13px] font-semibold bg-ink text-surface px-4 py-2 rounded-lg hover:bg-ink/80 transition-colors mt-1"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M1 4h12M1 8h8M1 12h5" strokeLinecap="round" />
+              <path d="M10 9l2 2 2-2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Reconcile statement
+          </button>
+        )}
+      </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -131,14 +170,14 @@ export default function LevyPaymentsPage() {
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <span className="text-[13px] font-semibold text-ink">Levy Roll — {mockLevyPeriod.label}</span>
-          <span className="text-[11px] font-semibold px-2 py-[2px] rounded-full bg-accent-bg text-accent">{mockLevyRoll.length} shown</span>
+          <span className="text-[11px] font-semibold px-2 py-[2px] rounded-full bg-accent-bg text-accent">{levyRoll.length} shown</span>
         </div>
         <div className="overflow-x-auto">
           <div className="px-5 min-w-[560px]">
             <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
               <span>Unit</span><span>Amount</span><span>Due</span><span>Status</span>
             </div>
-            {mockLevyRoll.map((account) => (
+            {levyRoll.map((account) => (
               <div key={account.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-3 border-b border-border last:border-b-0 text-[13px]">
                 <div>
                   <div className="font-semibold text-ink">Unit {account.unit_identifier}</div>
@@ -159,6 +198,15 @@ export default function LevyPaymentsPage() {
           </div>
         </div>
       </div>
+
+      {reconcileOpen && (
+        <ReconcileModal
+          levyAccounts={levyRoll}
+          periodLabel={mockLevyPeriod.label}
+          onConfirm={handleReconcileConfirm}
+          onClose={() => setReconcileOpen(false)}
+        />
+      )}
     </div>
   )
 }

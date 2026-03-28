@@ -54,7 +54,7 @@ export default function AgmVotingPage() {
         {user?.role === 'agent' && (
           <button
             onClick={() => setShowScheduleModal(true)}
-            className="text-[12px] font-semibold bg-accent text-white px-3 py-2 rounded hover:bg-[#245a96] transition-colors"
+            className="text-[12px] font-semibold bg-accent text-white px-3 py-2 rounded hover:opacity-90 transition-colors"
           >
             + Schedule AGM
           </button>
@@ -68,14 +68,14 @@ export default function AgmVotingPage() {
           { label: 'Next AGM',  value: new Date(upcoming.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) },
           { label: 'Quorum',    value: `${meeting.quorum_present}/${meeting.quorum_required * 2}` },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
             <div className="text-[22px] font-semibold text-ink font-serif mb-1">{value}</div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white border border-border rounded-lg overflow-hidden mb-6">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <span className="text-[13px] font-semibold text-ink">
             AGM — {new Date(meeting.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -105,7 +105,7 @@ export default function AgmVotingPage() {
                     <div className="text-[13px] font-semibold text-ink">{res.title}</div>
                     <div className="text-[12px] text-muted mt-1">{res.description}</div>
                   </div>
-                  <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-[2px] rounded-full ${res.status === 'passed' ? 'bg-green-bg text-green' : res.status === 'failed' ? 'bg-red-bg text-red' : 'bg-yellowbg text-[#92400e]'}`}>
+                  <span className={`flex-shrink-0 text-[11px] font-semibold px-2 py-[2px] rounded-full ${res.status === 'passed' ? 'bg-green-bg text-green' : res.status === 'failed' ? 'bg-red-bg text-red' : 'bg-yellowbg text-amber'}`}>
                     {res.status === 'open' ? 'Voting open' : res.status.charAt(0).toUpperCase() + res.status.slice(1)}
                   </span>
                 </div>
@@ -124,7 +124,7 @@ export default function AgmVotingPage() {
                       <>
                         <button
                           onClick={() => castVote(res.id, true)}
-                          className="text-[12px] font-semibold bg-accent text-white px-4 py-1.5 rounded hover:bg-[#245a96] transition-colors"
+                          className="text-[12px] font-semibold bg-accent text-white px-4 py-1.5 rounded hover:opacity-90 transition-colors"
                         >
                           Vote in favour
                         </button>
@@ -145,12 +145,12 @@ export default function AgmVotingPage() {
       </div>
 
       {/* Upcoming AGM resolutions */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <span className="text-[13px] font-semibold text-ink">
             AGM — {new Date(upcoming.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
-          <span className="text-[11px] font-semibold px-2 py-[2px] rounded-full bg-yellowbg text-[#92400e]">Upcoming · Voting open</span>
+          <span className="text-[11px] font-semibold px-2 py-[2px] rounded-full bg-yellowbg text-amber">Upcoming · Voting open</span>
         </div>
         {user?.role === 'resident' && (
           <div className="px-5 py-3 border-b border-border bg-accent-bg/40">
@@ -170,7 +170,7 @@ export default function AgmVotingPage() {
                     <div className="text-[13px] font-semibold text-ink">{res.title}</div>
                     <div className="text-[12px] text-muted mt-1">{res.description}</div>
                   </div>
-                  <span className="flex-shrink-0 text-[11px] font-semibold px-2 py-[2px] rounded-full bg-yellowbg text-[#92400e]">
+                  <span className="flex-shrink-0 text-[11px] font-semibold px-2 py-[2px] rounded-full bg-yellowbg text-amber">
                     Voting open
                   </span>
                 </div>
@@ -189,7 +189,7 @@ export default function AgmVotingPage() {
                       <>
                         <button
                           onClick={() => castUpcomingVote(res.id, true)}
-                          className="text-[12px] font-semibold bg-accent text-white px-4 py-1.5 rounded hover:bg-[#245a96] transition-colors"
+                          className="text-[12px] font-semibold bg-accent text-white px-4 py-1.5 rounded hover:opacity-90 transition-colors"
                         >
                           Vote in favour
                         </button>
@@ -217,7 +217,7 @@ export default function AgmVotingPage() {
               type="date"
               value={scheduleForm.date}
               onChange={e => setScheduleForm(f => ({ ...f, date: e.target.value }))}
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div>
@@ -227,7 +227,7 @@ export default function AgmVotingPage() {
               value={scheduleForm.venue}
               onChange={e => setScheduleForm(f => ({ ...f, venue: e.target.value }))}
               placeholder="e.g. Sunridge Heights Common Room"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div className="flex justify-end gap-3 pt-1">
@@ -244,7 +244,7 @@ export default function AgmVotingPage() {
                 setScheduleForm({ date: '', venue: '' })
                 addToast('AGM scheduled', 'success')
               }}
-              className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+              className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors"
             >
               Schedule
             </button>

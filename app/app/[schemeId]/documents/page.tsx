@@ -82,7 +82,7 @@ export default function DocumentsPage() {
         {canUpload && (
           <button
             onClick={() => setShowModal(true)}
-            className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+            className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors"
           >
             + Upload document
           </button>
@@ -94,7 +94,7 @@ export default function DocumentsPage() {
         <select
           value={categoryFilter}
           onChange={e => setCategoryFilter(e.target.value)}
-          className="border border-border rounded px-3 py-1.5 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+          className="border border-border rounded px-3 py-1.5 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
         >
           <option value="all">All categories</option>
           <option value="rules">Conduct Rules</option>
@@ -109,7 +109,7 @@ export default function DocumentsPage() {
         {Object.entries(grouped).map(([category, docs]) => (
           <div key={category}>
             <h2 className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-3">{category}</h2>
-            <div className="bg-white border border-border rounded-lg overflow-hidden">
+            <div className="bg-surface border border-border rounded-lg overflow-hidden">
               {docs.map((doc, i) => (
                 <div key={doc.id} className={`flex items-center gap-4 px-5 py-3 text-[13px] ${i < docs.length - 1 ? 'border-b border-border' : ''}`}>
                   <span className={`text-[10px] font-bold px-[6px] py-[2px] rounded uppercase ${FILE_TYPE_STYLES[doc.file_type] ?? 'bg-page text-muted'}`}>
@@ -144,7 +144,7 @@ export default function DocumentsPage() {
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="e.g. AGM Minutes November 2025"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -153,7 +153,7 @@ export default function DocumentsPage() {
               <select
                 value={form.category}
                 onChange={e => setForm(f => ({ ...f, category: e.target.value as SchemeDocument['category'] }))}
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
               >
                 {(Object.entries(CATEGORY_LABELS) as [SchemeDocument['category'], string][]).map(([val, label]) => (
                   <option key={val} value={val}>{label}</option>
@@ -165,7 +165,7 @@ export default function DocumentsPage() {
               <select
                 value={form.file_type}
                 onChange={e => setForm(f => ({ ...f, file_type: e.target.value as SchemeDocument['file_type'] }))}
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
               >
                 {['pdf', 'docx', 'xlsx', 'jpg', 'png'].map(t => (
                   <option key={t} value={t}>{t.toUpperCase()}</option>
@@ -180,7 +180,7 @@ export default function DocumentsPage() {
             <button
               onClick={handleUpload}
               disabled={!form.name.trim()}
-              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Upload
             </button>

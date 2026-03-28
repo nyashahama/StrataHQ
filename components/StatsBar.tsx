@@ -7,7 +7,7 @@ const stats = [
 
 export default function StatsBar() {
   return (
-    <div className="border-t border-b border-border bg-white py-[clamp(20px,3vw,28px)]">
+    <div className="border-t border-b border-border bg-surface py-[clamp(20px,3vw,28px)]">
       <div className="max-w-container mx-auto px-container">
         <div className="stagger flex flex-wrap justify-between gap-[clamp(16px,3vw,32px)]">
           {stats.map(({ num, label }) => (

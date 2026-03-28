@@ -1,6 +1,6 @@
 const levyRows = [
   { unit: 'Unit 2A', name: 'Henderson, T.', amount: 'R 2,450', date: '1 Oct', status: 'Paid', pillClass: 'bg-green-bg text-green' },
-  { unit: 'Unit 3B', name: 'Molefe, S.', amount: 'R 2,450', date: '1 Oct', status: 'Partial', pillClass: 'bg-yellowbg text-[#92400e]' },
+  { unit: 'Unit 3B', name: 'Molefe, S.', amount: 'R 2,450', date: '1 Oct', status: 'Partial', pillClass: 'bg-yellowbg text-amber' },
   { unit: 'Unit 5C', name: 'van der Berg, L.', amount: 'R 3,100', date: '1 Oct', status: 'Overdue', pillClass: 'bg-red-bg text-red' },
   { unit: 'Unit 7A', name: 'Naidoo, R.', amount: 'R 2,450', date: '1 Oct', status: 'Paid', pillClass: 'bg-green-bg text-green' },
   { unit: 'Unit 9D', name: 'Khumalo, B.', amount: 'R 2,800', date: '1 Oct', status: 'Paid', pillClass: 'bg-green-bg text-green' },
@@ -11,9 +11,9 @@ const trendMonths = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct']
 
 export default function LevyMockPanel() {
   return (
-    <div className="bg-white border border-border rounded-lg shadow-lg overflow-hidden">
+    <div className="bg-surface border border-border rounded-lg shadow-lg overflow-hidden">
       {/* Collection rate trend header */}
-      <div className="border-b border-border px-[18px] pt-[16px] pb-4 bg-white">
+      <div className="border-b border-border px-[18px] pt-[16px] pb-4 bg-surface">
         <div className="flex items-center justify-between mb-3">
           <span className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em]">
             Collection rate — 6 months

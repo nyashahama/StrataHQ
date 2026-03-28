@@ -7,7 +7,7 @@ import Modal from '@/components/Modal'
 
 const STATUS_STYLES: Record<string, string> = {
   open:             'bg-red-bg text-red',
-  in_progress:      'bg-yellowbg text-[#92400e]',
+  in_progress:      'bg-yellowbg text-amber',
   pending_approval: 'bg-accent-bg text-accent',
   resolved:         'bg-green-bg text-green',
 }
@@ -95,7 +95,7 @@ export default function MaintenancePage() {
           <span className="text-[13px] text-muted">{myRequests.length} request{myRequests.length !== 1 ? 's' : ''}</span>
           <button
             onClick={() => setShowModal(true)}
-            className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+            className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors"
           >
             + Submit request
           </button>
@@ -108,7 +108,7 @@ export default function MaintenancePage() {
         ) : (
           <div className="flex flex-col gap-3">
             {myRequests.map(req => (
-              <div key={req.id} className="bg-white border border-border rounded-lg px-5 py-4 flex gap-3">
+              <div key={req.id} className="bg-surface border border-border rounded-lg px-5 py-4 flex gap-3">
                 <div className="w-9 h-9 rounded bg-page border border-border flex-shrink-0 grid place-items-center text-[16px]">
                   {CATEGORY_ICONS[req.category]}
                 </div>
@@ -158,7 +158,7 @@ export default function MaintenancePage() {
           { label: 'Pending approval',    value: String(pendingApproval.length) },
           { label: 'Resolved this month', value: String(resolvedCount) },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
             <div className="text-[24px] font-semibold text-ink font-serif mb-1">{value}</div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
@@ -166,13 +166,13 @@ export default function MaintenancePage() {
       </div>
 
       {/* Work orders */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <span className="text-[13px] font-semibold text-ink">Work Orders</span>
           {canEdit && (
             <button
               onClick={() => setShowModal(true)}
-              className="text-[12px] font-semibold bg-accent text-white px-3 py-1.5 rounded hover:bg-[#245a96] transition-colors"
+              className="text-[12px] font-semibold bg-accent text-white px-3 py-1.5 rounded hover:opacity-90 transition-colors"
             >
               + New job
             </button>
@@ -249,7 +249,7 @@ export default function MaintenancePage() {
               value={contractorForm.name}
               onChange={e => setContractorForm(f => ({ ...f, name: e.target.value }))}
               placeholder="e.g. AquaFix Plumbing"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div>
@@ -259,7 +259,7 @@ export default function MaintenancePage() {
               value={contractorForm.phone}
               onChange={e => setContractorForm(f => ({ ...f, phone: e.target.value }))}
               placeholder="+27 21 555 0199"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div className="flex justify-end gap-3 pt-1">
@@ -267,7 +267,7 @@ export default function MaintenancePage() {
             <button
               onClick={handleApproveConfirm}
               disabled={!contractorForm.name.trim()}
-              className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Approve &amp; assign
             </button>
@@ -302,7 +302,7 @@ function JobForm({
           value={form.title}
           onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
           placeholder="e.g. Leaking tap in Unit 3A"
-          className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+          className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
         />
       </div>
       <div>
@@ -310,7 +310,7 @@ function JobForm({
         <select
           value={form.category}
           onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-          className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+          className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
         >
           {['plumbing', 'electrical', 'structural', 'garden', 'pool', 'other'].map(c => (
             <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
@@ -324,14 +324,14 @@ function JobForm({
           onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
           placeholder="Brief description of the issue"
           rows={3}
-          className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent resize-none"
+          className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent resize-none"
         />
       </div>
       <div className="flex gap-2 pt-1">
         <button
           onClick={onSubmit}
           disabled={!form.title.trim()}
-          className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Submit
         </button>

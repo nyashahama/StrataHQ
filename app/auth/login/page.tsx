@@ -87,7 +87,7 @@ export default function LoginPage() {
                   className={`flex-1 py-2 text-sm font-medium transition-colors ${
                     role === r
                       ? 'bg-ink text-page'
-                      : 'bg-white text-ink-2 hover:bg-border'
+                      : 'bg-surface text-ink-2 hover:bg-border'
                   }`}
                 >
                   {ROLE_LABELS[r]}
@@ -111,7 +111,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+              className="w-full rounded border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
               placeholder="you@example.com"
             />
           </div>
@@ -139,7 +139,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+              className="w-full rounded border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
               placeholder="••••••••"
             />
           </div>

@@ -41,7 +41,7 @@ export default function SchemeOverviewPage() {
             { label: 'Open requests', value: String(myRequests.length) },
             { label: 'Days to AGM', value: String(daysToAgm) },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+            <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
               <div className="text-[22px] font-semibold text-ink font-serif mb-1">{value}</div>
               <div className="text-[12px] text-muted">{label}</div>
             </div>
@@ -51,7 +51,7 @@ export default function SchemeOverviewPage() {
         <h2 className="text-[13px] font-semibold text-ink mb-3">Recent notices</h2>
         <div className="flex flex-col gap-2">
           {recentNotices.map(n => (
-            <Link key={n.id} href={`/app/${mockScheme.id}/communications`} className="bg-white border border-border rounded-lg px-5 py-3 flex items-center justify-between hover:bg-page transition-colors">
+            <Link key={n.id} href={`/app/${mockScheme.id}/communications`} className="bg-surface border border-border rounded-lg px-5 py-3 flex items-center justify-between hover:bg-page transition-colors">
               <div>
                 <div className="text-[13px] font-medium text-ink">{n.title}</div>
                 <div className="text-[11px] text-muted mt-0.5">
@@ -107,7 +107,7 @@ export default function SchemeOverviewPage() {
           { label: 'Open maintenance',     value: String(openMaintenance.length) },
           { label: 'Days to AGM',          value: String(daysToAgm) },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
             <div className="text-[24px] font-semibold text-ink font-serif mb-1">{value}</div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
@@ -118,7 +118,7 @@ export default function SchemeOverviewPage() {
         {/* Activity feed */}
         <div>
           <h2 className="text-[13px] font-semibold text-ink mb-3">Recent activity</h2>
-          <div className="bg-white border border-border rounded-lg overflow-hidden">
+          <div className="bg-surface border border-border rounded-lg overflow-hidden">
             {recentActivity.map((a, i) => (
               <div key={i} className={`px-5 py-3 ${i < recentActivity.length - 1 ? 'border-b border-border' : ''}`}>
                 <div className="text-[12px] text-ink">{a.text}</div>
@@ -140,8 +140,8 @@ export default function SchemeOverviewPage() {
             )}
             {overdueLevy.length > 0 && (
               <div className="bg-yellowbg border border-[#92400e]/20 rounded-lg px-4 py-3">
-                <div className="text-[12px] font-semibold text-[#92400e]">{overdueLevy.length} overdue lev{overdueLevy.length > 1 ? 'ies' : 'y'}</div>
-                <div className="text-[11px] text-[#92400e]/70 mt-0.5">
+                <div className="text-[12px] font-semibold text-amber">{overdueLevy.length} overdue lev{overdueLevy.length > 1 ? 'ies' : 'y'}</div>
+                <div className="text-[11px] text-amber/70 mt-0.5">
                   Units: {overdueLevy.map(a => a.unit_identifier).join(', ')}
                 </div>
               </div>

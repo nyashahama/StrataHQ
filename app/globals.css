@@ -1,3 +1,48 @@
+/* ─── Semantic colour tokens ─── */
+:root {
+  --color-page:            #F7F6F3;
+  --color-surface:         #FFFFFF;
+  --color-ink:             #37352F;
+  --color-ink-2:           #4D4B45;
+  --color-muted:           #787672;
+  --color-muted-2:         #A8A49E;
+  --color-border:          #E3E2DF;
+  --color-border-2:        #CECDCA;
+  --color-accent:          #2B6CB0;
+  --color-accent-bg:       #EBF2FA;
+  --color-accent-dim:      rgba(43,108,176,0.08);
+  --color-green:           #276749;
+  --color-green-bg:        #F0FFF4;
+  --color-red:             #9B2C2C;
+  --color-red-bg:          #FFF5F5;
+  --color-yellowbg:        #FFFBEB;
+  --color-amber:           #92400E;
+  --color-sidebar-header:  #2D4A6E;
+  --color-hover-subtle:    #F0EFE9;
+}
+
+.dark {
+  --color-page:            #111110;
+  --color-surface:         #1A1A19;
+  --color-ink:             #EDEBE6;
+  --color-ink-2:           #C4C2BB;
+  --color-muted:           #908C86;
+  --color-muted-2:         #6A6760;
+  --color-border:          #2D2C2A;
+  --color-border-2:        #3D3C39;
+  --color-accent:          #4F8FD1;
+  --color-accent-bg:       #152233;
+  --color-accent-dim:      rgba(79,143,209,0.10);
+  --color-green:           #4AD982;
+  --color-green-bg:        #0D2418;
+  --color-red:             #E57373;
+  --color-red-bg:          #2A1111;
+  --color-yellowbg:        #211D0C;
+  --color-amber:           #E8B84B;
+  --color-sidebar-header:  #1C2D42;
+  --color-hover-subtle:    #1F1F1D;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -38,57 +83,28 @@
 .vote-fill {
   height: 100%;
   border-radius: 100px;
-  background: #2B6CB0;
+  background: var(--color-accent);
 }
 
 /* ─── Clamp utilities not in Tailwind ─── */
-.text-clamp-hero {
-  font-size: clamp(38px, 6vw, 72px);
-}
-.text-clamp-section {
-  font-size: clamp(28px, 4vw, 48px);
-}
-.text-clamp-feature {
-  font-size: clamp(22px, 3vw, 32px);
-}
-.text-clamp-role {
-  font-size: clamp(20px, 2.8vw, 28px);
-}
-.text-clamp-sub {
-  font-size: clamp(16px, 2vw, 19px);
-}
-.text-clamp-p {
-  font-size: clamp(14px, 1.8vw, 17px);
-}
-.text-clamp-stat {
-  font-size: clamp(24px, 3.5vw, 36px);
-}
-.text-clamp-cta {
-  font-size: clamp(28px, 4vw, 44px);
-}
-.text-clamp-quote {
-  font-size: clamp(20px, 3vw, 28px);
-}
-.text-clamp-price {
-  font-size: clamp(28px, 4vw, 40px);
-}
+.text-clamp-hero    { font-size: clamp(38px, 6vw, 72px); }
+.text-clamp-section { font-size: clamp(28px, 4vw, 48px); }
+.text-clamp-feature { font-size: clamp(22px, 3vw, 32px); }
+.text-clamp-role    { font-size: clamp(20px, 2.8vw, 28px); }
+.text-clamp-sub     { font-size: clamp(16px, 2vw, 19px); }
+.text-clamp-p       { font-size: clamp(14px, 1.8vw, 17px); }
+.text-clamp-stat    { font-size: clamp(24px, 3.5vw, 36px); }
+.text-clamp-cta     { font-size: clamp(28px, 4vw, 44px); }
+.text-clamp-quote   { font-size: clamp(20px, 3vw, 28px); }
+.text-clamp-price   { font-size: clamp(28px, 4vw, 40px); }
 
-.padding-hero {
-  padding-top: clamp(64px, 12vh, 120px);
-  padding-bottom: clamp(48px, 8vh, 80px);
-}
-.padding-section {
-  padding-top: clamp(56px, 9vh, 96px);
-  padding-bottom: clamp(56px, 9vh, 96px);
-}
-.px-container {
-  padding-left: clamp(20px, 5vw, 48px);
-  padding-right: clamp(20px, 5vw, 48px);
-}
+.padding-hero    { padding-top: clamp(64px, 12vh, 120px); padding-bottom: clamp(48px, 8vh, 80px); }
+.padding-section { padding-top: clamp(56px, 9vh, 96px);  padding-bottom: clamp(56px, 9vh, 96px); }
+.px-container    { padding-left: clamp(20px, 5vw, 48px); padding-right: clamp(20px, 5vw, 48px); }
 
 /* ─── Focus visible ─── */
 :focus-visible {
-  outline: 2px solid #2B6CB0;
+  outline: 2px solid var(--color-accent);
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -104,6 +120,6 @@ h1, h2, h3, h4 {
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #787672;
+  color: var(--color-muted);
   margin-bottom: 12px;
 }

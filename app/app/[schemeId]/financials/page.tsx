@@ -25,7 +25,7 @@ export default function FinancialsPage() {
         <p className="text-[14px] text-muted mb-8">Scheme financial health summary.</p>
 
         {/* Reserve fund */}
-        <div className="bg-white border border-border rounded-lg px-6 py-5 mb-4">
+        <div className="bg-surface border border-border rounded-lg px-6 py-5 mb-4">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[13px] font-semibold text-ink">Reserve Fund</span>
             <span className="text-[12px] text-muted">{reservePct}% of target</span>
@@ -56,7 +56,7 @@ export default function FinancialsPage() {
         <h1 className="font-serif text-[28px] font-semibold text-ink">Financials</h1>
         <button
           onClick={() => addToast('Budget export downloaded', 'info')}
-          className="text-[12px] font-semibold border border-border bg-white text-ink px-3 py-2 rounded hover:bg-[#f0efe9] transition-colors"
+          className="text-[12px] font-semibold border border-border bg-surface text-ink px-3 py-2 rounded hover:bg-hover-subtle transition-colors"
         >
           Export CSV
         </button>
@@ -71,7 +71,7 @@ export default function FinancialsPage() {
           { label: 'Reserve fund',  value: formatRand(mockReserveFund.balance_cents) },
           { label: surplus >= 0 ? 'Surplus' : 'Deficit', value: formatRand(Math.abs(surplus)) },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
             <div className="text-[22px] font-semibold text-ink font-serif mb-1">{value}</div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
@@ -79,7 +79,7 @@ export default function FinancialsPage() {
       </div>
 
       {/* Reserve fund bar */}
-      <div className="bg-white border border-border rounded-lg px-6 py-5 mb-6">
+      <div className="bg-surface border border-border rounded-lg px-6 py-5 mb-6">
         <div className="flex items-center justify-between mb-3">
           <span className="text-[13px] font-semibold text-ink">Reserve Fund — {reservePct}% of target</span>
           <span className="text-[12px] text-muted">Target: {formatRand(mockReserveFund.target_cents)}</span>
@@ -90,7 +90,7 @@ export default function FinancialsPage() {
       </div>
 
       {/* Budget vs actual table */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">Budget vs Actual — 2025</span>
         </div>

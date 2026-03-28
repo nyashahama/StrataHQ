@@ -73,7 +73,7 @@ const modules = [
 
 export default function ModulesSection() {
   return (
-    <section id="modules" className="padding-section bg-white">
+    <section id="modules" className="padding-section bg-surface">
       <div className="max-w-container mx-auto px-container">
         <p className="reveal eyebrow text-[12px] font-semibold tracking-[0.1em] uppercase text-muted mb-3">
           Platform modules
@@ -93,7 +93,7 @@ export default function ModulesSection() {
           {modules.map(({ iconKey, name, desc }) => (
             <div
               key={name}
-              className="bg-white p-[clamp(20px,3vw,28px)] hover:bg-page transition-colors duration-150 cursor-default"
+              className="bg-surface p-[clamp(20px,3vw,28px)] hover:bg-page transition-colors duration-150 cursor-default"
             >
               <div className="w-9 h-9 rounded-lg border border-border bg-page grid place-items-center text-ink-2 mb-[14px] shadow-sm">
                 {icons[iconKey]}

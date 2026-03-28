@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useMockAuth } from '@/lib/mock-auth'
+import ThemeToggle from '@/components/ThemeToggle'
 
 export type SidebarRole = 'agent-portfolio' | 'agent-scheme' | 'trustee' | 'resident'
 
@@ -211,7 +212,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
         `flex items-center gap-2 px-3 py-[7px] text-[12px] border-l-2 transition-colors ` +
         (isActive
           ? 'bg-accent-dim text-accent font-medium border-accent'
-          : 'text-muted hover:text-ink hover:bg-[#f0efe9] border-transparent')
+          : 'text-muted hover:text-ink hover:bg-hover-subtle border-transparent')
       }
     >
       {item.icon}
@@ -237,9 +238,9 @@ export default function Sidebar({ role, headerLabel, schemeId, allMemberships }:
     allMemberships.length >= 2
 
   return (
-    <aside className="w-[200px] flex-shrink-0 h-full flex flex-col bg-[#f8f7f4] border-r border-border">
+    <aside className="w-[200px] flex-shrink-0 h-full flex flex-col bg-page border-r border-border">
       {/* Header */}
-      <div className="bg-[#2d4a6e] px-3 py-3 flex-shrink-0">
+      <div className="bg-sidebar-header px-3 py-3 flex-shrink-0">
         <p
           className="uppercase tracking-wide text-white/40 mb-0.5"
           style={{ fontSize: '9px' }}
@@ -256,7 +257,7 @@ export default function Sidebar({ role, headerLabel, schemeId, allMemberships }:
             onChange={(e) => router.push(`/app/${e.target.value}`)}
           >
             {allMemberships!.map((m) => (
-              <option key={m.scheme_id} value={m.scheme_id} className="text-ink bg-white">
+              <option key={m.scheme_id} value={m.scheme_id} className="text-ink bg-surface">
                 {m.scheme_name}
               </option>
             ))}
@@ -274,9 +275,10 @@ export default function Sidebar({ role, headerLabel, schemeId, allMemberships }:
       {/* Bottom section */}
       <div className="border-t border-border py-2 flex-shrink-0">
         <NavLink item={bottomItem} pathname={pathname} />
+        <ThemeToggle />
         <button
           onClick={() => { logout(); router.push('/auth/login') }}
-          className="flex items-center gap-2 px-3 py-[7px] text-[12px] text-muted hover:text-ink hover:bg-[#f0efe9] w-full transition-colors"
+          className="flex items-center gap-2 px-3 py-[7px] text-[12px] text-muted hover:text-ink hover:bg-hover-subtle w-full transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
             <path d="M5 2H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2M9 10l3-3-3-3M12 7H5" />

@@ -9,7 +9,7 @@ function formatRand(cents: number): string {
 
 const STATUS_STYLES: Record<string, string> = {
   paid:    'bg-green-bg text-green',
-  partial: 'bg-yellowbg text-[#92400e]',
+  partial: 'bg-yellowbg text-amber',
   overdue: 'bg-red-bg text-red',
   pending: 'bg-accent-bg text-accent',
 }
@@ -27,7 +27,7 @@ export default function LevyPaymentsPage() {
         <p className="text-[14px] text-muted mb-8">Levy account for Unit {user.unitIdentifier}.</p>
 
         {/* Current levy card */}
-        <div className="bg-white border border-border rounded-lg px-6 py-5 mb-6 flex items-center justify-between">
+        <div className="bg-surface border border-border rounded-lg px-6 py-5 mb-6 flex items-center justify-between">
           <div>
             <p className="text-[12px] text-muted mb-1">{mockLevyPeriod.label} · due {new Date(mockLevyPeriod.due_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</p>
             <p className="font-serif text-[32px] font-semibold text-ink leading-none">{formatRand(mockLevyPeriod.amount_cents)}</p>
@@ -54,7 +54,7 @@ export default function LevyPaymentsPage() {
             )
           }
           return (
-            <div className="bg-white border border-border rounded-lg overflow-hidden mb-6">
+            <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6">
               {myPayments.map((p, i) => (
                 <div key={p.id} className={`flex items-center justify-between px-5 py-3 text-[13px] ${i < myPayments.length - 1 ? 'border-b border-border' : ''}`}>
                   <div>
@@ -96,7 +96,7 @@ export default function LevyPaymentsPage() {
           { label: 'Overdue', value: String(overdue) },
           { label: 'Monthly levy', value: formatRand(mockLevyPeriod.amount_cents) },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
             <div className="text-[24px] font-semibold text-ink font-serif mb-1">{value}</div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
@@ -104,7 +104,7 @@ export default function LevyPaymentsPage() {
       </div>
 
       {/* Collection trend chart */}
-      <div className="bg-white border border-border rounded-lg px-6 py-5 mb-6">
+      <div className="bg-surface border border-border rounded-lg px-6 py-5 mb-6">
         <p className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-4">Collection rate — 6 months</p>
         <div className="flex items-end gap-2 h-[56px] mb-1">
           {mockCollectionTrend.map((d, i) => {
@@ -126,7 +126,7 @@ export default function LevyPaymentsPage() {
       </div>
 
       {/* Levy roll */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <span className="text-[13px] font-semibold text-ink">Levy Roll — {mockLevyPeriod.label}</span>
           <span className="text-[11px] font-semibold px-2 py-[2px] rounded-full bg-accent-bg text-accent">{mockLevyRoll.length} shown</span>

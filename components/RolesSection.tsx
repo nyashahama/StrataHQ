@@ -199,7 +199,7 @@ export default function RolesSection() {
               {active.features.map(({ iconKey, title, desc }) => (
                 <div
                   key={title}
-                  className="bg-white border border-border rounded p-4 hover:border-border-2 hover:shadow-sm transition-all duration-150"
+                  className="bg-surface border border-border rounded p-4 hover:border-border-2 hover:shadow-sm transition-all duration-150"
                 >
                   <span className="text-ink-2 mb-2 block">{featureIcons[iconKey]}</span>
                   <div className="text-[13px] font-semibold text-ink mb-1">{title}</div>

@@ -26,7 +26,7 @@ const roles = [
 
 export default function DemoTeaser() {
   return (
-    <section className="padding-section bg-white border-t border-border">
+    <section className="padding-section bg-surface border-t border-border">
       <div className="max-w-container mx-auto px-container">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-[clamp(40px,6vw,80px)] items-center">
 
@@ -76,14 +76,14 @@ export default function DemoTeaser() {
           {/* Right: faux app preview */}
           <div className="reveal relative">
             {/* Browser chrome */}
-            <div className="bg-white border border-border rounded-lg shadow-lg overflow-hidden">
+            <div className="bg-surface border border-border rounded-lg shadow-lg overflow-hidden">
               {/* Title bar */}
               <div className="flex items-center gap-[6px] px-3 py-[10px] border-b border-border bg-page">
                 <span className="w-[10px] h-[10px] rounded-full bg-[#FF5F57]" />
                 <span className="w-[10px] h-[10px] rounded-full bg-[#FEBC2E]" />
                 <span className="w-[10px] h-[10px] rounded-full bg-[#28C840]" />
                 <div className="flex-1 mx-3">
-                  <div className="h-[20px] bg-white border border-border rounded flex items-center px-2 gap-2">
+                  <div className="h-[20px] bg-surface border border-border rounded flex items-center px-2 gap-2">
                     <div className="w-2 h-2 rounded-full bg-green flex-shrink-0" />
                     <span className="text-[10px] text-muted font-mono">stratahq.co.za/demo</span>
                   </div>
@@ -93,7 +93,7 @@ export default function DemoTeaser() {
               {/* App shell preview */}
               <div className="flex" style={{ height: 280 }}>
                 {/* Sidebar */}
-                <div className="w-[140px] flex-shrink-0 bg-white border-r border-border flex flex-col py-2 px-1.5 gap-[1px]">
+                <div className="w-[140px] flex-shrink-0 bg-surface border-r border-border flex flex-col py-2 px-1.5 gap-[1px]">
                   <div className="flex items-center gap-1.5 px-2 py-1.5 mb-1">
                     <div className="w-[18px] h-[18px] bg-ink rounded-[3px] grid place-items-center flex-shrink-0">
                       <svg viewBox="0 0 16 16" className="w-[9px] h-[9px] fill-white"><path d="M2 3h5v5H2V3zm7 0h5v5H9V3zM2 10h5v4H2v-4zm7 1h2v-2h2v2h2v2h-2v2H9v-2H7v-2h2v-2z"/></svg>
@@ -131,7 +131,7 @@ export default function DemoTeaser() {
                       { label: 'Open Jobs', val: '4' },
                       { label: 'Arrears', val: 'R 14K' },
                     ].map(({ label, val }) => (
-                      <div key={label} className="bg-white border border-border rounded-md p-2">
+                      <div key={label} className="bg-surface border border-border rounded-md p-2">
                         <div className="text-[8px] font-semibold text-muted uppercase tracking-[0.06em] mb-1">{label}</div>
                         <div className="text-[14px] font-bold text-ink font-serif leading-none">{val}</div>
                       </div>
@@ -139,14 +139,14 @@ export default function DemoTeaser() {
                   </div>
 
                   {/* Mini table */}
-                  <div className="flex-1 bg-white border border-border rounded-md overflow-hidden">
+                  <div className="flex-1 bg-surface border border-border rounded-md overflow-hidden">
                     <div className="px-3 py-2 border-b border-border flex items-center justify-between">
                       <span className="text-[10px] font-semibold text-ink">Schemes Overview</span>
                       <span className="text-[9px] px-1.5 py-[1px] rounded-full bg-page border border-border text-muted font-medium">12 active</span>
                     </div>
                     {[
                       { icon: '🌿', name: 'Rosewood Estate', tag: '94%', t: 'text-green bg-green-bg' },
-                      { icon: '🏙️', name: 'Parkview Towers', tag: '89%', t: 'text-[#92400e] bg-yellowbg' },
+                      { icon: '🏙️', name: 'Parkview Towers', tag: '89%', t: 'text-amber bg-yellowbg' },
                       { icon: '🌊', name: 'Seapoint Villas', tag: '97%', t: 'text-green bg-green-bg' },
                     ].map(({ icon, name, tag, t }) => (
                       <div key={name} className="flex items-center gap-2 px-3 py-[6px] border-b border-border last:border-b-0">
@@ -162,7 +162,7 @@ export default function DemoTeaser() {
 
             {/* Floating role badge */}
             <div className="absolute -bottom-3 -right-3 bg-green text-white text-[11px] font-semibold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+              <span className="w-1.5 h-1.5 rounded-full bg-surface opacity-80" />
               3 roles to explore
             </div>
           </div>

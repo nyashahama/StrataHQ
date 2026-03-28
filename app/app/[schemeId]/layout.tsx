@@ -32,6 +32,7 @@ export default function SchemeLayout({ children }: { children: React.ReactNode }
   return (
     <ToastProvider>
       <AppShell
+        headerLabel={headerLabel}
         sidebar={
           <Sidebar
             role={sidebarRole}

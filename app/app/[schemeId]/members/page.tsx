@@ -48,7 +48,7 @@ export default function MembersPage() {
         <p className="text-[14px] text-muted mb-8">Contact the trustees for scheme-related matters.</p>
         <div className="flex flex-col gap-3">
           {trustees.map(m => (
-            <div key={m.id} className="bg-white border border-border rounded-lg px-5 py-4 flex items-center justify-between">
+            <div key={m.id} className="bg-surface border border-border rounded-lg px-5 py-4 flex items-center justify-between">
               <div>
                 <div className="text-[14px] font-semibold text-ink">{m.name}</div>
                 <div className="text-[12px] text-muted mt-0.5">Unit {m.unit_identifier} · {m.email}</div>
@@ -83,20 +83,20 @@ export default function MembersPage() {
           { label: 'Trustees',      value: String(trustees.length) },
           { label: 'Owners',        value: String(owners.length) },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
             <div className="text-[24px] font-semibold text-ink font-serif mb-1">{value}</div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
         ))}
       </div>
 
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <span className="text-[13px] font-semibold text-ink">All members</span>
           {canEdit && (
             <button
               onClick={() => setShowModal(true)}
-              className="text-[12px] font-semibold bg-accent text-white px-3 py-1.5 rounded hover:bg-[#245a96] transition-colors"
+              className="text-[12px] font-semibold bg-accent text-white px-3 py-1.5 rounded hover:opacity-90 transition-colors"
             >
               + Invite member
             </button>
@@ -109,7 +109,7 @@ export default function MembersPage() {
               placeholder="Search by name or unit…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full max-w-xs border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full max-w-xs border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
@@ -141,7 +141,7 @@ export default function MembersPage() {
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="e.g. Nkosi, A."
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div>
@@ -151,7 +151,7 @@ export default function MembersPage() {
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
               placeholder="e.g. nkosi@email.co.za"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -162,7 +162,7 @@ export default function MembersPage() {
                 value={form.unit}
                 onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
                 placeholder="e.g. 9A"
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
               />
             </div>
             <div>
@@ -170,7 +170,7 @@ export default function MembersPage() {
               <select
                 value={form.role}
                 onChange={e => setForm(f => ({ ...f, role: e.target.value as 'owner' | 'resident' }))}
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
               >
                 <option value="owner">Owner</option>
                 <option value="resident">Resident</option>
@@ -181,7 +181,7 @@ export default function MembersPage() {
             <button
               onClick={handleInvite}
               disabled={!form.name.trim() || !form.email.trim() || !form.unit.trim()}
-              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Send invite
             </button>

@@ -74,7 +74,7 @@ export default function PricingSection() {
               className={`relative rounded-lg p-[clamp(22px,3vw,32px)] border transition-shadow duration-200 hover:shadow
                 ${featured
                   ? 'bg-ink border-ink text-page'
-                  : 'bg-white border-border'
+                  : 'bg-surface border-border'
                 }`}
             >
               {featured && (

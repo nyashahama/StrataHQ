@@ -27,7 +27,7 @@ const testimonials = [
 
 export default function QuoteSection() {
   return (
-    <section className="border-t border-b border-border bg-white">
+    <section className="border-t border-b border-border bg-surface">
       <div className="max-w-container mx-auto px-container py-[clamp(56px,8vw,80px)]">
 
         {/* Section label */}

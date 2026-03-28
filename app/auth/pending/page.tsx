@@ -47,7 +47,7 @@ export default function PendingPage() {
           type="button"
           onClick={handleCheckAgain}
           disabled={checking}
-          className="inline-flex items-center gap-2 rounded border border-border bg-white px-5 py-2.5 text-sm font-medium text-ink hover:bg-border transition-colors disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded border border-border bg-surface px-5 py-2.5 text-sm font-medium text-ink hover:bg-border transition-colors disabled:opacity-60"
         >
           {checking ? (
             <>

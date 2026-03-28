@@ -25,7 +25,7 @@ export default function SchemeSettingsPage() {
       <p className="text-[14px] text-muted mb-8">Manage scheme details and configuration.</p>
 
       {/* Scheme details */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden mb-6">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">Scheme details</span>
         </div>
@@ -36,7 +36,7 @@ export default function SchemeSettingsPage() {
               type="text"
               defaultValue={mockScheme.name}
               disabled={user?.role !== 'agent'}
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             />
           </div>
           <div>
@@ -45,7 +45,7 @@ export default function SchemeSettingsPage() {
               type="text"
               defaultValue={mockScheme.address}
               disabled={user?.role !== 'agent'}
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             />
           </div>
           <div>
@@ -54,14 +54,14 @@ export default function SchemeSettingsPage() {
               type="number"
               defaultValue={mockScheme.unit_count}
               disabled={user?.role !== 'agent'}
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             />
           </div>
           {user?.role === 'agent' && (
             <div>
               <button
                 onClick={() => addToast('Settings saved', 'success')}
-                className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+                className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors"
               >
                 Save changes
               </button>
@@ -71,7 +71,7 @@ export default function SchemeSettingsPage() {
       </div>
 
       {/* Levy configuration */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden mb-6">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">Levy configuration</span>
         </div>
@@ -83,7 +83,7 @@ export default function SchemeSettingsPage() {
                 type="text"
                 defaultValue="2 450.00"
                 disabled={user?.role !== 'agent'}
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
               />
             </div>
             <div>
@@ -91,7 +91,7 @@ export default function SchemeSettingsPage() {
               <select
                 disabled={user?.role !== 'agent'}
                 defaultValue="Monthly"
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
               >
                 <option>Monthly</option>
                 <option>Quarterly</option>
@@ -102,7 +102,7 @@ export default function SchemeSettingsPage() {
             <div>
               <button
                 onClick={() => addToast('Settings saved', 'success')}
-                className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+                className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors"
               >
                 Update levy settings
               </button>
@@ -112,7 +112,7 @@ export default function SchemeSettingsPage() {
       </div>
 
       {/* Notifications */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden mb-6">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">Notifications</span>
         </div>
@@ -137,7 +137,7 @@ export default function SchemeSettingsPage() {
       </div>
 
       {/* Account */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">Account</span>
         </div>
@@ -158,22 +158,22 @@ export default function SchemeSettingsPage() {
         <div className="flex flex-col gap-4">
           <div>
             <label className="text-[12px] font-semibold text-ink block mb-1">Current password</label>
-            <input type="password" value={pwForm.current} onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))} placeholder="••••••••" className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent" />
+            <input type="password" value={pwForm.current} onChange={e => setPwForm(f => ({ ...f, current: e.target.value }))} placeholder="••••••••" className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent" />
           </div>
           <div>
             <label className="text-[12px] font-semibold text-ink block mb-1">New password</label>
-            <input type="password" value={pwForm.next} onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))} placeholder="••••••••" className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent" />
+            <input type="password" value={pwForm.next} onChange={e => setPwForm(f => ({ ...f, next: e.target.value }))} placeholder="••••••••" className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent" />
           </div>
           <div>
             <label className="text-[12px] font-semibold text-ink block mb-1">Confirm new password</label>
-            <input type="password" value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} placeholder="••••••••" className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent" />
+            <input type="password" value={pwForm.confirm} onChange={e => setPwForm(f => ({ ...f, confirm: e.target.value }))} placeholder="••••••••" className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent" />
             {pwForm.confirm && pwForm.next !== pwForm.confirm && (
               <p className="text-[11px] text-red mt-1">Passwords do not match</p>
             )}
           </div>
           <div className="flex justify-end gap-3 pt-1">
             <button onClick={() => setShowPasswordModal(false)} className="text-[12px] text-muted hover:text-ink px-3 py-2">Cancel</button>
-            <button onClick={handlePasswordSave} disabled={!pwForm.current || !pwForm.next || pwForm.next !== pwForm.confirm} className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Update password</button>
+            <button onClick={handlePasswordSave} disabled={!pwForm.current || !pwForm.next || pwForm.next !== pwForm.confirm} className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Update password</button>
           </div>
         </div>
       </Modal>

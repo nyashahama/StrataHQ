@@ -98,7 +98,7 @@ export default function InsightsSection() {
   const [activeAlert, setActiveAlert] = useState(0)
 
   return (
-    <section className="padding-section border-t border-border bg-white">
+    <section className="padding-section border-t border-border bg-surface">
       <div className="max-w-container mx-auto px-container">
 
         {/* Header */}
@@ -227,7 +227,7 @@ export default function InsightsSection() {
                 { label: 'SLA On-Time', val: '91%', delta: 'Across all schemes', up: false },
                 { label: 'AGMs This Yr', val: '11/12', delta: '1 pending', up: false },
               ].map(({ label, val, delta, up }) => (
-                <div key={label} className="bg-white border border-border rounded p-3">
+                <div key={label} className="bg-surface border border-border rounded p-3">
                   <div className="text-[10px] font-semibold text-muted uppercase tracking-[0.06em] mb-1">{label}</div>
                   <div className="font-serif text-[18px] font-bold text-ink leading-none mb-1">{val}</div>
                   <div className={`text-[11px] ${up ? 'text-green' : 'text-muted'}`}>{delta}</div>
@@ -236,7 +236,7 @@ export default function InsightsSection() {
             </div>
 
             {/* Mini bar chart */}
-            <div className="bg-white border border-border rounded p-3">
+            <div className="bg-surface border border-border rounded p-3">
               <div className="text-[11px] font-semibold text-ink mb-3">Monthly levy collection rate</div>
               <div className="flex items-end gap-[5px] h-[48px]">
                 {[87, 89, 88, 91, 92, 94].map((v, i) => {

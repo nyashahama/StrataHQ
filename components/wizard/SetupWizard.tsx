@@ -82,7 +82,7 @@ export default function SetupWizard() {
                   value={orgName}
                   onChange={e => setOrgName(e.target.value)}
                   placeholder="e.g. Acme Property Management"
-                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                  className="w-full rounded border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
                 />
               </div>
               <div>
@@ -94,7 +94,7 @@ export default function SetupWizard() {
                   value={contactEmail}
                   onChange={e => setContactEmail(e.target.value)}
                   placeholder="admin@acme.co.za"
-                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                  className="w-full rounded border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
                 />
               </div>
               <button type="submit" className="w-full rounded bg-ink text-page py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity">
@@ -118,7 +118,7 @@ export default function SetupWizard() {
                   value={schemeName}
                   onChange={e => setSchemeName(e.target.value)}
                   placeholder="e.g. Sunridge Heights"
-                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                  className="w-full rounded border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
                 />
               </div>
               <div>
@@ -130,7 +130,7 @@ export default function SetupWizard() {
                   value={address}
                   onChange={e => setAddress(e.target.value)}
                   placeholder="e.g. 14 Ocean Drive, Cape Town"
-                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                  className="w-full rounded border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
                 />
               </div>
               <div>
@@ -143,7 +143,7 @@ export default function SetupWizard() {
                   value={unitCount}
                   onChange={e => setUnitCount(e.target.value)}
                   placeholder="e.g. 24"
-                  className="w-full rounded border border-border bg-white px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
+                  className="w-full rounded border border-border bg-surface px-3 py-2 text-sm text-ink placeholder:text-muted focus:outline-none focus:border-accent"
                 />
               </div>
               <div className="flex gap-3">

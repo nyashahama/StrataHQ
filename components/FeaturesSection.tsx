@@ -77,7 +77,7 @@ export default function FeaturesSection() {
           { check: 'Attorney handoff workflow built in' },
         ]}
         MockPanel={LevyMockPanel}
-        bg="bg-white border-b border-border"
+        bg="bg-surface border-b border-border"
       />
 
       <FeatureBlock
@@ -107,7 +107,7 @@ export default function FeaturesSection() {
           { check: 'Signed minutes generated automatically' },
         ]}
         MockPanel={AGMMockPanel}
-        bg="bg-white border-b border-border"
+        bg="bg-surface border-b border-border"
       />
     </>
   )

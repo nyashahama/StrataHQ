@@ -19,6 +19,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
 
   return (
     <AppShell
+      headerLabel={user.orgName || 'My Organisation'}
       sidebar={
         <Sidebar
           role="agent-portfolio"

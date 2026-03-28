@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function CTASection() {
   return (
-    <section className="bg-white border-t border-border">
+    <section className="bg-surface border-t border-border">
       <div className="max-w-container mx-auto px-container">
         <div className="reveal max-w-[600px] mx-auto text-center py-[clamp(56px,9vh,80px)]">
           <h2 className="font-serif text-clamp-cta font-bold tracking-[-0.02em] text-ink leading-[1.2] mb-4">
@@ -22,7 +22,7 @@ export default function CTASection() {
             </Link>
             <Link
               href="/demo"
-              className="inline-flex items-center gap-2 px-7 py-3 text-[15px] font-medium text-ink-2 bg-white border border-border-2
+              className="inline-flex items-center gap-2 px-7 py-3 text-[15px] font-medium text-ink-2 bg-surface border border-border-2
                 rounded hover:bg-page transition-colors duration-150 no-underline"
             >
               Try interactive demo

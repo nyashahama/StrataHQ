@@ -12,7 +12,7 @@ const jobs = [
     sla: '22h remaining',
     slaOk: true,
     status: 'In progress',
-    pillClass: 'bg-yellowbg text-[#92400e]',
+    pillClass: 'bg-yellowbg text-amber',
   },
   {
     icon: '💡',
@@ -46,7 +46,7 @@ const jobs = [
 
 export default function MaintenanceMockPanel() {
   return (
-    <div className="bg-white border border-border rounded-lg shadow-lg overflow-hidden">
+    <div className="bg-surface border border-border rounded-lg shadow-lg overflow-hidden">
       {/* SLA summary strip */}
       <div className="border-b border-border px-[18px] py-[12px] bg-page flex items-center gap-5">
         {slaStats.map(({ label, val, color }) => (
@@ -58,7 +58,7 @@ export default function MaintenanceMockPanel() {
       </div>
 
       {/* Header */}
-      <div className="border-b border-border px-[18px] py-[12px] flex items-center justify-between bg-white">
+      <div className="border-b border-border px-[18px] py-[12px] flex items-center justify-between bg-surface">
         <div className="flex items-center gap-2">
           <span className="text-[15px]">🔧</span>
           <span className="text-[13px] font-semibold text-ink">Open Work Orders</span>

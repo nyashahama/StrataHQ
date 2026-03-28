@@ -4,7 +4,7 @@ import { mockPortfolio } from '@/lib/mock/scheme'
 
 const HEALTH_STYLES = {
   good: 'bg-green-bg text-green',
-  fair: 'bg-yellowbg text-[#92400e]',
+  fair: 'bg-yellowbg text-amber',
   poor: 'bg-red-bg text-red',
 }
 
@@ -32,7 +32,7 @@ export default function AgentPortfolioPage() {
           { label: 'Open maintenance',   value: String(totalMaintenance) },
           { label: 'Avg collection rate', value: `${avgCollection}%` },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white border border-border rounded-lg px-5 py-4">
+          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
             <div className="text-[24px] font-semibold text-ink font-serif mb-1">{value}</div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
@@ -40,7 +40,7 @@ export default function AgentPortfolioPage() {
       </div>
 
       {/* Scheme list */}
-      <div className="bg-white border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">All schemes</span>
         </div>

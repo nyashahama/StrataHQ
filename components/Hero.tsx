@@ -48,7 +48,7 @@ export default function Hero() {
           </Link>
           <Link
             href="#features"
-            className="px-6 py-[10px] text-[15px] font-medium text-ink-2 bg-white border border-border-2
+            className="px-6 py-[10px] text-[15px] font-medium text-ink-2 bg-surface border border-border-2
               rounded hover:bg-page transition-colors duration-150 no-underline hidden sm:inline-flex"
           >
             See how it works

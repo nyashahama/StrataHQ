@@ -5,7 +5,7 @@ import { mockPortfolio } from '@/lib/mock/scheme'
 
 const HEALTH_STYLES = {
   good: 'bg-green-bg text-green',
-  fair: 'bg-yellowbg text-[#92400e]',
+  fair: 'bg-yellowbg text-amber',
   poor: 'bg-red-bg text-red',
 }
 
@@ -17,7 +17,7 @@ export default function SchemesPage() {
       <p className="text-[14px] text-muted mb-8">Schemes managed by your organisation.</p>
       <div className="flex flex-col gap-3">
         {mockPortfolio.map(scheme => (
-          <div key={scheme.id} className="bg-white border border-border rounded-lg px-5 py-4 flex items-center justify-between">
+          <div key={scheme.id} className="bg-surface border border-border rounded-lg px-5 py-4 flex items-center justify-between">
             <div>
               <div className="text-[14px] font-semibold text-ink">{scheme.name}</div>
               <div className="text-[12px] text-muted mt-0.5">

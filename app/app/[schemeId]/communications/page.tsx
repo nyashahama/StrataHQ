@@ -9,7 +9,7 @@ const TYPE_STYLES: Record<Notice['type'], string> = {
   general: 'bg-[#f0efe9] text-muted',
   urgent:  'bg-red-bg text-red',
   agm:     'bg-accent-bg text-accent',
-  levy:    'bg-yellowbg text-[#92400e]',
+  levy:    'bg-yellowbg text-amber',
 }
 
 const TYPE_LABELS: Record<Notice['type'], string> = {
@@ -62,7 +62,7 @@ export default function CommunicationsPage() {
         {canCompose && (
           <button
             onClick={() => setShowModal(true)}
-            className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:bg-[#245a96] transition-colors"
+            className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors"
           >
             + Compose notice
           </button>
@@ -74,7 +74,7 @@ export default function CommunicationsPage() {
         <select
           value={typeFilter}
           onChange={e => setTypeFilter(e.target.value)}
-          className="border border-border rounded px-3 py-1.5 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+          className="border border-border rounded px-3 py-1.5 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
         >
           <option value="all">All notices</option>
           <option value="general">General</option>
@@ -88,7 +88,7 @@ export default function CommunicationsPage() {
         {filteredNotices.length === 0 ? (
           <div className="bg-[#f0efe9] border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">No notices match the selected filter.</div>
         ) : filteredNotices.map(notice => (
-          <div key={notice.id} className="bg-white border border-border rounded-lg overflow-hidden">
+          <div key={notice.id} className="bg-surface border border-border rounded-lg overflow-hidden">
             <button
               className="w-full px-5 py-4 flex items-start justify-between gap-4 text-left hover:bg-page transition-colors"
               onClick={() => setExpanded(expanded === notice.id ? null : notice.id)}
@@ -125,7 +125,7 @@ export default function CommunicationsPage() {
               <select
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value as Notice['type'] }))}
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
               >
                 <option value="general">General</option>
                 <option value="urgent">Urgent</option>
@@ -142,7 +142,7 @@ export default function CommunicationsPage() {
               value={form.title}
               onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
               placeholder="Notice subject"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
           <div>
@@ -152,14 +152,14 @@ export default function CommunicationsPage() {
               onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
               placeholder="Write your notice here…"
               rows={5}
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-white focus:outline-none focus:border-accent resize-none"
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent resize-none"
             />
           </div>
           <div className="flex gap-2 pt-1">
             <button
               onClick={handleCompose}
               disabled={!form.title.trim() || !form.body.trim()}
-              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:bg-[#245a96] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Send to all residents
             </button>

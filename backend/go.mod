@@ -10,7 +10,7 @@ require (
 	github.com/openai/openai-go v1.12.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.18.0
-	golang.org/x/crypto v0.49.0
+	golang.org/x/crypto v0.36.0
 )
 
 require (

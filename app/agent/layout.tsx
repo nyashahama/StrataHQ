@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useMockAuth } from '@/lib/mock-auth'
 import AppShell from '@/components/AppShell'
 import Sidebar from '@/components/Sidebar'
+import { ToastProvider } from '@/lib/toast'
 
 export default function AgentLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useMockAuth()
@@ -18,16 +19,18 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
   if (loading || !user || user.role !== 'agent') return null
 
   return (
-    <AppShell
-      headerLabel={user.orgName || 'My Organisation'}
-      sidebar={
-        <Sidebar
-          role="agent-portfolio"
-          headerLabel={user.orgName || 'My Organisation'}
-        />
-      }
-    >
-      {children}
-    </AppShell>
+    <ToastProvider>
+      <AppShell
+        headerLabel={user.orgName || 'My Organisation'}
+        sidebar={
+          <Sidebar
+            role="agent-portfolio"
+            headerLabel={user.orgName || 'My Organisation'}
+          />
+        }
+      >
+        {children}
+      </AppShell>
+    </ToastProvider>
   )
 }

@@ -86,7 +86,7 @@ export default function MaintenancePage() {
   if (user?.role === 'resident') {
     const myRequests = jobs.filter(r => r.submitted_by_unit === user.unitIdentifier)
     return (
-      <div className="px-8 py-8 max-w-[900px]">
+      <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <p className="text-[12px] text-muted mb-4">Scheme › Maintenance</p>
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Maintenance</h1>
         <p className="text-[14px] text-muted mb-8">Your maintenance requests for Unit {user.unitIdentifier}.</p>
@@ -145,13 +145,13 @@ export default function MaintenancePage() {
   const resolvedCount = jobs.filter(r => r.status === 'resolved').length
 
   return (
-    <div className="px-8 py-8 max-w-[900px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Maintenance</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Maintenance</h1>
       <p className="text-[14px] text-muted mb-8">Log and track maintenance requests.</p>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Open jobs',           value: String(open.length) },
           { label: 'SLA breaches',        value: String(breached.length) },
@@ -187,7 +187,7 @@ export default function MaintenancePage() {
                   {CATEGORY_ICONS[req.category]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold text-ink mb-[2px]">{req.title}</div>
+                  <div className="text-[13px] font-semibold text-ink mb-[2px] truncate">{req.title}</div>
                   <div className="text-[11px] text-muted">
                     {req.contractor_name ?? 'No contractor assigned'}
                     {req.submitted_by_unit && ` · Unit ${req.submitted_by_unit}`}

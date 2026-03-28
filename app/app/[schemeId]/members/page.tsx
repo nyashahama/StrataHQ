@@ -42,7 +42,7 @@ export default function MembersPage() {
   if (user?.role === 'resident') {
     const trustees = members.filter(m => m.is_trustee_committee)
     return (
-      <div className="px-8 py-8 max-w-[900px]">
+      <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <p className="text-[12px] text-muted mb-4">Scheme › Members</p>
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Trustee Committee</h1>
         <p className="text-[14px] text-muted mb-8">Contact the trustees for scheme-related matters.</p>
@@ -72,12 +72,12 @@ export default function MembersPage() {
   )
 
   return (
-    <div className="px-8 py-8 max-w-[900px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Members</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Members</h1>
       <p className="text-[14px] text-muted mb-8">Owners, trustees, and contact information.</p>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         {[
           { label: 'Total members', value: String(members.length) },
           { label: 'Trustees',      value: String(trustees.length) },
@@ -91,7 +91,7 @@ export default function MembersPage() {
       </div>
 
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+        <div className="px-5 py-3 border-b border-border flex flex-wrap items-center justify-between gap-3">
           <span className="text-[13px] font-semibold text-ink">All members</span>
           {canEdit && (
             <button
@@ -109,26 +109,30 @@ export default function MembersPage() {
               placeholder="Search by name or unit…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full max-w-xs border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
+              className="w-full sm:max-w-xs border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>
-          <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
-            <span>Unit</span><span>Name</span><span>Contact</span><span>Role</span>
-          </div>
-          {filteredMembers.length === 0 ? (
-            <div className="text-[13px] text-muted text-center py-8">No members match your search.</div>
-          ) : (
-            filteredMembers.map((m, i) => (
-              <div key={m.id} className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center py-3 text-[13px] ${i < filteredMembers.length - 1 ? 'border-b border-border' : ''}`}>
-                <span className="font-semibold text-ink w-8">{m.unit_identifier}</span>
-                <span className="text-ink">{m.name}</span>
-                <span className="text-[12px] text-muted">{m.phone ?? '—'}</span>
-                <span className={`text-[11px] font-semibold px-2 py-[2px] rounded-full ${ROLE_STYLES[m.role]}`}>
-                  {m.is_trustee_committee ? 'Trustee' : m.role.charAt(0).toUpperCase() + m.role.slice(1)}
-                </span>
+          <div className="overflow-x-auto">
+            <div className="min-w-[480px]">
+              <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
+                <span>Unit</span><span>Name</span><span>Contact</span><span>Role</span>
               </div>
-            ))
-          )}
+              {filteredMembers.length === 0 ? (
+                <div className="text-[13px] text-muted text-center py-8">No members match your search.</div>
+              ) : (
+                filteredMembers.map((m, i) => (
+                  <div key={m.id} className={`grid grid-cols-[auto_1fr_auto_auto] gap-4 items-center py-3 text-[13px] ${i < filteredMembers.length - 1 ? 'border-b border-border' : ''}`}>
+                    <span className="font-semibold text-ink w-8">{m.unit_identifier}</span>
+                    <span className="text-ink">{m.name}</span>
+                    <span className="text-[12px] text-muted">{m.phone ?? '—'}</span>
+                    <span className={`text-[11px] font-semibold px-2 py-[2px] rounded-full ${ROLE_STYLES[m.role]}`}>
+                      {m.is_trustee_committee ? 'Trustee' : m.role.charAt(0).toUpperCase() + m.role.slice(1)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

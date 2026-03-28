@@ -21,7 +21,7 @@ export default function ResidentProfilePage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-[700px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[700px]">
       <p className="text-[12px] text-muted mb-4">My Profile</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">My Profile</h1>
       <p className="text-[14px] text-muted mb-8">Your contact details and unit information.</p>
@@ -35,7 +35,7 @@ export default function ResidentProfilePage() {
           <div className="text-[14px] font-semibold text-ink">Unit {user?.unitIdentifier}</div>
           <div className="text-[12px] text-muted">{user?.schemeName}</div>
         </div>
-        <span className="ml-auto text-[11px] font-semibold px-2 py-[2px] rounded-full bg-green-bg text-green">
+        <span className="ml-auto flex-shrink-0 text-[11px] font-semibold px-2 py-[2px] rounded-full bg-green-bg text-green">
           Owner
         </span>
       </div>

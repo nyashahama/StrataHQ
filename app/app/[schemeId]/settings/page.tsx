@@ -19,7 +19,7 @@ export default function SchemeSettingsPage() {
   }
 
   return (
-    <div className="px-8 py-8 max-w-[700px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[700px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Settings</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Scheme Settings</h1>
       <p className="text-[14px] text-muted mb-8">Manage scheme details and configuration.</p>
@@ -76,7 +76,7 @@ export default function SchemeSettingsPage() {
           <span className="text-[13px] font-semibold text-ink">Levy configuration</span>
         </div>
         <div className="px-5 py-4 flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-[12px] font-semibold text-ink block mb-1">Base levy (ZAR)</label>
               <input

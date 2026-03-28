@@ -19,7 +19,7 @@ export default function FinancialsPage() {
   // Resident: simplified summary only
   if (user?.role === 'resident') {
     return (
-      <div className="px-8 py-8 max-w-[900px]">
+      <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <p className="text-[12px] text-muted mb-4">Scheme › Financials</p>
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Financials</h1>
         <p className="text-[14px] text-muted mb-8">Scheme financial health summary.</p>
@@ -50,9 +50,9 @@ export default function FinancialsPage() {
 
   // Agent / Trustee: full financial view
   return (
-    <div className="px-8 py-8 max-w-[900px]">
+    <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Financials</p>
-      <div className="flex items-center justify-between mb-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
         <h1 className="font-serif text-[28px] font-semibold text-ink">Financials</h1>
         <button
           onClick={() => addToast('Budget export downloaded', 'info')}
@@ -64,7 +64,7 @@ export default function FinancialsPage() {
       <p className="text-[14px] text-muted mb-8">Budget, expenditure, and reserve fund.</p>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total budget',  value: formatRand(totalBudgeted) },
           { label: 'Spent to date', value: formatRand(totalActual) },
@@ -95,23 +95,27 @@ export default function FinancialsPage() {
           <span className="text-[13px] font-semibold text-ink">Budget vs Actual — 2025</span>
         </div>
         <div className="px-5">
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
-            <span>Category</span><span>Budgeted</span><span>Actual</span><span>Variance</span>
-          </div>
-          {mockBudgetLines.map((line, i) => {
-            const variance = line.budgeted_cents - line.actual_cents
-            const over = variance < 0
-            return (
-              <div key={line.id} className={`grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-3 text-[13px] ${i < mockBudgetLines.length - 1 ? 'border-b border-border' : ''}`}>
-                <span className="text-ink">{line.category}</span>
-                <span className="tabular-nums text-muted">{formatRand(line.budgeted_cents)}</span>
-                <span className="tabular-nums text-ink font-medium">{formatRand(line.actual_cents)}</span>
-                <span className={`tabular-nums text-[12px] font-semibold ${over ? 'text-red' : 'text-green'}`}>
-                  {over ? '+' : '-'}{formatRand(Math.abs(variance))}
-                </span>
+          <div className="overflow-x-auto">
+            <div className="min-w-[420px]">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
+                <span>Category</span><span>Budgeted</span><span>Actual</span><span>Variance</span>
               </div>
-            )
-          })}
+              {mockBudgetLines.map((line, i) => {
+                const variance = line.budgeted_cents - line.actual_cents
+                const over = variance < 0
+                return (
+                  <div key={line.id} className={`grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center py-3 text-[13px] ${i < mockBudgetLines.length - 1 ? 'border-b border-border' : ''}`}>
+                    <span className="text-ink">{line.category}</span>
+                    <span className="tabular-nums text-muted">{formatRand(line.budgeted_cents)}</span>
+                    <span className="tabular-nums text-ink font-medium">{formatRand(line.actual_cents)}</span>
+                    <span className={`tabular-nums text-[12px] font-semibold ${over ? 'text-red' : 'text-green'}`}>
+                      {over ? '+' : '-'}{formatRand(Math.abs(variance))}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

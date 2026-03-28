@@ -90,13 +90,12 @@ export default function FinancialsPage() {
       </div>
 
       {/* Budget vs actual table */}
-      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">Budget vs Actual — 2025</span>
         </div>
-        <div className="px-5">
-          <div className="overflow-x-auto">
-            <div className="min-w-[420px]">
+        <div className="overflow-x-auto">
+          <div className="px-5 min-w-[420px]">
               <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
                 <span>Category</span><span>Budgeted</span><span>Actual</span><span>Variance</span>
               </div>
@@ -114,7 +113,6 @@ export default function FinancialsPage() {
                   </div>
                 )
               })}
-            </div>
           </div>
         </div>
       </div>

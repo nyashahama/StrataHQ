@@ -40,17 +40,17 @@ export default function AgentPortfolioPage() {
       </div>
 
       {/* Scheme list */}
-      <div className="bg-surface border border-border rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-lg">
         <div className="px-5 py-3 border-b border-border">
           <span className="text-[13px] font-semibold text-ink">All schemes</span>
         </div>
-        <div className="overflow-x-auto -mx-5">
-          <div className="px-5 min-w-[480px]">
-          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border">
+        <div className="overflow-x-auto">
+          <div className="px-5 min-w-[520px]">
+          <div className="grid grid-cols-[1fr_44px_80px_100px_68px] gap-4 py-2 text-[11px] font-semibold text-muted uppercase tracking-wide border-b border-border whitespace-nowrap">
             <span>Scheme</span><span>Units</span><span>Collection</span><span>Maintenance</span><span>Health</span>
           </div>
           {mockPortfolio.map((scheme, i) => (
-            <div key={scheme.id} className={`grid grid-cols-[1fr_auto_auto_auto_auto] gap-4 items-center py-3 text-[13px] ${i < mockPortfolio.length - 1 ? 'border-b border-border' : ''}`}>
+            <div key={scheme.id} className={`grid grid-cols-[1fr_44px_80px_100px_68px] gap-4 items-center py-3 text-[13px] ${i < mockPortfolio.length - 1 ? 'border-b border-border' : ''}`}>
               <div>
                 <div className="font-semibold text-ink">{scheme.name}</div>
                 <div className="text-[12px] text-muted">{scheme.address}</div>

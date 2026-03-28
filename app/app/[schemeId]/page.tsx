@@ -35,7 +35,7 @@ export default function SchemeOverviewPage() {
         </h1>
         <p className="text-[14px] text-muted mb-8">Unit {user.unitIdentifier} · Welcome back.</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
           {[
             { label: 'My levy', value: myLevyAccount ? (myLevyAccount.status === 'paid' ? 'Paid ✓' : 'Due') : '—' },
             { label: 'Open requests', value: String(myRequests.length) },

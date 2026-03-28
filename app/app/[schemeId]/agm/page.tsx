@@ -62,15 +62,15 @@ export default function AgmVotingPage() {
       </div>
       <p className="text-[14px] text-muted mb-8">Annual general meetings and trustee resolutions.</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
         {[
           { label: 'Last AGM',  value: new Date(meeting.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) },
           { label: 'Next AGM',  value: new Date(upcoming.date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) },
           { label: 'Quorum',    value: `${meeting.quorum_present}/${meeting.quorum_required * 2}` },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-surface border border-border rounded-lg px-5 py-4">
-            <div className="text-[22px] font-semibold text-ink font-serif mb-1">{value}</div>
-            <div className="text-[12px] text-muted">{label}</div>
+          <div key={label} className="bg-surface border border-border rounded-lg px-3 sm:px-5 py-4">
+            <div className="text-[16px] sm:text-[22px] font-semibold text-ink font-serif mb-1 leading-tight">{value}</div>
+            <div className="text-[11px] sm:text-[12px] text-muted">{label}</div>
           </div>
         ))}
       </div>

@@ -111,7 +111,7 @@ export default function DocumentsPage() {
             <h2 className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-3">{category}</h2>
             <div className="bg-surface border border-border rounded-lg overflow-hidden">
               {docs.map((doc, i) => (
-                <div key={doc.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-5 py-3 text-[13px] ${i < docs.length - 1 ? 'border-b border-border' : ''}`}>
+                <div key={doc.id} className={`flex flex-col items-start sm:flex-row sm:items-center gap-2 sm:gap-4 px-5 py-3 text-[13px] ${i < docs.length - 1 ? 'border-b border-border' : ''}`}>
                   <span className={`text-[10px] font-bold px-[6px] py-[2px] rounded uppercase ${FILE_TYPE_STYLES[doc.file_type] ?? 'bg-page text-muted'}`}>
                     {doc.file_type}
                   </span>

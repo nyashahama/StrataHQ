@@ -87,8 +87,8 @@ export default function RegisterPage() {
                   onClick={() => setRole(r)}
                   className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
                     role === r
-                      ? 'bg-ink text-page'
-                      : 'bg-surface text-ink-2 hover:bg-border'
+                      ? 'bg-accent text-white'
+                      : 'bg-surface text-muted hover:text-ink hover:bg-hover-subtle'
                   }`}
                 >
                   {ROLE_LABELS[r]}
@@ -160,7 +160,7 @@ export default function RegisterPage() {
           {/* Submit */}
           <button
             type="submit"
-            className="w-full rounded bg-ink text-page py-2.5 text-sm font-semibold hover:bg-ink-2 transition-colors"
+            className="w-full rounded bg-accent text-white py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
           >
             Create account
           </button>

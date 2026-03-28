@@ -77,7 +77,7 @@ export default function MembersPage() {
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Members</h1>
       <p className="text-[14px] text-muted mb-8">Owners, trustees, and contact information.</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
         {[
           { label: 'Total members', value: String(members.length) },
           { label: 'Trustees',      value: String(trustees.length) },

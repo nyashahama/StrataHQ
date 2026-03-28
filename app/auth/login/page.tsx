@@ -57,7 +57,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-page flex items-center justify-center px-container">
+    <main className="min-h-screen bg-page flex items-center justify-center px-4">
       <div className="w-full max-w-sm py-12">
         {/* Logo */}
         <div className="flex items-center gap-2 mb-8">
@@ -84,7 +84,7 @@ export default function LoginPage() {
                   key={r}
                   type="button"
                   onClick={() => setRole(r)}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
                     role === r
                       ? 'bg-ink text-page'
                       : 'bg-surface text-ink-2 hover:bg-border'

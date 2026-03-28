@@ -19,20 +19,20 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-ink/40" onClick={onClose} />
-      <div className="relative bg-surface rounded-xl shadow-lg w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={onClose} />
+      <div className="relative bg-surface rounded-t-2xl sm:rounded-xl shadow-lg w-full sm:max-w-md max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
           <h2 className="text-[16px] font-semibold text-ink">{title}</h2>
           <button
             onClick={onClose}
-            className="text-muted hover:text-ink text-[22px] leading-none w-8 h-8 flex items-center justify-center rounded hover:bg-page transition-colors"
             aria-label="Close"
+            className="w-8 h-8 flex items-center justify-center text-muted hover:text-ink hover:bg-hover-subtle rounded-full transition-colors text-xl leading-none"
           >
             ×
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   )

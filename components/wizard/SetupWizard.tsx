@@ -43,7 +43,7 @@ export default function SetupWizard() {
 
   return (
     <main className="min-h-screen bg-page flex items-center justify-center px-4">
-      <div className="w-full max-w-md py-12">
+      <div className="w-full max-w-md py-8 sm:py-12">
         {/* Logo */}
         <div className="flex items-center gap-2 mb-10">
           <LogoIcon className="w-6 h-6 fill-ink" />
@@ -51,7 +51,7 @@ export default function SetupWizard() {
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-8">
+        <div className="flex flex-wrap items-center gap-2 mb-8">
           {STEP_LABELS.map((label, i) => {
             const s = (i + 1) as Step
             const active = s === step
@@ -61,7 +61,7 @@ export default function SetupWizard() {
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 ${done ? 'bg-green text-white' : active ? 'bg-accent text-white' : 'bg-border text-muted'}`}>
                   {done ? '✓' : s}
                 </div>
-                <span className={`text-[12px] ${active ? 'text-ink font-semibold' : 'text-muted'}`}>{label}</span>
+                <span className={`text-[12px] hidden sm:inline ${active ? 'text-ink font-semibold' : 'text-muted'}`}>{label}</span>
                 {i < STEP_LABELS.length - 1 && <div className="w-8 h-px bg-border mx-1" />}
               </div>
             )

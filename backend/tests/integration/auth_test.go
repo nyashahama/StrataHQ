@@ -2,6 +2,8 @@
 
 package integration
 
+const testJWTSigningKey = "for-integration-tests-only"
+
 import (
 	"bytes"
 	"context"
@@ -21,7 +23,7 @@ import (
 func newAuthHandler(t *testing.T) *auth.Handler {
 	t.Helper()
 	pool := &database.Pool{Pool: testDB, Q: dbgen.New(testDB)}
-	svc := auth.NewService(pool, testRedis, "integration-test-secret", 15*time.Minute, 7*24*time.Hour)
+	svc := auth.NewService(pool, testRedis, testJWTSigningKey, 15*time.Minute, 7*24*time.Hour)
 	return auth.NewHandler(svc)
 }
 
@@ -166,7 +168,7 @@ func TestAuth_Me(t *testing.T) {
 	json.NewDecoder(w.Body).Decode(&regResp)
 
 	// Parse claims from the access token to get userID and orgID
-	claims, err := auth.ValidateAccessToken(regResp.Data.AccessToken, "integration-test-secret")
+	claims, err := auth.ValidateAccessToken(regResp.Data.AccessToken, testJWTSigningKey)
 	if err != nil {
 		t.Fatalf("ValidateAccessToken: %v", err)
 	}

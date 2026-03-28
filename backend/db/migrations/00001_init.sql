@@ -1,14 +1,14 @@
 -- +goose Up
--- Placeholder init migration.
--- Domain-specific tables will be added as the project is implemented.
-
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-CREATE TABLE IF NOT EXISTS schema_migrations_lock (
-    id INTEGER PRIMARY KEY DEFAULT 1,
-    locked BOOLEAN NOT NULL DEFAULT FALSE
-);
+-- Trigger function: keep updated_at current on any UPDATE.
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
 
 -- +goose Down
-
-DROP TABLE IF EXISTS schema_migrations_lock;
+DROP FUNCTION IF EXISTS set_updated_at();

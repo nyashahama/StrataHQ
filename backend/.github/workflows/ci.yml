@@ -1,0 +1,100 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**"]
+  pull_request:
+    branches: [main]
+    paths: ["backend/**"]
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: backend
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: stratahq
+          POSTGRES_PASSWORD: stratahq
+          POSTGRES_DB: stratahq_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U stratahq"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Install tools
+        run: |
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+
+      - name: Generate sqlc
+        run: cd db && sqlc generate
+
+      - name: Run migrations
+        run: goose -dir db/migrations postgres "postgres://stratahq:stratahq@localhost:5432/stratahq_test?sslmode=disable" up
+
+      - name: Unit tests
+        run: go test ./internal/... -v -race
+
+      - name: Integration tests
+        run: go test ./tests/integration/... -v -race -tags=integration
+        env:
+          DATABASE_URL: postgres://stratahq:stratahq@localhost:5432/stratahq_test?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Build binary
+        run: go build -ldflags="-s -w" -o bin/server ./cmd/server/
+
+      - name: Build Docker image
+        run: docker build -t stratahq-backend .

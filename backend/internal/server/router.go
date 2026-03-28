@@ -53,6 +53,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret))
+			r.Get("/auth/me", h.Auth.Me)
 			r.Mount("/schemes", h.Scheme.Routes())
 			r.Mount("/levies", h.Levy.Routes())
 			r.Mount("/maintenance", h.Maintenance.Routes())

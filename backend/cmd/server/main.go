@@ -59,7 +59,7 @@ func main() {
 	logger.Info("redis connected")
 
 	// Services
-	authService := auth.NewService(db, rdb)
+	authService := auth.NewService(db, rdb, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 	schemeService := scheme.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)

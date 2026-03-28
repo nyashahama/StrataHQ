@@ -5,9 +5,6 @@ bin/
 # Environment
 .env
 
-# sqlc generated code
-db/gen/
-
 # Go
 *.exe
 *.exe~

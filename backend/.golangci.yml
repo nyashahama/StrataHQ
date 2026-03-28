@@ -1,8 +1,5 @@
-version: "2"
-
 run:
   timeout: 5m
-  go: "1.24"
 
 linters:
   enable:
@@ -14,11 +11,11 @@ linters:
     - bodyclose
     - nilerr
 
-  settings:
-    errcheck:
-      check-type-assertions: true
-    govet:
-      enable-all: true
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  govet:
+    enable-all: true
 
 issues:
   exclude-dirs:

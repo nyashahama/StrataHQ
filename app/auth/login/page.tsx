@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import LogoIcon from "@/components/LogoIcon";
 import { loginAction } from "@/lib/auth-actions";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -27,11 +25,11 @@ export default function LoginPage() {
 
     const { user } = result;
     if (user.role === "admin" && !user.wizard_complete) {
-      router.replace("/agent/setup");
+      window.location.replace("/agent/setup");
     } else if (user.role === "admin") {
-      router.replace("/agent");
+      window.location.replace("/agent");
     } else {
-      router.replace(`/app/${user.scheme_memberships[0]?.scheme_id ?? ""}`);
+      window.location.replace(`/app/${user.scheme_memberships[0]?.scheme_id ?? ""}`);
     }
   }
 

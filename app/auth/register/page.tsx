@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import LogoIcon from "@/components/LogoIcon";
 import { registerAction } from "@/lib/auth-actions";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,7 +24,7 @@ export default function RegisterPage() {
       return;
     }
 
-    router.replace("/agent/setup");
+    window.location.replace("/agent/setup");
   }
 
   return (

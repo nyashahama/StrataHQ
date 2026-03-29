@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import LogoIcon from '@/components/LogoIcon'
 import { acceptInviteAction } from '@/lib/auth-actions'
@@ -14,7 +14,6 @@ interface InviteInfo {
 
 export default function AcceptInvitePage() {
   const params = useParams()
-  const router = useRouter()
   const token = params.token as string
 
   const [invite, setInvite] = useState<InviteInfo | null>(null)
@@ -50,7 +49,7 @@ export default function AcceptInvitePage() {
     }
 
     const schemeId = result.user.scheme_memberships[0]?.scheme_id ?? ''
-    router.replace(`/app/${schemeId}`)
+    window.location.replace(`/app/${schemeId}`)
   }
 
   const ROLE_LABELS: Record<string, string> = {

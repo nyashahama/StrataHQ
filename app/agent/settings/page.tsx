@@ -1,11 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
 
 export default function AgentSettingsPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
@@ -33,7 +33,7 @@ export default function AgentSettingsPage() {
             <label className="text-[12px] font-semibold text-ink block mb-1">Organisation name</label>
             <input
               type="text"
-              defaultValue={user?.orgName}
+              defaultValue={'My Organisation'}
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
           </div>

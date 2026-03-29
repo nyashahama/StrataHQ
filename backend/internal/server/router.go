@@ -50,7 +50,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 		r.Group(func(r chi.Router) {
 			r.Mount("/auth", h.Auth.Routes())
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
-			r.Mount("/invitations", h.Invitation.PublicRoutes())
+			r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
 		})
 
 		// Protected routes

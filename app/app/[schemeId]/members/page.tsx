@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockMembers, type Member } from '@/lib/mock/members'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
@@ -12,7 +12,7 @@ const ROLE_STYLES: Record<string, string> = {
 }
 
 export default function MembersPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
 
   const [members, setMembers] = useState<Member[]>([...mockMembers])
@@ -61,7 +61,7 @@ export default function MembersPage() {
     )
   }
 
-  const canEdit = user?.role === 'agent'
+  const canEdit = user?.role === 'admin'
   const trustees = members.filter(m => m.is_trustee_committee)
   const owners = members.filter(m => !m.is_trustee_committee)
 

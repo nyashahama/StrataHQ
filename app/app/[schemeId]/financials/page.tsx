@@ -1,5 +1,5 @@
 'use client'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockBudgetLines, mockReserveFund } from '@/lib/mock/financials'
 import { useToast } from '@/lib/toast'
 
@@ -8,7 +8,7 @@ function formatRand(cents: number): string {
 }
 
 export default function FinancialsPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
 
   const totalBudgeted = mockBudgetLines.reduce((s, l) => s + l.budgeted_cents, 0)

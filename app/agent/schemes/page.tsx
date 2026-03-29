@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockPortfolio } from '@/lib/mock/scheme'
 
 const HEALTH_STYLES = {
@@ -10,7 +10,7 @@ const HEALTH_STYLES = {
 }
 
 export default function SchemesPage() {
-  useMockAuth()
+  useAuth()
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">All schemes</h1>

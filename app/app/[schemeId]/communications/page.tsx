@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockNotices, type Notice } from '@/lib/mock/communications'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
@@ -20,7 +20,7 @@ const TYPE_LABELS: Record<Notice['type'], string> = {
 }
 
 export default function CommunicationsPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
 
   const [notices, setNotices] = useState<Notice[]>([...mockNotices])
@@ -29,7 +29,7 @@ export default function CommunicationsPage() {
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ title: '', body: '', type: 'general' as Notice['type'] })
 
-  const canCompose = user?.role === 'agent'
+  const canCompose = user?.role === 'admin'
 
   const filteredNotices = typeFilter === 'all' ? notices : notices.filter(n => n.type === typeFilter)
 
@@ -41,7 +41,7 @@ export default function CommunicationsPage() {
       title: form.title.trim(),
       body: form.body.trim(),
       sent_at: new Date().toISOString(),
-      sent_by_name: user?.orgName ?? 'Managing Agent',
+      sent_by_name: 'Managing Agent',
       type: form.type,
     }
     setNotices(prev => [newNotice, ...prev])

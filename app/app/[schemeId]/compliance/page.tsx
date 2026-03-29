@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import {
   mockComplianceItems,
@@ -138,7 +138,7 @@ function ComplianceItemRow({ item }: { item: ComplianceItem }) {
 }
 
 export default function CompliancePage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
 
   // Compliance is for agents and trustees only

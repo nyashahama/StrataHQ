@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import { mockLevyRoll, mockLevyPeriod, mockCollectionTrend, mockUnit4BPayments } from '@/lib/mock/levy'
 import type { LevyAccount } from '@/lib/mock/levy'
@@ -18,7 +18,7 @@ const STATUS_STYLES: Record<string, string> = {
 }
 
 export default function LevyPaymentsPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
   const [levyRoll, setLevyRoll] = useState<LevyAccount[]>(mockLevyRoll)
   const [reconcileOpen, setReconcileOpen] = useState(false)
@@ -43,12 +43,12 @@ export default function LevyPaymentsPage() {
   }
 
   if (user?.role === 'resident') {
-    const myAccount = levyRoll.find(a => a.unit_identifier === user.unitIdentifier)
+    const myAccount = levyRoll.find(a => a.unit_identifier === '')
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <p className="text-[12px] text-muted mb-4">Scheme › My Levy</p>
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">My Levy</h1>
-        <p className="text-[14px] text-muted mb-8">Levy account for Unit {user.unitIdentifier}.</p>
+        <p className="text-[14px] text-muted mb-8">Levy account for Unit {''}.</p>
 
         {/* Current levy card */}
         <div className="bg-surface border border-border rounded-lg px-6 py-5 mb-6 flex items-center justify-between">
@@ -66,7 +66,7 @@ export default function LevyPaymentsPage() {
         {/* Payment history */}
         <h2 className="text-[14px] font-semibold text-ink mb-3">Payment history</h2>
         {(() => {
-          const myLevyAccount2 = levyRoll.find(a => a.unit_identifier === user?.unitIdentifier)
+          const myLevyAccount2 = levyRoll.find(a => a.unit_identifier === '')
           const myPayments = myLevyAccount2
             ? mockUnit4BPayments.filter(p => p.levy_account_id === myLevyAccount2.id)
             : []
@@ -102,7 +102,7 @@ export default function LevyPaymentsPage() {
   }
 
   // Agent / Trustee view
-  const canEdit = user?.role === 'agent'
+  const canEdit = user?.role === 'admin'
   const overdue = levyRoll.filter(a => a.status === 'overdue').length
   const totalCollected = levyRoll.reduce((sum, a) => sum + a.paid_cents, 0)
   const latestPct = mockCollectionTrend[mockCollectionTrend.length - 1].pct

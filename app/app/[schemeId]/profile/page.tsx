@@ -1,17 +1,17 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockMembers } from '@/lib/mock/members'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
 
 export default function ResidentProfilePage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
 
-  const myMember = mockMembers.find(m => m.unit_identifier === user?.unitIdentifier)
+  const myMember = mockMembers.find(m => m.unit_identifier === '')
 
   function handlePasswordSave() {
     if (!pwForm.next || pwForm.next !== pwForm.confirm) return
@@ -29,11 +29,11 @@ export default function ResidentProfilePage() {
       {/* Unit info */}
       <div className="bg-surface border border-border rounded-lg px-5 py-4 mb-6 flex items-center gap-4">
         <div className="w-12 h-12 rounded-lg bg-accent-bg flex items-center justify-center flex-shrink-0">
-          <span className="text-[16px] font-semibold text-accent">{user?.unitIdentifier}</span>
+          <span className="text-[16px] font-semibold text-accent">{''}</span>
         </div>
         <div>
-          <div className="text-[14px] font-semibold text-ink">Unit {user?.unitIdentifier}</div>
-          <div className="text-[12px] text-muted">{user?.schemeName}</div>
+          <div className="text-[14px] font-semibold text-ink">Unit {''}</div>
+          <div className="text-[12px] text-muted">{user?.scheme_memberships?.[0]?.scheme_name ?? ''}</div>
         </div>
         <span className="ml-auto flex-shrink-0 text-[11px] font-semibold px-2 py-[2px] rounded-full bg-green-bg text-green">
           Owner

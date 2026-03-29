@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockMaintenanceRequests, type MaintenanceRequest } from '@/lib/mock/maintenance'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
@@ -37,7 +37,7 @@ function isSlaBreached(req: MaintenanceRequest): boolean {
 }
 
 export default function MaintenancePage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
 
   const [jobs, setJobs] = useState<MaintenanceRequest[]>([...mockMaintenanceRequests])
@@ -72,7 +72,7 @@ export default function MaintenancePage() {
       sla_hours: 72,
       created_at: new Date().toISOString(),
       resolved_at: null,
-      submitted_by_unit: user?.role === 'resident' ? (user.unitIdentifier ?? null) : null,
+      submitted_by_unit: user?.role === 'resident' ? ('') : null,
     }
     setJobs(prev => [newJob, ...prev])
     setShowModal(false)
@@ -84,12 +84,12 @@ export default function MaintenancePage() {
 
   // Resident: show only their unit's requests
   if (user?.role === 'resident') {
-    const myRequests = jobs.filter(r => r.submitted_by_unit === user.unitIdentifier)
+    const myRequests = jobs.filter(r => r.submitted_by_unit === '')
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <p className="text-[12px] text-muted mb-4">Scheme › Maintenance</p>
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Maintenance</h1>
-        <p className="text-[14px] text-muted mb-8">Your maintenance requests for Unit {user.unitIdentifier}.</p>
+        <p className="text-[14px] text-muted mb-8">Your maintenance requests for Unit {''}.</p>
 
         <div className="flex items-center justify-between mb-6">
           <span className="text-[13px] text-muted">{myRequests.length} request{myRequests.length !== 1 ? 's' : ''}</span>
@@ -138,7 +138,7 @@ export default function MaintenancePage() {
   }
 
   // Agent / Trustee view
-  const canEdit = user?.role === 'agent'
+  const canEdit = user?.role === 'admin'
   const open = jobs.filter(r => r.status !== 'resolved')
   const breached = open.filter(isSlaBreached)
   const pendingApproval = open.filter(r => r.status === 'pending_approval')

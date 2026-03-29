@@ -46,7 +46,10 @@ func (c *EmailClient) send(ctx context.Context, to, subject, htmlBody string) er
 		"subject": subject,
 		"html":    htmlBody,
 	}
-	b, _ := json.Marshal(payload)
+	b, marshalErr := json.Marshal(payload)
+	if marshalErr != nil {
+		return marshalErr
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.resend.com/emails", bytes.NewReader(b))
 	if err != nil {

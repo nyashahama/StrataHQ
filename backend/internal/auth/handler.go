@@ -19,7 +19,6 @@ type registerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	FullName string `json:"full_name"`
-	OrgName  string `json:"org_name"`
 }
 
 type loginRequest struct {
@@ -41,12 +40,11 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
 		return
 	}
-	if req.Email == "" || req.Password == "" || req.FullName == "" || req.OrgName == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "email, password, full_name, and org_name are required")
+	if req.Email == "" || req.Password == "" || req.FullName == "" {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "email, password, and full_name are required")
 		return
 	}
-
-	res, err := h.service.Register(r.Context(), req.Email, req.Password, req.FullName, req.OrgName)
+	res, err := h.service.Register(r.Context(), req.Email, req.Password, req.FullName)
 	if err != nil {
 		if err == ErrEmailExists {
 			response.Error(w, http.StatusConflict, "CONFLICT", "email already registered")
@@ -56,6 +54,73 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusCreated, res)
+}
+
+type setupRequest struct {
+	OrgName       string `json:"org_name"`
+	ContactEmail  string `json:"contact_email"`
+	SchemeName    string `json:"scheme_name"`
+	SchemeAddress string `json:"scheme_address"`
+	UnitCount     int32  `json:"unit_count"`
+}
+
+func (h *Handler) Setup(w http.ResponseWriter, r *http.Request) {
+	role, _ := r.Context().Value(RoleKey).(string)
+	if role != "admin" {
+		response.Error(w, http.StatusForbidden, "FORBIDDEN", "only org admins can complete onboarding")
+		return
+	}
+	var req setupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+	if req.OrgName == "" || req.ContactEmail == "" || req.SchemeName == "" || req.SchemeAddress == "" || req.UnitCount <= 0 {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "org_name, contact_email, scheme_name, scheme_address, and unit_count are required")
+		return
+	}
+	orgID, _ := r.Context().Value(OrgIDKey).(string)
+	res, err := h.service.Setup(r.Context(), orgID, req.OrgName, req.ContactEmail, req.SchemeName, req.SchemeAddress, req.UnitCount)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "onboarding failed")
+		return
+	}
+	response.JSON(w, http.StatusCreated, res)
+}
+
+func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	json.NewDecoder(r.Body).Decode(&req) // best-effort; always 200
+	_ = h.service.ForgotPassword(r.Context(), req.Email)
+	response.JSON(w, http.StatusOK, map[string]string{
+		"message": "if that email is registered, a reset link has been sent",
+	})
+}
+
+func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Token    string `json:"token"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+	if req.Token == "" || req.Password == "" {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "token and password are required")
+		return
+	}
+	if err := h.service.ResetPassword(r.Context(), req.Token, req.Password); err != nil {
+		if err == ErrInvalidToken {
+			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired reset token")
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "password reset failed")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {

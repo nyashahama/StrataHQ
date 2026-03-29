@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   title: "StrataHQ — Body Corporate Management Platform",
   description:
     "One platform for managing agents, trustees and residents. Levy collections, maintenance, communications and AGMs — clear, connected and under control.",
+  icons: {
+    icon: "./stratahq_logo.svg",
+  },
 };
 
 // Anti-flash: runs before React hydration to apply saved theme

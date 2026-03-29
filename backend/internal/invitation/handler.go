@@ -55,7 +55,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		UnitID:   req.UnitID,
 	}, h.appBaseURL)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create invitation")
+		switch err.Error() {
+		case "invalid scheme_id", "invalid unit_id":
+			response.Error(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		default:
+			response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create invitation")
+		}
 		return
 	}
 	response.JSON(w, http.StatusCreated, inv)

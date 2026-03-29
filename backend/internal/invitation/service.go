@@ -169,6 +169,9 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 	if existing.OrgID != oid {
 		return nil, ErrForbidden
 	}
+	if existing.Status != "pending" {
+		return nil, ErrInvalidToken
+	}
 
 	token, err := generateToken()
 	if err != nil {

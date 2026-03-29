@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import LogoIcon from '@/components/LogoIcon'
 import { acceptInviteAction } from '@/lib/auth-actions'
+import { setSessionCookie } from '@/lib/auth'
 
 interface InviteInfo {
   email: string
@@ -48,6 +49,7 @@ export default function AcceptInvitePage() {
       return
     }
 
+    setSessionCookie(result.user)
     const schemeId = result.user.scheme_memberships[0]?.scheme_id ?? ''
     window.location.replace(`/app/${schemeId}`)
   }

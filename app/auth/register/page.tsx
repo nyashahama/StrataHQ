@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import LogoIcon from "@/components/LogoIcon";
 import { registerAction } from "@/lib/auth-actions";
+import { setSessionCookie } from "@/lib/auth";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -24,6 +25,7 @@ export default function RegisterPage() {
       return;
     }
 
+    setSessionCookie(result.user);
     window.location.replace("/agent/setup");
   }
 

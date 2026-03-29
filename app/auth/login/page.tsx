@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import LogoIcon from "@/components/LogoIcon";
 import { loginAction } from "@/lib/auth-actions";
+import { setSessionCookie } from "@/lib/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -24,6 +25,7 @@ export default function LoginPage() {
     }
 
     const { user } = result;
+    setSessionCookie(user);
     if (user.role === "admin" && !user.wizard_complete) {
       window.location.replace("/agent/setup");
     } else if (user.role === "admin") {

@@ -1,30 +1,30 @@
-import type { Metadata } from 'next'
-import { Lora, DM_Sans } from 'next/font/google'
-import './globals.css'
-import { MockAuthProvider } from '@/lib/mock-auth'
-import { ThemeProvider } from '@/components/ThemeProvider'
+import type { Metadata } from "next";
+import { Lora, DM_Sans } from "next/font/google";
+import "./globals.css";
+import { AuthProvider } from "@/lib/auth";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const lora = Lora({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  style: ['normal', 'italic'],
-  variable: '--font-lora',
-  display: 'swap',
-})
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-lora",
+  display: "swap",
+});
 
 const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
-  style: ['normal', 'italic'],
-  variable: '--font-dm-sans',
-  display: 'swap',
-})
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: 'StrataHQ — Body Corporate Management Platform',
+  title: "StrataHQ — Body Corporate Management Platform",
   description:
-    'One platform for managing agents, trustees and residents. Levy collections, maintenance, communications and AGMs — clear, connected and under control.',
-}
+    "One platform for managing agents, trustees and residents. Levy collections, maintenance, communications and AGMs — clear, connected and under control.",
+};
 
 // Anti-flash: runs before React hydration to apply saved theme
 const themeScript = `
@@ -35,19 +35,27 @@ const themeScript = `
     if (t === 'dark') document.documentElement.classList.add('dark');
   } catch(e) {}
 })();
-`
+`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="en" className={`${lora.variable} ${dmSans.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${lora.variable} ${dmSans.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-page text-ink font-sans antialiased leading-relaxed">
         <ThemeProvider>
-          <MockAuthProvider>{children}</MockAuthProvider>
+          <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

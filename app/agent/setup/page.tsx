@@ -1,19 +1,21 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useMockAuth } from '@/lib/mock-auth'
-import SetupWizard from '@/components/wizard/SetupWizard'
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import SetupWizard from "@/components/wizard/SetupWizard";
 
 export default function SetupPage() {
-  const { user } = useMockAuth()
-  const router = useRouter()
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    if (user?.isWizardComplete) router.replace('/agent')
-  }, [user, router])
+    if (loading) return;
+    if (!user) router.replace("/auth/login");
+    else if (user.wizard_complete) router.replace("/agent");
+  }, [user, loading, router]);
 
-  if (user?.isWizardComplete) return null
+  if (loading || !user || user.wizard_complete) return null;
 
-  return <SetupWizard />
+  return <SetupWizard />;
 }

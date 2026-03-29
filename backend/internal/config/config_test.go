@@ -22,6 +22,7 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 		"AI_API_KEY":             "sk-ai-123",
 		"AI_MODEL":               "deepseek-chat",
 		"ALLOWED_ORIGINS":        "http://localhost:3000,https://app.stratahq.com",
+		"APP_BASE_URL":           "http://localhost:3000",
 	}
 
 	for k, v := range envs {
@@ -52,6 +53,12 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 	if len(cfg.AllowedOrigins) != 2 {
 		t.Errorf("AllowedOrigins length = %d, want 2", len(cfg.AllowedOrigins))
 	}
+	if cfg.AppBaseURL != "http://localhost:3000" {
+		t.Errorf("AppBaseURL = %q, want %q", cfg.AppBaseURL, "http://localhost:3000")
+	}
+	if cfg.EmailFrom != "noreply@stratahq.co.za" {
+		t.Errorf("EmailFrom = %q, want default %q", cfg.EmailFrom, "noreply@stratahq.co.za")
+	}
 }
 
 func TestLoad_Defaults(t *testing.T) {
@@ -65,6 +72,7 @@ func TestLoad_Defaults(t *testing.T) {
 		"AI_BASE_URL":            "https://api.deepseek.com/v1",
 		"AI_API_KEY":             "sk-ai-123",
 		"AI_MODEL":               "deepseek-chat",
+		"APP_BASE_URL":           "http://localhost:3000",
 	}
 
 	for k, v := range required {
@@ -95,10 +103,13 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.RefreshExpiry != 168*time.Hour {
 		t.Errorf("RefreshExpiry = %v, want default %v", cfg.RefreshExpiry, 168*time.Hour)
 	}
+	if cfg.EmailFrom != "noreply@stratahq.co.za" {
+		t.Errorf("EmailFrom = %q, want default %q", cfg.EmailFrom, "noreply@stratahq.co.za")
+	}
 }
 
 func TestLoad_MissingRequired(t *testing.T) {
-	for _, key := range []string{"DATABASE_URL", "REDIS_URL", "JWT_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "RESEND_API_KEY", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL"} {
+	for _, key := range []string{"DATABASE_URL", "REDIS_URL", "JWT_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "RESEND_API_KEY", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "APP_BASE_URL"} {
 		os.Unsetenv(key)
 	}
 

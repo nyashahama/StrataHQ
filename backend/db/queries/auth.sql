@@ -66,3 +66,16 @@ WHERE token = $1;
 UPDATE refresh_tokens
 SET revoked = TRUE
 WHERE user_id = $1;
+
+-- name: UpdateOrg :one
+UPDATE orgs
+SET name = $1, contact_email = $2
+WHERE id = $3
+RETURNING id, name;
+
+-- name: ListSchemeMembershipsByUser :many
+SELECT sm.scheme_id, s.name AS scheme_name, sm.unit_id, sm.role
+FROM scheme_memberships sm
+JOIN schemes s ON s.id = sm.scheme_id
+WHERE sm.user_id = $1
+ORDER BY s.name;

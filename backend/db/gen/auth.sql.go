@@ -10,18 +10,24 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOrg = `-- name: CreateOrg :one
 INSERT INTO orgs (name)
 VALUES ($1)
-RETURNING id, name, created_at
+RETURNING id, name, created_at, contact_email
 `
 
 func (q *Queries) CreateOrg(ctx context.Context, name string) (Org, error) {
 	row := q.db.QueryRow(ctx, createOrg, name)
 	var i Org
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.ContactEmail,
+	)
 	return i, err
 }
 
@@ -102,7 +108,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getOrg = `-- name: GetOrg :one
-SELECT id, name, created_at FROM orgs
+SELECT id, name, created_at, contact_email FROM orgs
 WHERE id = $1
 LIMIT 1
 `
@@ -110,7 +116,12 @@ LIMIT 1
 func (q *Queries) GetOrg(ctx context.Context, id uuid.UUID) (Org, error) {
 	row := q.db.QueryRow(ctx, getOrg, id)
 	var i Org
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.ContactEmail,
+	)
 	return i, err
 }
 
@@ -243,6 +254,46 @@ func (q *Queries) ListOrgMembershipsByUser(ctx context.Context, userID uuid.UUID
 	return items, nil
 }
 
+const listSchemeMembershipsByUser = `-- name: ListSchemeMembershipsByUser :many
+SELECT sm.scheme_id, s.name AS scheme_name, sm.unit_id, sm.role
+FROM scheme_memberships sm
+JOIN schemes s ON s.id = sm.scheme_id
+WHERE sm.user_id = $1
+ORDER BY s.name
+`
+
+type ListSchemeMembershipsByUserRow struct {
+	SchemeID   uuid.UUID   `json:"scheme_id"`
+	SchemeName string      `json:"scheme_name"`
+	UnitID     pgtype.UUID `json:"unit_id"`
+	Role       string      `json:"role"`
+}
+
+func (q *Queries) ListSchemeMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]ListSchemeMembershipsByUserRow, error) {
+	rows, err := q.db.Query(ctx, listSchemeMembershipsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSchemeMembershipsByUserRow{}
+	for rows.Next() {
+		var i ListSchemeMembershipsByUserRow
+		if err := rows.Scan(
+			&i.SchemeID,
+			&i.SchemeName,
+			&i.UnitID,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const revokeAllUserRefreshTokens = `-- name: RevokeAllUserRefreshTokens :exec
 UPDATE refresh_tokens
 SET revoked = TRUE
@@ -263,6 +314,31 @@ WHERE token = $1
 func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) error {
 	_, err := q.db.Exec(ctx, revokeRefreshToken, token)
 	return err
+}
+
+const updateOrg = `-- name: UpdateOrg :one
+UPDATE orgs
+SET name = $1, contact_email = $2
+WHERE id = $3
+RETURNING id, name
+`
+
+type UpdateOrgParams struct {
+	Name         string      `json:"name"`
+	ContactEmail pgtype.Text `json:"contact_email"`
+	ID           uuid.UUID   `json:"id"`
+}
+
+type UpdateOrgRow struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
+func (q *Queries) UpdateOrg(ctx context.Context, arg UpdateOrgParams) (UpdateOrgRow, error) {
+	row := q.db.QueryRow(ctx, updateOrg, arg.Name, arg.ContactEmail, arg.ID)
+	var i UpdateOrgRow
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
 }
 
 const updateUserPassword = `-- name: UpdateUserPassword :exec

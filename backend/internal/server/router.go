@@ -11,6 +11,7 @@ import (
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/maintenance"
 	"github.com/stratahq/backend/internal/middleware"
@@ -25,6 +26,7 @@ type Handlers struct {
 	Levy        *levy.Handler
 	Maintenance *maintenance.Handler
 	Billing     *billing.Handler
+	Invitation  *invitation.Handler
 }
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Handlers) *chi.Mux {
@@ -48,12 +50,15 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 		r.Group(func(r chi.Router) {
 			r.Mount("/auth", h.Auth.Routes())
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
+			r.Mount("/invitations", h.Invitation.PublicRoutes())
 		})
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret))
 			r.Get("/auth/me", h.Auth.Me)
+			r.Mount("/onboarding", h.Auth.OnboardingRoutes())
+			r.Mount("/invitations", h.Invitation.ProtectedRoutes())
 			r.Mount("/schemes", h.Scheme.Routes())
 			r.Mount("/levies", h.Levy.Routes())
 			r.Mount("/maintenance", h.Maintenance.Routes())

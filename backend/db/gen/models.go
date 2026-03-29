@@ -409,6 +409,20 @@ type BudgetLine struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+type Invitation struct {
+	ID        uuid.UUID   `json:"id"`
+	OrgID     uuid.UUID   `json:"org_id"`
+	SchemeID  uuid.UUID   `json:"scheme_id"`
+	UnitID    pgtype.UUID `json:"unit_id"`
+	Email     string      `json:"email"`
+	FullName  string      `json:"full_name"`
+	Role      string      `json:"role"`
+	Token     string      `json:"token"`
+	Status    string      `json:"status"`
+	ExpiresAt time.Time   `json:"expires_at"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
 type LevyAccount struct {
 	ID          uuid.UUID   `json:"id"`
 	UnitID      uuid.UUID   `json:"unit_id"`
@@ -470,9 +484,10 @@ type Notice struct {
 }
 
 type Org struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           uuid.UUID   `json:"id"`
+	Name         string      `json:"name"`
+	CreatedAt    time.Time   `json:"created_at"`
+	ContactEmail pgtype.Text `json:"contact_email"`
 }
 
 type OrgMembership struct {

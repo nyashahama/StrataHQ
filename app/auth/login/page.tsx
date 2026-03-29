@@ -1,58 +1,37 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import LogoIcon from '@/components/LogoIcon'
-import { useMockAuth } from '@/lib/mock-auth'
-
-type Role = 'agent' | 'trustee' | 'resident'
-
-const ROLE_LABELS: Record<Role, string> = {
-  agent: 'Managing agent',
-  trustee: 'Trustee',
-  resident: 'Resident',
-}
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import LogoIcon from "@/components/LogoIcon";
+import { loginAction } from "@/lib/auth-actions";
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { login } = useMockAuth()
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [role, setRole] = useState<Role>('agent')
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    const result = await loginAction(email, password);
+    setLoading(false);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
 
-    if (role === 'agent') {
-      login({
-        role: 'agent',
-        orgName: 'Acme Property Management',
-        schemeName: 'Sunridge Heights',
-        schemeId: 'scheme-001',
-        isWizardComplete: true,
-      })
-      router.push('/agent')
-    } else if (role === 'trustee') {
-      login({
-        role: 'trustee',
-        orgName: 'Acme Property Management',
-        schemeName: 'Sunridge Heights',
-        schemeId: 'scheme-001',
-        isWizardComplete: true,
-      })
-      router.push('/app/scheme-001')
+    const { user } = result;
+    if (user.role === "admin" && !user.wizard_complete) {
+      router.replace("/agent/setup");
+    } else if (user.role === "admin") {
+      router.replace("/agent");
     } else {
-      login({
-        role: 'resident',
-        orgName: 'Acme Property Management',
-        schemeName: 'Sunridge Heights',
-        schemeId: 'scheme-001',
-        unitIdentifier: '4B',
-        isWizardComplete: true,
-      })
-      router.push('/app/scheme-001')
+      router.replace(`/app/${user.scheme_memberships[0]?.scheme_id ?? ""}`);
     }
   }
 
@@ -73,30 +52,6 @@ export default function LoginPage() {
         <p className="text-muted text-sm mb-8">Log in to your account</p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Role segmented control */}
-          <div>
-            <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-              I am a
-            </label>
-            <div className="flex rounded border border-border overflow-hidden">
-              {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                    role === r
-                      ? 'bg-accent text-white'
-                      : 'bg-surface text-muted hover:text-ink hover:bg-hover-subtle'
-                  }`}
-                >
-                  {ROLE_LABELS[r]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Email */}
           <div>
             <label
               htmlFor="email"
@@ -116,7 +71,6 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Password */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label
@@ -144,22 +98,27 @@ export default function LoginPage() {
             />
           </div>
 
-          {/* Submit */}
+          {error && <p className="text-sm text-red">{error}</p>}
+
           <button
             type="submit"
-            className="w-full rounded bg-accent text-white py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity"
+            disabled={loading}
+            className="w-full rounded bg-accent text-white py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            Log in
+            {loading ? "Logging in…" : "Log in"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted">
-          Don&apos;t have an account?{' '}
-          <Link href="/auth/register" className="text-accent hover:underline font-medium">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/auth/register"
+            className="text-accent hover:underline font-medium"
+          >
             Register
           </Link>
         </p>
       </div>
     </main>
-  )
+  );
 }

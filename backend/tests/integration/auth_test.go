@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,7 +35,9 @@ func newAuthHandler(t *testing.T) *auth.Handler {
 
 func uniqueEmail(t *testing.T) string {
 	safe := strings.ToLower(strings.ReplaceAll(t.Name(), "/", "-"))
-	return fmt.Sprintf("%s@test.example.com", safe)
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("%s-%x@test.example.com", safe, b)
 }
 
 // withAuthContext injects JWT claims into request context (simulates auth middleware).

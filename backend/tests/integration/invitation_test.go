@@ -84,8 +84,9 @@ func TestInvitation_CreateListRevokeResend(t *testing.T) {
 	schemeID := setupScheme(t, agentToken)
 
 	// Create invitation
+	trusteeEmail := uniqueEmail(t)
 	body, _ := json.Marshal(map[string]string{
-		"email": "trustee@example.com", "full_name": "Jane Trustee",
+		"email": trusteeEmail, "full_name": "Jane Trustee",
 		"role": "trustee", "scheme_id": schemeID,
 	})
 	req := httptest.NewRequest(http.MethodPost, "/invitations", bytes.NewReader(body))
@@ -95,8 +96,8 @@ func TestInvitation_CreateListRevokeResend(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("create: %d %s", w.Code, w.Body)
 	}
-	if len(sender.InvitationsSent) != 1 || sender.InvitationsSent[0] != "trustee@example.com" {
-		t.Errorf("expected 1 invitation email to trustee@example.com, got %v", sender.InvitationsSent)
+	if len(sender.InvitationsSent) != 1 || sender.InvitationsSent[0] != trusteeEmail {
+		t.Errorf("expected 1 invitation email to %s, got %v", trusteeEmail, sender.InvitationsSent)
 	}
 	var invResp struct{ Data invitation.InvitationResponse `json:"data"` }
 	json.NewDecoder(w.Body).Decode(&invResp)
@@ -169,8 +170,9 @@ func TestInvitation_AcceptFlow(t *testing.T) {
 	schemeID := setupScheme(t, agentToken)
 
 	// Create invitation
+	trusteeEmail := uniqueEmail(t)
 	body, _ := json.Marshal(map[string]string{
-		"email": "newtrust@example.com", "full_name": "New Trustee",
+		"email": trusteeEmail, "full_name": "New Trustee",
 		"role": "trustee", "scheme_id": schemeID,
 	})
 	req := httptest.NewRequest(http.MethodPost, "/invitations", bytes.NewReader(body))
@@ -206,8 +208,8 @@ func TestInvitation_AcceptFlow(t *testing.T) {
 	}
 	var vResp struct{ Data invitation.VerifyResponse `json:"data"` }
 	json.NewDecoder(w.Body).Decode(&vResp)
-	if vResp.Data.Email != "newtrust@example.com" {
-		t.Errorf("verify: email=%q", vResp.Data.Email)
+	if vResp.Data.Email != trusteeEmail {
+		t.Errorf("verify: email=%q, want %q", vResp.Data.Email, trusteeEmail)
 	}
 
 	// Accept invitation

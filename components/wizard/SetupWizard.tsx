@@ -1,13 +1,12 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import LogoIcon from "@/components/LogoIcon";
 import { setupAction } from "@/lib/auth-actions";
+import { setSessionCookie } from "@/lib/auth";
 
 type Step = 1 | 2 | 3;
 
 export default function SetupWizard() {
-  const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,11 +40,12 @@ export default function SetupWizard() {
       return;
     }
 
+    setSessionCookie(result.user);
     setStep(3);
   }
 
   function handleFinish() {
-    router.replace("/agent");
+    window.location.replace("/agent");
   }
 
   const STEP_LABELS = ["Organisation", "First scheme", "Done"];

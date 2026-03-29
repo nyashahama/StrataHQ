@@ -207,7 +207,7 @@ export async function setupAction(data: {
   scheme_name: string;
   scheme_address: string;
   unit_count: number;
-}): Promise<{ scheme: { id: string; name: string } } | { error: string }> {
+}): Promise<{ user: SessionUser } | { error: string }> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("sh_access")?.value;
   if (!accessToken) return { error: "Not authenticated" };
@@ -223,7 +223,8 @@ export async function setupAction(data: {
 
   if (!res.ok) return { error: "Setup failed — please try again" };
 
-  const result = await res.json();
+  const body = await res.json();
+  const result = body.data ?? body;
 
   // Update session cookie: wizard_complete + first scheme membership
   const raw = cookieStore.get("sh_session")?.value;
@@ -243,9 +244,10 @@ export async function setupAction(data: {
       encodeURIComponent(JSON.stringify(session)),
       SESSION_OPTS,
     );
+    return { user: session };
   }
 
-  return { scheme: result.scheme };
+  return { error: "Session not found — please log in again" };
 }
 
 // ─── Forgot password ──────────────────────────────────────────────────────────
@@ -302,7 +304,8 @@ export async function acceptInviteAction(
     return { error: "Something went wrong — please try again" };
   }
 
-  const { access_token, refresh_token } = await res.json();
+  const inviteBody = await res.json();
+  const { access_token, refresh_token } = inviteBody.data ?? inviteBody;
   const me = await fetchMe(access_token);
   if (!me) return { error: "Something went wrong — please try again" };
 

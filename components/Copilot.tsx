@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -15,7 +15,7 @@ const SUGGESTED_QUESTIONS = [
 ]
 
 export default function Copilot() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')

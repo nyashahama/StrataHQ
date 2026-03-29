@@ -1,12 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockScheme } from '@/lib/mock/scheme'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
 
 export default function SchemeSettingsPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
@@ -35,7 +35,7 @@ export default function SchemeSettingsPage() {
             <input
               type="text"
               defaultValue={mockScheme.name}
-              disabled={user?.role !== 'agent'}
+              disabled={user?.role !== 'admin'}
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             />
           </div>
@@ -44,7 +44,7 @@ export default function SchemeSettingsPage() {
             <input
               type="text"
               defaultValue={mockScheme.address}
-              disabled={user?.role !== 'agent'}
+              disabled={user?.role !== 'admin'}
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             />
           </div>
@@ -53,11 +53,11 @@ export default function SchemeSettingsPage() {
             <input
               type="number"
               defaultValue={mockScheme.unit_count}
-              disabled={user?.role !== 'agent'}
+              disabled={user?.role !== 'admin'}
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             />
           </div>
-          {user?.role === 'agent' && (
+          {user?.role === 'admin' && (
             <div>
               <button
                 onClick={() => addToast('Settings saved', 'success')}
@@ -82,14 +82,14 @@ export default function SchemeSettingsPage() {
               <input
                 type="text"
                 defaultValue="2 450.00"
-                disabled={user?.role !== 'agent'}
+                disabled={user?.role !== 'admin'}
                 className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
               />
             </div>
             <div>
               <label className="text-[12px] font-semibold text-ink block mb-1">Levy period</label>
               <select
-                disabled={user?.role !== 'agent'}
+                disabled={user?.role !== 'admin'}
                 defaultValue="Monthly"
                 className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
               >
@@ -98,7 +98,7 @@ export default function SchemeSettingsPage() {
               </select>
             </div>
           </div>
-          {user?.role === 'agent' && (
+          {user?.role === 'admin' && (
             <div>
               <button
                 onClick={() => addToast('Settings saved', 'success')}
@@ -127,7 +127,7 @@ export default function SchemeSettingsPage() {
               <input
                 type="checkbox"
                 defaultChecked={item.defaultChecked}
-                disabled={user?.role !== 'agent'}
+                disabled={user?.role !== 'admin'}
                 className="w-4 h-4 accent-accent"
               />
               <span className="text-[13px] text-ink">{item.label}</span>

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 import {
   mockWhatsAppThreads,
@@ -401,10 +401,10 @@ function AgentView() {
 // ── Page entry ─────────────────────────────────────────────────────────────
 
 export default function WhatsAppPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
 
   if (user?.role === 'resident') {
-    return <ResidentView unitIdentifier={user.unitIdentifier ?? ''} />
+    return <ResidentView unitIdentifier={''} />
   }
 
   return <AgentView />

@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockDocuments, type SchemeDocument } from '@/lib/mock/documents'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
@@ -36,7 +36,7 @@ function groupByCategory(docs: SchemeDocument[]): Record<string, SchemeDocument[
 }
 
 export default function DocumentsPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
 
   const [documents, setDocuments] = useState<SchemeDocument[]>([...mockDocuments])
@@ -44,7 +44,7 @@ export default function DocumentsPage() {
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ name: '', category: 'other' as SchemeDocument['category'], file_type: 'pdf' as SchemeDocument['file_type'] })
 
-  const canUpload = user?.role === 'agent'
+  const canUpload = user?.role === 'admin'
   const allGrouped = groupByCategory(documents)
   const grouped = categoryFilter === 'all'
     ? allGrouped
@@ -62,7 +62,7 @@ export default function DocumentsPage() {
       file_type: form.file_type,
       category: form.category,
       uploaded_at: new Date().toISOString(),
-      uploaded_by_name: user?.orgName ?? 'Managing Agent',
+      uploaded_by_name: 'Managing Agent',
       size_bytes: Math.floor(Math.random() * 500000) + 50000,
     }
     setDocuments(prev => [newDoc, ...prev])

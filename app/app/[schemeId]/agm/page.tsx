@@ -1,12 +1,12 @@
 'use client'
 import { useState } from 'react'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockAgmMeeting, mockAgmResolutions, mockUpcomingAgm, mockUpcomingResolutions, type AgmResolution } from '@/lib/mock/agm'
 import { useToast } from '@/lib/toast'
 import Modal from '@/components/Modal'
 
 export default function AgmVotingPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
   const { addToast } = useToast()
 
   const [resolutions, setResolutions] = useState<AgmResolution[]>([...mockAgmResolutions])
@@ -51,7 +51,7 @@ export default function AgmVotingPage() {
       <p className="text-[12px] text-muted mb-4">Scheme › AGM & Voting</p>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
         <h1 className="font-serif text-[28px] font-semibold text-ink">AGM & Voting</h1>
-        {user?.role === 'agent' && (
+        {user?.role === 'admin' && (
           <button
             onClick={() => setShowScheduleModal(true)}
             className="text-[12px] font-semibold bg-accent text-white px-3 py-2 rounded hover:opacity-90 transition-colors"

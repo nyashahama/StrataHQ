@@ -1,38 +1,42 @@
-'use client'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { useMockAuth } from '@/lib/mock-auth'
-import AppShell from '@/components/AppShell'
-import Sidebar from '@/components/Sidebar'
-import { ToastProvider } from '@/lib/toast'
-import Copilot from '@/components/Copilot'
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import AppShell from "@/components/AppShell";
+import Sidebar from "@/components/Sidebar";
+import { ToastProvider } from "@/lib/toast";
+import Copilot from "@/components/Copilot";
 
-export default function AgentLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useMockAuth()
-  const router = useRouter()
+export default function AgentLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    if (loading) return
-    if (user === null) router.replace('/auth/login')
-    else if (user.role !== 'agent') router.replace(`/app/${user.schemeId}`)
-  }, [user, loading, router])
+    if (loading) return;
+    if (user === null) {
+      router.replace("/auth/login");
+    } else if (user.role !== "admin") {
+      router.replace(`/app/${user.scheme_memberships[0]?.scheme_id ?? ""}`);
+    }
+  }, [user, loading, router]);
 
-  if (loading || !user || user.role !== 'agent') return null
+  if (loading || !user || user.role !== "admin") return null;
 
   return (
     <ToastProvider>
       <AppShell
-        headerLabel={user.orgName || 'My Organisation'}
+        headerLabel="My Organisation"
         sidebar={
-          <Sidebar
-            role="agent-portfolio"
-            headerLabel={user.orgName || 'My Organisation'}
-          />
+          <Sidebar role="agent-portfolio" headerLabel="My Organisation" />
         }
       >
         {children}
       </AppShell>
       <Copilot />
     </ToastProvider>
-  )
+  );
 }

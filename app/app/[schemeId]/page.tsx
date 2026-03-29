@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useMockAuth } from '@/lib/mock-auth'
+import { useAuth } from '@/lib/auth'
 import { mockScheme } from '@/lib/mock/scheme'
 import { mockLevyRoll, mockCollectionTrend } from '@/lib/mock/levy'
 import { mockMaintenanceRequests } from '@/lib/mock/maintenance'
@@ -14,7 +14,7 @@ function daysUntil(dateStr: string): number {
 }
 
 export default function SchemeOverviewPage() {
-  const { user } = useMockAuth()
+  const { user } = useAuth()
 
   const openMaintenance = mockMaintenanceRequests.filter(r => r.status !== 'resolved')
   const collectionPct = mockCollectionTrend[mockCollectionTrend.length - 1].pct
@@ -22,9 +22,9 @@ export default function SchemeOverviewPage() {
 
   // Resident view
   if (user?.role === 'resident') {
-    const myLevyAccount = mockLevyRoll.find(a => a.unit_identifier === user.unitIdentifier)
+    const myLevyAccount = mockLevyRoll.find(a => a.unit_identifier === '')
     const myRequests = mockMaintenanceRequests.filter(
-      r => r.submitted_by_unit === user.unitIdentifier && r.status !== 'resolved'
+      r => r.submitted_by_unit === '' && r.status !== 'resolved'
     )
     const recentNotices = mockNotices.slice(0, 3)
 
@@ -33,7 +33,7 @@ export default function SchemeOverviewPage() {
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">
           {mockScheme.name}
         </h1>
-        <p className="text-[14px] text-muted mb-8">Unit {user.unitIdentifier} · Welcome back.</p>
+        <p className="text-[14px] text-muted mb-8">Unit {''} · Welcome back.</p>
 
         <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
           {[

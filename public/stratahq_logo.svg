@@ -1,0 +1,32 @@
+<svg width="100%" viewBox="0 0 680 400" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <clipPath id="hex-clip">
+    <polygon points="340,60 420,105 420,195 340,240 260,195 260,105"/>
+  </clipPath>
+</defs>
+
+<!-- Outer hex ring -->
+<polygon points="340,48 432,99 432,201 340,252 248,201 248,99" fill="none" stroke="var(--color-text-primary)" stroke-width="2" opacity="0.12" style="fill:none;stroke:rgb(250, 249, 245);color:rgb(255, 255, 255);stroke-width:2px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.12;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Inner hex fill -->
+<polygon points="340,68 416,113 416,187 340,232 264,187 264,113" fill="var(--color-text-primary)" opacity="0.06" style="fill:rgb(250, 249, 245);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.06;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Stacked horizontal bars — the "strata" motif -->
+<!-- Bar 1 (top) — thinnest -->
+<rect x="285" y="112" width="110" height="16" rx="3" fill="var(--color-text-primary)" opacity="0.18" style="fill:rgb(250, 249, 245);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.18;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<!-- Bar 2 -->
+<rect x="278" y="136" width="124" height="20" rx="3" fill="var(--color-text-primary)" opacity="0.28" style="fill:rgb(250, 249, 245);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.28;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<!-- Bar 3 — widest, most prominent -->
+<rect x="272" y="164" width="136" height="24" rx="3" fill="var(--color-text-primary)" opacity="0.72" style="fill:rgb(250, 249, 245);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.72;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<!-- Bar 4 -->
+<rect x="278" y="196" width="124" height="20" rx="3" fill="var(--color-text-primary)" opacity="0.28" style="fill:rgb(250, 249, 245);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.28;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Accent notch cut into bar 3 (left edge) — the "HQ" mark -->
+<rect x="272" y="164" width="8" height="24" rx="2" fill="var(--color-text-info)" opacity="0.9" style="fill:rgb(128, 170, 221);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.9;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+<!-- Wordmark -->
+<text x="340" y="296" text-anchor="middle" font-family="var(--font-serif)" font-size="22" font-weight="500" letter-spacing="3" fill="var(--color-text-primary)" opacity="0.85" style="fill:rgb(250, 249, 245);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.85;font-family:&quot;Anthropic Serif&quot;, Georgia, &quot;Times New Roman&quot;, serif;font-size:22px;font-weight:500;text-anchor:middle;dominant-baseline:auto">STRATAHQ</text>
+
+<!-- Tagline -->
+<text x="340" y="322" text-anchor="middle" font-family="var(--font-sans)" font-size="11" font-weight="400" letter-spacing="2.5" fill="var(--color-text-secondary)" opacity="0.6" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.6;font-family:&quot;Anthropic Sans&quot;, sans-serif;font-size:11px;font-weight:400;text-anchor:middle;dominant-baseline:auto">BODY CORPORATE MANAGEMENT</text>
+</svg>

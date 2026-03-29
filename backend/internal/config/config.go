@@ -22,6 +22,8 @@ type Config struct {
 	AllowedOrigins      []string
 	JWTExpiry           time.Duration
 	RefreshExpiry       time.Duration
+	AppBaseURL          string
+	EmailFrom           string
 }
 
 func Load() (*Config, error) {
@@ -37,6 +39,8 @@ func Load() (*Config, error) {
 		AIBaseURL:           os.Getenv("AI_BASE_URL"),
 		AIAPIKey:            os.Getenv("AI_API_KEY"),
 		AIModel:             os.Getenv("AI_MODEL"),
+		AppBaseURL:          os.Getenv("APP_BASE_URL"),
+		EmailFrom:           getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
 	}
 
 	var err error
@@ -75,6 +79,7 @@ func (c *Config) validate() error {
 		"AI_BASE_URL":           c.AIBaseURL,
 		"AI_API_KEY":            c.AIAPIKey,
 		"AI_MODEL":              c.AIModel,
+		"APP_BASE_URL":          c.AppBaseURL,
 	}
 
 	var missing []string

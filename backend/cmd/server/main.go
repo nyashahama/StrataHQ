@@ -11,8 +11,10 @@ import (
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/maintenance"
+	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/platform/cache"
 	"github.com/stratahq/backend/internal/platform/database"
 	"github.com/stratahq/backend/internal/platform/health"
@@ -62,12 +64,16 @@ func main() {
 	defer rdb.Close()
 	logger.Info("redis connected")
 
+	// Notification
+	emailClient := notification.NewEmailClient(cfg.ResendAPIKey, cfg.EmailFrom)
+
 	// Services
-	authService := auth.NewService(db, rdb, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
+	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
 	schemeService := scheme.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
 	billingService := billing.NewService(db)
+	invitationService := invitation.NewService(db, emailClient, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 
 	// Handlers
 	handlers := server.Handlers{
@@ -77,6 +83,7 @@ func main() {
 		Levy:        levy.NewHandler(levyService),
 		Maintenance: maintenance.NewHandler(maintenanceService),
 		Billing:     billing.NewHandler(billingService),
+		Invitation:  invitation.NewHandler(invitationService, cfg.AppBaseURL),
 	}
 
 	// Router & Server

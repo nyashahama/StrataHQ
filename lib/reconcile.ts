@@ -1,5 +1,5 @@
 // lib/reconcile.ts
-import type { LevyAccount } from '@/lib/mock/levy'
+import type { LevyAccountInfo } from '@/lib/levy'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -15,12 +15,12 @@ export type MatchConfidence = 'high' | 'medium' | 'low' | 'unmatched'
 
 export interface ReconcileMatch {
   transaction: ParsedTransaction
-  account: LevyAccount | null
+  account: LevyAccountInfo | null
   confidence: MatchConfidence
   match_reason: string
   // what applying this match would do:
   new_paid_cents: number
-  new_status: LevyAccount['status']
+  new_status: LevyAccountInfo['status']
 }
 
 // ── CSV Parsing ────────────────────────────────────────────────────────────
@@ -111,7 +111,7 @@ function splitCSVRow(row: string): string[] {
  */
 export function matchTransactions(
   transactions: ParsedTransaction[],
-  accounts: LevyAccount[]
+  accounts: LevyAccountInfo[]
 ): ReconcileMatch[] {
   const usedAccountIds = new Set<string>()
 
@@ -177,7 +177,7 @@ export function matchTransactions(
       confidence: 'unmatched' as const,
       match_reason: 'No matching levy account found',
       new_paid_cents: 0,
-      new_status: 'pending' as LevyAccount['status'],
+      new_status: 'pending' as LevyAccountInfo['status'],
     }
   })
 }
@@ -189,12 +189,12 @@ function extractSurname(ownerName: string): string {
 
 function buildMatch(
   tx: ParsedTransaction,
-  account: LevyAccount,
+  account: LevyAccountInfo,
   confidence: MatchConfidence,
   match_reason: string
 ): ReconcileMatch {
   const new_paid_cents = account.paid_cents + tx.amount_cents
-  const new_status: LevyAccount['status'] =
+  const new_status: LevyAccountInfo['status'] =
     new_paid_cents >= account.amount_cents
       ? 'paid'
       : new_paid_cents > 0

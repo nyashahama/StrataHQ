@@ -34,6 +34,7 @@ type DocumentInfo struct {
 	CreatedAt      time.Time `json:"uploaded_at"`
 }
 
+//nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type DashboardResponse struct {
 	Documents []DocumentInfo `json:"documents"`
 	Role      string         `json:"role"`

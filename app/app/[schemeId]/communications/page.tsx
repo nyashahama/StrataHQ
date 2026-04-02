@@ -1,61 +1,106 @@
 'use client'
-import { useState } from 'react'
-import { useAuth } from '@/lib/auth'
-import { mockNotices, type Notice } from '@/lib/mock/communications'
-import { useToast } from '@/lib/toast'
-import Modal from '@/components/Modal'
 
-const TYPE_STYLES: Record<Notice['type'], string> = {
+import { useEffect, useState } from 'react'
+import { useParams } from 'next/navigation'
+
+import Modal from '@/components/Modal'
+import { createNotice, getCommunicationsDashboard } from '@/lib/communications-api'
+import type { NoticeInfo, NoticeType } from '@/lib/communications'
+import { useAuth } from '@/lib/auth'
+import { useToast } from '@/lib/toast'
+
+const TYPE_STYLES: Record<NoticeType, string> = {
   general: 'bg-[#f0efe9] text-muted',
-  urgent:  'bg-red-bg text-red',
-  agm:     'bg-accent-bg text-accent',
-  levy:    'bg-yellowbg text-amber',
+  urgent: 'bg-red-bg text-red',
+  agm: 'bg-accent-bg text-accent',
+  levy: 'bg-yellowbg text-amber',
 }
 
-const TYPE_LABELS: Record<Notice['type'], string> = {
+const TYPE_LABELS: Record<NoticeType, string> = {
   general: 'General',
-  urgent:  'Urgent',
-  agm:     'AGM',
-  levy:    'Levy',
+  urgent: 'Urgent',
+  agm: 'AGM',
+  levy: 'Levy',
 }
 
 export default function CommunicationsPage() {
   const { user } = useAuth()
   const { addToast } = useToast()
+  const params = useParams()
+  const schemeId = params.schemeId as string
 
-  const [notices, setNotices] = useState<Notice[]>([...mockNotices])
-  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [notices, setNotices] = useState<NoticeInfo[]>([])
+  const [loading, setLoading] = useState(true)
+  const [typeFilter, setTypeFilter] = useState<'all' | NoticeType>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
-  const [form, setForm] = useState({ title: '', body: '', type: 'general' as Notice['type'] })
+  const [sending, setSending] = useState(false)
+  const [form, setForm] = useState({ title: '', body: '', type: 'general' as NoticeType })
 
-  const canCompose = user?.role === 'admin'
+  const canCompose = user?.role === 'admin' || user?.role === 'trustee'
 
-  const filteredNotices = typeFilter === 'all' ? notices : notices.filter(n => n.type === typeFilter)
-
-  function handleCompose() {
-    if (!form.title.trim() || !form.body.trim()) return
-    const newNotice: Notice = {
-      id: `notice-${Date.now()}`,
-      scheme_id: 'scheme-001',
-      title: form.title.trim(),
-      body: form.body.trim(),
-      sent_at: new Date().toISOString(),
-      sent_by_name: 'Managing Agent',
-      type: form.type,
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true)
+        const dashboard = await getCommunicationsDashboard(schemeId, typeFilter)
+        setNotices(dashboard.notices)
+      } catch (error) {
+        addToast(
+          error instanceof Error ? error.message : 'Failed to load notices',
+          'error',
+        )
+      } finally {
+        setLoading(false)
+      }
     }
-    setNotices(prev => [newNotice, ...prev])
-    setExpanded(newNotice.id)
-    setShowModal(false)
-    setForm({ title: '', body: '', type: 'general' })
-    addToast('Notice sent to all residents', 'success')
+
+    load()
+  }, [addToast, schemeId, typeFilter])
+
+  async function handleCompose() {
+    if (!form.title.trim() || !form.body.trim()) return
+
+    setSending(true)
+    try {
+      const notice = await createNotice(schemeId, {
+        title: form.title.trim(),
+        body: form.body.trim(),
+        type: form.type,
+      })
+
+      if (typeFilter === 'all' || typeFilter === notice.type) {
+        setNotices(current => [notice, ...current])
+      }
+      setExpanded(notice.id)
+      setShowModal(false)
+      setForm({ title: '', body: '', type: 'general' })
+      addToast('Notice sent to scheme members', 'success')
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Failed to send notice',
+        'error',
+      )
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
+        <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
+          Loading communications…
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Communications</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Communications</h1>
-      <p className="text-[14px] text-muted mb-8">Notices, announcements, and correspondence.</p>
+      <p className="text-[14px] text-muted mb-8">Notices, announcements, and scheme correspondence.</p>
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <span className="text-[13px] text-muted">{notices.length} notices</span>
@@ -73,7 +118,7 @@ export default function CommunicationsPage() {
         <label className="text-[12px] font-semibold text-muted">Filter:</label>
         <select
           value={typeFilter}
-          onChange={e => setTypeFilter(e.target.value)}
+          onChange={event => setTypeFilter(event.target.value as 'all' | NoticeType)}
           className="border border-border rounded px-3 py-1.5 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
         >
           <option value="all">All notices</option>
@@ -85,9 +130,11 @@ export default function CommunicationsPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        {filteredNotices.length === 0 ? (
-          <div className="bg-[#f0efe9] border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">No notices match the selected filter.</div>
-        ) : filteredNotices.map(notice => (
+        {notices.length === 0 ? (
+          <div className="bg-[#f0efe9] border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
+            No notices match the selected filter.
+          </div>
+        ) : notices.map(notice => (
           <div key={notice.id} className="bg-surface border border-border rounded-lg overflow-hidden">
             <button
               className="w-full px-5 py-4 flex items-start justify-between gap-4 text-left hover:bg-page transition-colors"
@@ -103,7 +150,7 @@ export default function CommunicationsPage() {
                   </span>
                 </div>
                 <div className="text-[13px] font-semibold text-ink">{notice.title}</div>
-                <div className="text-[12px] text-muted mt-0.5">{notice.sent_by_name}</div>
+                <div className="text-[12px] text-muted mt-0.5">{notice.sent_by_name ?? 'StrataHQ'}</div>
               </div>
               <span className="text-muted text-[12px] flex-shrink-0 mt-1">{expanded === notice.id ? '▲' : '▼'}</span>
             </button>
@@ -116,15 +163,14 @@ export default function CommunicationsPage() {
         ))}
       </div>
 
-
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="Compose notice">
+      <Modal open={showModal} onClose={() => !sending && setShowModal(false)} title="Compose notice">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[12px] font-semibold text-ink block mb-1">Type</label>
               <select
                 value={form.type}
-                onChange={e => setForm(f => ({ ...f, type: e.target.value as Notice['type'] }))}
+                onChange={event => setForm(current => ({ ...current, type: event.target.value as NoticeType }))}
                 className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
               >
                 <option value="general">General</option>
@@ -140,7 +186,7 @@ export default function CommunicationsPage() {
             <input
               type="text"
               value={form.title}
-              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              onChange={event => setForm(current => ({ ...current, title: event.target.value }))}
               placeholder="Notice subject"
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             />
@@ -149,7 +195,7 @@ export default function CommunicationsPage() {
             <label className="text-[12px] font-semibold text-ink block mb-1">Body *</label>
             <textarea
               value={form.body}
-              onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+              onChange={event => setForm(current => ({ ...current, body: event.target.value }))}
               placeholder="Write your notice here…"
               rows={5}
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent resize-none"
@@ -158,10 +204,10 @@ export default function CommunicationsPage() {
           <div className="flex gap-2 pt-1">
             <button
               onClick={handleCompose}
-              disabled={!form.title.trim() || !form.body.trim()}
+              disabled={!form.title.trim() || !form.body.trim() || sending}
               className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Send to all residents
+              {sending ? 'Sending…' : 'Send to scheme'}
             </button>
             <button
               onClick={() => setShowModal(false)}

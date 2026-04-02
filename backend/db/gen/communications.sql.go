@@ -7,6 +7,7 @@ package dbgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -134,6 +135,111 @@ func (q *Queries) ListNoticesBySchemeAndType(ctx context.Context, arg ListNotice
 			&i.SentByUserID,
 			&i.SentAt,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNoticesDetailedByScheme = `-- name: ListNoticesDetailedByScheme :many
+SELECT n.id, n.scheme_id, n.title, n.body, n.type, n.sent_by_user_id, n.sent_at, n.created_at, u.full_name AS sent_by_name
+FROM notices n
+LEFT JOIN users u ON u.id = n.sent_by_user_id
+WHERE n.scheme_id = $1
+ORDER BY n.sent_at DESC
+`
+
+type ListNoticesDetailedBySchemeRow struct {
+	ID           uuid.UUID   `json:"id"`
+	SchemeID     uuid.UUID   `json:"scheme_id"`
+	Title        string      `json:"title"`
+	Body         string      `json:"body"`
+	Type         NoticeType  `json:"type"`
+	SentByUserID pgtype.UUID `json:"sent_by_user_id"`
+	SentAt       time.Time   `json:"sent_at"`
+	CreatedAt    time.Time   `json:"created_at"`
+	SentByName   pgtype.Text `json:"sent_by_name"`
+}
+
+func (q *Queries) ListNoticesDetailedByScheme(ctx context.Context, schemeID uuid.UUID) ([]ListNoticesDetailedBySchemeRow, error) {
+	rows, err := q.db.Query(ctx, listNoticesDetailedByScheme, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListNoticesDetailedBySchemeRow{}
+	for rows.Next() {
+		var i ListNoticesDetailedBySchemeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.Title,
+			&i.Body,
+			&i.Type,
+			&i.SentByUserID,
+			&i.SentAt,
+			&i.CreatedAt,
+			&i.SentByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listNoticesDetailedBySchemeAndType = `-- name: ListNoticesDetailedBySchemeAndType :many
+SELECT n.id, n.scheme_id, n.title, n.body, n.type, n.sent_by_user_id, n.sent_at, n.created_at, u.full_name AS sent_by_name
+FROM notices n
+LEFT JOIN users u ON u.id = n.sent_by_user_id
+WHERE n.scheme_id = $1 AND n.type = $2
+ORDER BY n.sent_at DESC
+`
+
+type ListNoticesDetailedBySchemeAndTypeParams struct {
+	SchemeID uuid.UUID  `json:"scheme_id"`
+	Type     NoticeType `json:"type"`
+}
+
+type ListNoticesDetailedBySchemeAndTypeRow struct {
+	ID           uuid.UUID   `json:"id"`
+	SchemeID     uuid.UUID   `json:"scheme_id"`
+	Title        string      `json:"title"`
+	Body         string      `json:"body"`
+	Type         NoticeType  `json:"type"`
+	SentByUserID pgtype.UUID `json:"sent_by_user_id"`
+	SentAt       time.Time   `json:"sent_at"`
+	CreatedAt    time.Time   `json:"created_at"`
+	SentByName   pgtype.Text `json:"sent_by_name"`
+}
+
+func (q *Queries) ListNoticesDetailedBySchemeAndType(ctx context.Context, arg ListNoticesDetailedBySchemeAndTypeParams) ([]ListNoticesDetailedBySchemeAndTypeRow, error) {
+	rows, err := q.db.Query(ctx, listNoticesDetailedBySchemeAndType, arg.SchemeID, arg.Type)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListNoticesDetailedBySchemeAndTypeRow{}
+	for rows.Next() {
+		var i ListNoticesDetailedBySchemeAndTypeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.Title,
+			&i.Body,
+			&i.Type,
+			&i.SentByUserID,
+			&i.SentAt,
+			&i.CreatedAt,
+			&i.SentByName,
 		); err != nil {
 			return nil, err
 		}

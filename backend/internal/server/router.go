@@ -10,6 +10,7 @@ import (
 
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
+	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
@@ -20,13 +21,14 @@ import (
 )
 
 type Handlers struct {
-	Health      *health.Handler
-	Auth        *auth.Handler
-	Scheme      *scheme.Handler
-	Levy        *levy.Handler
-	Maintenance *maintenance.Handler
-	Billing     *billing.Handler
-	Invitation  *invitation.Handler
+	Health         *health.Handler
+	Auth           *auth.Handler
+	Scheme         *scheme.Handler
+	Communications *communications.Handler
+	Levy           *levy.Handler
+	Maintenance    *maintenance.Handler
+	Billing        *billing.Handler
+	Invitation     *invitation.Handler
 }
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Handlers) *chi.Mux {
@@ -63,6 +65,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			r.Mount("/onboarding", h.Auth.OnboardingRoutes())
 			r.Mount("/invitations", h.Invitation.ProtectedRoutes())
 			r.Mount("/schemes", h.Scheme.Routes())
+			r.Mount("/communications", h.Communications.Routes())
 			r.Mount("/levies", h.Levy.Routes())
 			r.Mount("/maintenance", h.Maintenance.Routes())
 			r.Mount("/billing", h.Billing.Routes())

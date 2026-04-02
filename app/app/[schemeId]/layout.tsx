@@ -48,6 +48,7 @@ export default function SchemeLayout({ children }: { children: React.ReactNode }
             role={sidebarRole}
             headerLabel={headerLabel}
             schemeId={schemeId}
+            allMemberships={user.scheme_memberships}
           />
         }
       >

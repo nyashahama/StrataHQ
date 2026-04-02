@@ -19,6 +19,10 @@ SET name = $2, address = $3, unit_count = $4
 WHERE id = $1
 RETURNING *;
 
+-- name: DeleteScheme :exec
+DELETE FROM schemes
+WHERE id = $1;
+
 -- name: CreateUnit :one
 INSERT INTO units (scheme_id, identifier, owner_name, floor, section_value_bps)
 VALUES ($1, $2, $3, $4, $5)
@@ -36,7 +40,10 @@ ORDER BY identifier;
 
 -- name: UpdateUnit :one
 UPDATE units
-SET owner_name = $2, floor = $3, section_value_bps = $4
+SET identifier = $2,
+    owner_name = $3,
+    floor = $4,
+    section_value_bps = $5
 WHERE id = $1
 RETURNING *;
 

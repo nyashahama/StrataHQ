@@ -57,12 +57,14 @@ type CheckoutSessionInput struct {
 	PlanCode      string
 }
 
+//nolint:govet // Keep checkout result fields grouped by API meaning rather than field packing.
 type CheckoutSession struct {
 	ID         string
 	URL        string
 	CustomerID *string
 }
 
+//nolint:govet // Keep webhook event fields grouped by provider payload meaning rather than field packing.
 type WebhookEvent struct {
 	Type              string
 	OrgID             string

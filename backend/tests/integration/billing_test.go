@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,13 +20,14 @@ import (
 type fakeBillingProvider struct {
 	checkoutURL string
 	portalURL   string
+	suffix      string
 }
 
 func (f *fakeBillingProvider) CreateCheckoutSession(_ context.Context, input billing.CheckoutSessionInput) (*billing.CheckoutSession, error) {
 	return &billing.CheckoutSession{
-		ID:         "cs_test_123",
+		ID:         "cs_test_" + f.suffix,
 		URL:        f.checkoutURL,
-		CustomerID: ptr("cus_test_123"),
+		CustomerID: ptr("cus_test_" + f.suffix),
 	}, nil
 }
 
@@ -40,17 +43,19 @@ func (f *fakeBillingProvider) ParseWebhook(payload []byte, signature string) (*b
 	return &event, nil
 }
 
-func newBillingHandler(t *testing.T) *billing.Handler {
+func newBillingHandler(t *testing.T) (*billing.Handler, string) {
 	t.Helper()
+	suffix := fmt.Sprintf("%s_%d", strings.ReplaceAll(strings.ToLower(t.Name()), "/", "_"), time.Now().UnixNano())
 	provider := &fakeBillingProvider{
 		checkoutURL: "https://checkout.stripe.test/session",
 		portalURL:   "https://billing.stripe.test/portal",
+		suffix:      suffix,
 	}
-	return billing.NewHandler(billing.NewService(testPool, provider, "http://localhost:3000"))
+	return billing.NewHandler(billing.NewService(testPool, provider, "http://localhost:3000")), suffix
 }
 
 func TestBilling_CheckoutPortalAndWebhook(t *testing.T) {
-	h := newBillingHandler(t)
+	h, suffix := newBillingHandler(t)
 	accessToken, orgID := setupAgent(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/billing/subscription", nil)
@@ -93,8 +98,8 @@ func TestBilling_CheckoutPortalAndWebhook(t *testing.T) {
 	webhookBody, _ := json.Marshal(billing.WebhookEvent{
 		Type:             "customer.subscription.updated",
 		OrgID:            orgID,
-		CustomerID:       "cus_test_123",
-		SubscriptionID:   "sub_test_123",
+		CustomerID:       "cus_test_" + suffix,
+		SubscriptionID:   "sub_test_" + suffix,
 		Status:           "active",
 		PlanCode:         "starter",
 		CurrentPeriodEnd: &currentPeriodEnd,
@@ -114,7 +119,8 @@ func TestBilling_CheckoutPortalAndWebhook(t *testing.T) {
 		t.Fatalf("get updated subscription: status=%d body=%s", w.Code, w.Body)
 	}
 	updated := decodeSuccess[billing.SubscriptionResponse](t, w)
-	if updated.Status != "active" || !updated.EntitlementActive || updated.SubscriptionID == nil || *updated.SubscriptionID != "sub_test_123" {
+	expectedSubscriptionID := "sub_test_" + suffix
+	if updated.Status != "active" || !updated.EntitlementActive || updated.SubscriptionID == nil || *updated.SubscriptionID != expectedSubscriptionID {
 		t.Fatalf("unexpected updated subscription: %+v", updated)
 	}
 

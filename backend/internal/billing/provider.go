@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+//nolint:govet // Keep provider configuration fields grouped by purpose rather than field packing.
 type StripeProvider struct {
 	secretKey     string
 	webhookSecret string
@@ -189,6 +190,7 @@ type stripeCheckoutSession struct {
 	Metadata     stripeMetadata `json:"metadata"`
 }
 
+//nolint:govet // Keep parsed Stripe subscription payload fields grouped by API meaning rather than field packing.
 type stripeSubscription struct {
 	ID                string         `json:"id"`
 	Customer          string         `json:"customer"`

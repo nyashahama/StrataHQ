@@ -7,6 +7,7 @@ package dbgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -168,6 +169,70 @@ func (q *Queries) ListMaintenanceRequestsByScheme(ctx context.Context, schemeID 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMaintenanceRequestsDetailedByScheme = `-- name: ListMaintenanceRequestsDetailedByScheme :many
+SELECT mr.id, mr.scheme_id, mr.unit_id, mr.title, mr.description, mr.category, mr.status, mr.contractor_name, mr.contractor_phone, mr.sla_hours, mr.submitted_by_unit, mr.created_at, mr.updated_at, mr.resolved_at, u.identifier AS unit_identifier, u.owner_name
+FROM maintenance_requests mr
+LEFT JOIN units u ON u.id = mr.unit_id
+WHERE mr.scheme_id = $1
+ORDER BY mr.created_at DESC
+`
+
+type ListMaintenanceRequestsDetailedBySchemeRow struct {
+	ID              uuid.UUID           `json:"id"`
+	SchemeID        uuid.UUID           `json:"scheme_id"`
+	UnitID          pgtype.UUID         `json:"unit_id"`
+	Title           string              `json:"title"`
+	Description     string              `json:"description"`
+	Category        MaintenanceCategory `json:"category"`
+	Status          MaintenanceStatus   `json:"status"`
+	ContractorName  pgtype.Text         `json:"contractor_name"`
+	ContractorPhone pgtype.Text         `json:"contractor_phone"`
+	SlaHours        int32               `json:"sla_hours"`
+	SubmittedByUnit pgtype.Text         `json:"submitted_by_unit"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
+	ResolvedAt      pgtype.Timestamptz  `json:"resolved_at"`
+	UnitIdentifier  pgtype.Text         `json:"unit_identifier"`
+	OwnerName       pgtype.Text         `json:"owner_name"`
+}
+
+func (q *Queries) ListMaintenanceRequestsDetailedByScheme(ctx context.Context, schemeID uuid.UUID) ([]ListMaintenanceRequestsDetailedBySchemeRow, error) {
+	rows, err := q.db.Query(ctx, listMaintenanceRequestsDetailedByScheme, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMaintenanceRequestsDetailedBySchemeRow{}
+	for rows.Next() {
+		var i ListMaintenanceRequestsDetailedBySchemeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.UnitID,
+			&i.Title,
+			&i.Description,
+			&i.Category,
+			&i.Status,
+			&i.ContractorName,
+			&i.ContractorPhone,
+			&i.SlaHours,
+			&i.SubmittedByUnit,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ResolvedAt,
+			&i.UnitIdentifier,
+			&i.OwnerName,
 		); err != nil {
 			return nil, err
 		}

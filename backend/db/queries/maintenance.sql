@@ -15,6 +15,13 @@ SELECT * FROM maintenance_requests
 WHERE scheme_id = $1
 ORDER BY created_at DESC;
 
+-- name: ListMaintenanceRequestsDetailedByScheme :many
+SELECT mr.*, u.identifier AS unit_identifier, u.owner_name
+FROM maintenance_requests mr
+LEFT JOIN units u ON u.id = mr.unit_id
+WHERE mr.scheme_id = $1
+ORDER BY mr.created_at DESC;
+
 -- name: ListOpenMaintenanceRequestsByScheme :many
 SELECT * FROM maintenance_requests
 WHERE scheme_id = $1

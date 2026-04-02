@@ -81,6 +81,16 @@ func (q *Queries) CreateUnit(ctx context.Context, arg CreateUnitParams) (Unit, e
 	return i, err
 }
 
+const deleteScheme = `-- name: DeleteScheme :exec
+DELETE FROM schemes
+WHERE id = $1
+`
+
+func (q *Queries) DeleteScheme(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteScheme, id)
+	return err
+}
+
 const deleteSchemeMembership = `-- name: DeleteSchemeMembership :exec
 DELETE FROM scheme_memberships
 WHERE user_id = $1 AND scheme_id = $2
@@ -315,13 +325,17 @@ func (q *Queries) UpdateScheme(ctx context.Context, arg UpdateSchemeParams) (Sch
 
 const updateUnit = `-- name: UpdateUnit :one
 UPDATE units
-SET owner_name = $2, floor = $3, section_value_bps = $4
+SET identifier = $2,
+    owner_name = $3,
+    floor = $4,
+    section_value_bps = $5
 WHERE id = $1
 RETURNING id, scheme_id, identifier, owner_name, floor, section_value_bps, created_at
 `
 
 type UpdateUnitParams struct {
 	ID              uuid.UUID `json:"id"`
+	Identifier      string    `json:"identifier"`
 	OwnerName       string    `json:"owner_name"`
 	Floor           int32     `json:"floor"`
 	SectionValueBps int32     `json:"section_value_bps"`
@@ -330,6 +344,7 @@ type UpdateUnitParams struct {
 func (q *Queries) UpdateUnit(ctx context.Context, arg UpdateUnitParams) (Unit, error) {
 	row := q.db.QueryRow(ctx, updateUnit,
 		arg.ID,
+		arg.Identifier,
 		arg.OwnerName,
 		arg.Floor,
 		arg.SectionValueBps,

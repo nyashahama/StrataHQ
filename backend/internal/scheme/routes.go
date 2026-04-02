@@ -9,5 +9,8 @@ func (h *Handler) Routes() chi.Router {
 	r.Get("/{id}", h.Get)
 	r.Put("/{id}", h.Update)
 	r.Delete("/{id}", h.Delete)
+	r.Get("/{id}/units", h.ListUnits)
+	r.Post("/{id}/units", h.CreateUnit)
+	r.Put("/{id}/units/{unitId}", h.UpdateUnit)
 	return r
 }

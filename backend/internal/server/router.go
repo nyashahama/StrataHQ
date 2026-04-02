@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/stratahq/backend/internal/agm"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
@@ -24,6 +25,7 @@ import (
 type Handlers struct {
 	Health         *health.Handler
 	Auth           *auth.Handler
+	Agm            *agm.Handler
 	Scheme         *scheme.Handler
 	Communications *communications.Handler
 	Documents      *documents.Handler
@@ -66,6 +68,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			r.Post("/auth/change-password", h.Auth.ChangePassword)
 			r.Mount("/onboarding", h.Auth.OnboardingRoutes())
 			r.Mount("/invitations", h.Invitation.ProtectedRoutes())
+			r.Mount("/agm", h.Agm.Routes())
 			r.Mount("/schemes", h.Scheme.Routes())
 			r.Mount("/communications", h.Communications.Routes())
 			r.Mount("/documents", h.Documents.Routes())

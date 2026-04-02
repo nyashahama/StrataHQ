@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/stratahq/backend/internal/agm"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
@@ -71,6 +72,7 @@ func main() {
 
 	// Services
 	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
+	agmService := agm.NewService(db)
 	schemeService := scheme.NewService(db)
 	communicationsService := communications.NewService(db)
 	documentsService := documents.NewService(db)
@@ -83,6 +85,7 @@ func main() {
 	handlers := server.Handlers{
 		Health:         health.New(db, &redisChecker{rdb}),
 		Auth:           auth.NewHandler(authService),
+		Agm:            agm.NewHandler(agmService),
 		Scheme:         scheme.NewHandler(schemeService),
 		Communications: communications.NewHandler(communicationsService),
 		Documents:      documents.NewHandler(documentsService),

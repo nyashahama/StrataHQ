@@ -59,6 +59,7 @@ type SchemeMembership struct {
 	Role       string  `json:"role"`
 }
 
+//nolint:govet // Keep the response DTO grouped by API meaning rather than field packing.
 type MeResponse struct {
 	SchemeMemberships []SchemeMembership `json:"scheme_memberships"`
 	Org               OrgInfo            `json:"org"`

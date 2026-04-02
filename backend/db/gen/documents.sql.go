@@ -7,6 +7,7 @@ package dbgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -154,6 +155,115 @@ func (q *Queries) ListSchemeDocumentsByCategory(ctx context.Context, arg ListSch
 			&i.SizeBytes,
 			&i.UploadedByUserID,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSchemeDocumentsDetailed = `-- name: ListSchemeDocumentsDetailed :many
+SELECT sd.id, sd.scheme_id, sd.name, sd.storage_key, sd.file_type, sd.category, sd.size_bytes, sd.uploaded_by_user_id, sd.created_at, u.full_name AS uploaded_by_name
+FROM scheme_documents sd
+LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
+WHERE sd.scheme_id = $1
+ORDER BY sd.created_at DESC
+`
+
+type ListSchemeDocumentsDetailedRow struct {
+	ID               uuid.UUID        `json:"id"`
+	SchemeID         uuid.UUID        `json:"scheme_id"`
+	Name             string           `json:"name"`
+	StorageKey       string           `json:"storage_key"`
+	FileType         DocumentFileType `json:"file_type"`
+	Category         DocumentCategory `json:"category"`
+	SizeBytes        int64            `json:"size_bytes"`
+	UploadedByUserID pgtype.UUID      `json:"uploaded_by_user_id"`
+	CreatedAt        time.Time        `json:"created_at"`
+	UploadedByName   pgtype.Text      `json:"uploaded_by_name"`
+}
+
+func (q *Queries) ListSchemeDocumentsDetailed(ctx context.Context, schemeID uuid.UUID) ([]ListSchemeDocumentsDetailedRow, error) {
+	rows, err := q.db.Query(ctx, listSchemeDocumentsDetailed, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSchemeDocumentsDetailedRow{}
+	for rows.Next() {
+		var i ListSchemeDocumentsDetailedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.Name,
+			&i.StorageKey,
+			&i.FileType,
+			&i.Category,
+			&i.SizeBytes,
+			&i.UploadedByUserID,
+			&i.CreatedAt,
+			&i.UploadedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSchemeDocumentsDetailedByCategory = `-- name: ListSchemeDocumentsDetailedByCategory :many
+SELECT sd.id, sd.scheme_id, sd.name, sd.storage_key, sd.file_type, sd.category, sd.size_bytes, sd.uploaded_by_user_id, sd.created_at, u.full_name AS uploaded_by_name
+FROM scheme_documents sd
+LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
+WHERE sd.scheme_id = $1 AND sd.category = $2
+ORDER BY sd.created_at DESC
+`
+
+type ListSchemeDocumentsDetailedByCategoryParams struct {
+	SchemeID uuid.UUID        `json:"scheme_id"`
+	Category DocumentCategory `json:"category"`
+}
+
+type ListSchemeDocumentsDetailedByCategoryRow struct {
+	ID               uuid.UUID        `json:"id"`
+	SchemeID         uuid.UUID        `json:"scheme_id"`
+	Name             string           `json:"name"`
+	StorageKey       string           `json:"storage_key"`
+	FileType         DocumentFileType `json:"file_type"`
+	Category         DocumentCategory `json:"category"`
+	SizeBytes        int64            `json:"size_bytes"`
+	UploadedByUserID pgtype.UUID      `json:"uploaded_by_user_id"`
+	CreatedAt        time.Time        `json:"created_at"`
+	UploadedByName   pgtype.Text      `json:"uploaded_by_name"`
+}
+
+func (q *Queries) ListSchemeDocumentsDetailedByCategory(ctx context.Context, arg ListSchemeDocumentsDetailedByCategoryParams) ([]ListSchemeDocumentsDetailedByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, listSchemeDocumentsDetailedByCategory, arg.SchemeID, arg.Category)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSchemeDocumentsDetailedByCategoryRow{}
+	for rows.Next() {
+		var i ListSchemeDocumentsDetailedByCategoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.Name,
+			&i.StorageKey,
+			&i.FileType,
+			&i.Category,
+			&i.SizeBytes,
+			&i.UploadedByUserID,
+			&i.CreatedAt,
+			&i.UploadedByName,
 		); err != nil {
 			return nil, err
 		}

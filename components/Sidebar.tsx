@@ -256,7 +256,7 @@ export default function Sidebar({ role, headerLabel, schemeId, allMemberships }:
   const smallLabel = getHeaderSmallLabel(role)
 
   const showSchemeSwitcher =
-    role === 'trustee' &&
+    (role === 'trustee' || role === 'agent-scheme') &&
     allMemberships &&
     allMemberships.length >= 2
 

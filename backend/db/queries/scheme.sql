@@ -60,9 +60,14 @@ WHERE user_id = $1 AND scheme_id = $2
 LIMIT 1;
 
 -- name: ListSchemeMembersByScheme :many
-SELECT sm.*, u.full_name, u.email
+SELECT sm.*,
+       u.full_name,
+       u.email,
+       u.phone,
+       un.identifier AS unit_identifier
 FROM scheme_memberships sm
 JOIN users u ON u.id = sm.user_id
+LEFT JOIN units un ON un.id = sm.unit_id
 WHERE sm.scheme_id = $1
 ORDER BY u.full_name;
 

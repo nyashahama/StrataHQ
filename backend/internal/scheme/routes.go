@@ -12,5 +12,7 @@ func (h *Handler) Routes() chi.Router {
 	r.Get("/{id}/units", h.ListUnits)
 	r.Post("/{id}/units", h.CreateUnit)
 	r.Put("/{id}/units/{unitId}", h.UpdateUnit)
+	r.Get("/{id}/members", h.ListMembers)
+	r.Patch("/{id}/members/{userId}", h.UpdateMember)
 	return r
 }

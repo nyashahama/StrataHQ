@@ -30,6 +30,18 @@ type UnitInfo struct {
 }
 
 //nolint:govet // Keep API response fields grouped by meaning rather than field packing.
+type MemberInfo struct {
+	Phone          *string   `json:"phone"`
+	UnitID         *string   `json:"unit_id"`
+	UnitIdentifier *string   `json:"unit_identifier"`
+	UserID         string    `json:"user_id"`
+	FullName       string    `json:"full_name"`
+	Email          string    `json:"email"`
+	Role           string    `json:"role"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+//nolint:govet // Keep API response fields grouped by meaning rather than field packing.
 type NoticeInfo struct {
 	ID     string    `json:"id"`
 	Title  string    `json:"title"`
@@ -88,6 +100,11 @@ type UpdateUnitInput struct {
 	OwnerName       string
 	Floor           int32
 	SectionValueBps int32
+}
+
+type UpdateMemberInput struct {
+	Role   string
+	UnitID *string
 }
 
 type Service struct {
@@ -344,6 +361,114 @@ func (s *Service) UpdateUnit(ctx context.Context, identity auth.Identity, scheme
 	return pointerToUnit(mapUnit(unit)), nil
 }
 
+func (s *Service) ListMembers(ctx context.Context, identity auth.Identity, schemeID string) ([]MemberInfo, error) {
+	scheme, role, _, _, err := s.resolveSchemeAccess(ctx, identity, schemeID)
+	if err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.Q.ListSchemeMembersByScheme(ctx, scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	members := make([]MemberInfo, 0, len(rows))
+	for _, row := range rows {
+		if auth.IsResidentRole(role) && row.Role != string(auth.RoleTrustee) {
+			continue
+		}
+		members = append(members, mapMember(row))
+	}
+
+	return members, nil
+}
+
+func (s *Service) UpdateMember(ctx context.Context, identity auth.Identity, schemeID, userID string, input UpdateMemberInput) (*MemberInfo, error) {
+	scheme, role, _, _, err := s.resolveSchemeAccess(ctx, identity, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	if !auth.IsAdminRole(role) {
+		return nil, ErrForbidden
+	}
+	if input.Role != string(auth.RoleTrustee) && input.Role != string(auth.RoleResident) {
+		return nil, ErrInvalidInput
+	}
+
+	memberUserID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+
+	_, err = s.db.Q.GetSchemeMembership(ctx, dbgen.GetSchemeMembershipParams{
+		UserID:   memberUserID,
+		SchemeID: scheme.ID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	unitValue := pgtype.UUID{}
+	if input.Role == string(auth.RoleResident) {
+		if input.UnitID == nil || *input.UnitID == "" {
+			return nil, ErrInvalidInput
+		}
+		parsedUnitID, parseErr := uuid.Parse(*input.UnitID)
+		if parseErr != nil {
+			return nil, ErrInvalidInput
+		}
+		unit, unitErr := s.db.Q.GetUnit(ctx, parsedUnitID)
+		if unitErr != nil {
+			if errors.Is(unitErr, pgx.ErrNoRows) {
+				return nil, ErrNotFound
+			}
+			return nil, unitErr
+		}
+		if unit.SchemeID != scheme.ID {
+			return nil, ErrForbidden
+		}
+		unitValue = pgtype.UUID{Bytes: parsedUnitID, Valid: true}
+	}
+
+	_, err = s.db.Q.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+		UserID:   memberUserID,
+		SchemeID: scheme.ID,
+		UnitID:   unitValue,
+		Role:     input.Role,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.db.Q.UpdateOrgMembershipRole(ctx, dbgen.UpdateOrgMembershipRoleParams{
+		UserID: memberUserID,
+		OrgID:  scheme.OrgID,
+		Role:   input.Role,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	rows, err := s.db.Q.ListSchemeMembersByScheme(ctx, scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if row.UserID == memberUserID {
+			member := mapMember(row)
+			return &member, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
 func (s *Service) resolveSchemeAccess(ctx context.Context, identity auth.Identity, schemeID string) (dbgen.Scheme, string, *string, *string, error) {
 	id, err := uuid.Parse(schemeID)
 	if err != nil {
@@ -496,6 +621,26 @@ func mapUnit(unit dbgen.Unit) UnitInfo {
 		Floor:           unit.Floor,
 		SectionValuePct: float64(unit.SectionValueBps) / 100,
 	}
+}
+
+func mapMember(row dbgen.ListSchemeMembersBySchemeRow) MemberInfo {
+	member := MemberInfo{
+		Phone:     textPointer(row.Phone),
+		UserID:    row.UserID.String(),
+		FullName:  row.FullName,
+		Email:     row.Email,
+		Role:      row.Role,
+		CreatedAt: row.CreatedAt,
+	}
+	if row.UnitID.Valid {
+		unitID := uuid.UUID(row.UnitID.Bytes).String()
+		member.UnitID = &unitID
+	}
+	if row.UnitIdentifier.Valid {
+		unitIdentifier := row.UnitIdentifier.String
+		member.UnitIdentifier = &unitIdentifier
+	}
+	return member
 }
 
 func pointerToUnit(unit UnitInfo) *UnitInfo {

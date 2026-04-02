@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
@@ -35,14 +34,11 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 
 			claims, err := auth.ValidateAccessToken(tokenStr, jwtSecret)
 			if err != nil {
-				response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired token")
+				response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid or expired token")
 				return
 			}
 
-			ctx := context.WithValue(r.Context(), auth.UserIDKey, claims.Subject)
-			ctx = context.WithValue(ctx, auth.OrgIDKey, claims.OrgID)
-			ctx = context.WithValue(ctx, auth.RoleKey, claims.Role)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(auth.ContextWithClaims(r.Context(), claims)))
 		})
 	}
 }

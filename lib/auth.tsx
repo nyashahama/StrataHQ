@@ -2,20 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { logoutAction } from "./auth-actions";
-
-export interface SessionUser {
-  id: string;
-  email: string;
-  full_name: string;
-  role: "admin" | "trustee" | "resident";
-  wizard_complete: boolean;
-  scheme_memberships: {
-    scheme_id: string;
-    scheme_name: string;
-    unit_id: string | null;
-    role: string;
-  }[];
-}
+import type { SessionUser } from "./session";
 
 interface AuthContextValue {
   user: SessionUser | null;

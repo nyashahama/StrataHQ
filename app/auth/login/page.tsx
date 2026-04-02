@@ -5,6 +5,7 @@ import Link from "next/link";
 import LogoIcon from "@/components/LogoIcon";
 import { loginAction } from "@/lib/auth-actions";
 import { setSessionCookie } from "@/lib/auth";
+import { postLoginPath } from "@/lib/session";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -26,13 +27,7 @@ export default function LoginPage() {
 
     const { user } = result;
     setSessionCookie(user);
-    if (user.role === "admin" && !user.wizard_complete) {
-      window.location.replace("/agent/setup");
-    } else if (user.role === "admin") {
-      window.location.replace("/agent");
-    } else {
-      window.location.replace(`/app/${user.scheme_memberships[0]?.scheme_id ?? ""}`);
-    }
+    window.location.replace(postLoginPath(user));
   }
 
   return (

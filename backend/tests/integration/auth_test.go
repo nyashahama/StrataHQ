@@ -14,10 +14,8 @@ import (
 	"testing"
 	"time"
 
-	dbgen "github.com/stratahq/backend/db/gen"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/notification"
-	"github.com/stratahq/backend/internal/platform/database"
 )
 
 const (
@@ -27,9 +25,8 @@ const (
 
 func newAuthHandler(t *testing.T) *auth.Handler {
 	t.Helper()
-	pool := &database.Pool{Pool: testDB, Q: dbgen.New(testDB)}
 	sender := &notification.NoopSender{}
-	svc := auth.NewService(pool, testRedis, sender, testJWTSigningKey, "http://localhost:3000", 15*time.Minute, 7*24*time.Hour)
+	svc := auth.NewService(testPool, testRedis, sender, testJWTSigningKey, "http://localhost:3000", 15*time.Minute, 7*24*time.Hour)
 	return auth.NewHandler(svc)
 }
 
@@ -38,25 +35,6 @@ func uniqueEmail(t *testing.T) string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
 	return fmt.Sprintf("%s-%x@test.example.com", safe, b)
-}
-
-// withAuthContext injects JWT claims into request context (simulates auth middleware).
-func withAuthContext(r *http.Request, accessToken, jwtSecret string) *http.Request {
-	claims, err := auth.ValidateAccessToken(accessToken, jwtSecret)
-	if err != nil {
-		panic("withAuthContext: invalid token: " + err.Error())
-	}
-	ctx := context.WithValue(r.Context(), auth.UserIDKey, claims.Subject)
-	ctx = context.WithValue(ctx, auth.OrgIDKey, claims.OrgID)
-	ctx = context.WithValue(ctx, auth.RoleKey, claims.Role)
-	return r.WithContext(ctx)
-}
-
-func withNonAdminContext(r *http.Request) *http.Request {
-	ctx := context.WithValue(r.Context(), auth.UserIDKey, "00000000-0000-0000-0000-000000000001")
-	ctx = context.WithValue(ctx, auth.OrgIDKey, "00000000-0000-0000-0000-000000000002")
-	ctx = context.WithValue(ctx, auth.RoleKey, "trustee")
-	return r.WithContext(ctx)
 }
 
 func TestAuth_RegisterLoginRefreshLogout(t *testing.T) {
@@ -193,17 +171,9 @@ func TestAuth_Me(t *testing.T) {
 	}
 	json.NewDecoder(w.Body).Decode(&regResp)
 
-	// Parse claims from the access token to get userID and orgID
-	claims, err := auth.ValidateAccessToken(regResp.Data.AccessToken, testJWTSigningKey)
-	if err != nil {
-		t.Fatalf("ValidateAccessToken: %v", err)
-	}
-
 	// Call Me with context values the middleware would normally inject
 	req = httptest.NewRequest(http.MethodGet, "/me", nil)
-	ctx := context.WithValue(req.Context(), auth.UserIDKey, claims.Subject)
-	ctx = context.WithValue(ctx, auth.OrgIDKey, claims.OrgID)
-	req = req.WithContext(ctx)
+	req = withAuthContext(req, regResp.Data.AccessToken, testJWTSigningKey)
 	w = httptest.NewRecorder()
 	h.Me(w, req)
 	if w.Code != http.StatusOK {
@@ -236,7 +206,9 @@ func TestAuth_SetupOnboarding(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("register: status=%d body=%s", w.Code, w.Body)
 	}
-	var regResp struct{ Data auth.AuthResponse `json:"data"` }
+	var regResp struct {
+		Data auth.AuthResponse `json:"data"`
+	}
 	json.NewDecoder(w.Body).Decode(&regResp)
 	accessToken := regResp.Data.AccessToken
 
@@ -248,7 +220,9 @@ func TestAuth_SetupOnboarding(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("me pre-onboarding: status=%d body=%s", w.Code, w.Body)
 	}
-	var meResp struct{ Data auth.MeResponse `json:"data"` }
+	var meResp struct {
+		Data auth.MeResponse `json:"data"`
+	}
 	json.NewDecoder(w.Body).Decode(&meResp)
 	if meResp.Data.WizardComplete {
 		t.Error("expected wizard_complete=false before onboarding")
@@ -270,7 +244,9 @@ func TestAuth_SetupOnboarding(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("setup: status=%d body=%s", w.Code, w.Body)
 	}
-	var setupResp struct{ Data auth.SetupResponse `json:"data"` }
+	var setupResp struct {
+		Data auth.SetupResponse `json:"data"`
+	}
 	json.NewDecoder(w.Body).Decode(&setupResp)
 	if setupResp.Data.Org.Name != "Sunset Heights" {
 		t.Errorf("setup: org name=%q, want Sunset Heights", setupResp.Data.Org.Name)

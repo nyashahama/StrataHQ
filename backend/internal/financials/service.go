@@ -35,6 +35,7 @@ type BudgetLineInfo struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+//nolint:govet // Keep response DTO fields grouped by API meaning rather than field packing.
 type ReserveFundInfo struct {
 	SchemeID     string    `json:"scheme_id"`
 	BalanceCents int64     `json:"balance_cents"`

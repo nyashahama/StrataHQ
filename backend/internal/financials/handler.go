@@ -88,10 +88,7 @@ func (h *Handler) UpdateReserveFund(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reserve, err := h.service.UpdateReserveFund(r.Context(), identity, chi.URLParam(r, "schemeId"), UpdateReserveFundInput{
-		BalanceCents: req.BalanceCents,
-		TargetCents:  req.TargetCents,
-	})
+	reserve, err := h.service.UpdateReserveFund(r.Context(), identity, chi.URLParam(r, "schemeId"), UpdateReserveFundInput(req))
 	if err != nil {
 		writeFinancialsError(w, err, "failed to update reserve fund")
 		return

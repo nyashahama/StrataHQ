@@ -12,27 +12,63 @@ import (
 
 // mockService is a test double for Servicer.
 type mockService struct {
-	registerFn func(ctx context.Context, email, password, fullName, orgName string) (*AuthResponse, error)
+	registerFn func(ctx context.Context, email, password, fullName string) (*AuthResponse, error)
 	loginFn    func(ctx context.Context, email, password string) (*AuthResponse, error)
 	refreshFn  func(ctx context.Context, refreshToken string) (*RefreshResponse, error)
 	logoutFn   func(ctx context.Context, refreshToken string) error
 	meFn       func(ctx context.Context, userID, orgID string) (*MeResponse, error)
+	setupFn    func(ctx context.Context, orgID, orgName, contactEmail, schemeName, schemeAddress string, unitCount int32) (*SetupResponse, error)
+	forgotFn   func(ctx context.Context, email string) error
+	resetFn    func(ctx context.Context, token, password string) error
 }
 
-func (m *mockService) Register(ctx context.Context, email, password, fullName, orgName string) (*AuthResponse, error) {
-	return m.registerFn(ctx, email, password, fullName, orgName)
+func (m *mockService) Register(ctx context.Context, email, password, fullName string) (*AuthResponse, error) {
+	if m.registerFn == nil {
+		return nil, nil
+	}
+	return m.registerFn(ctx, email, password, fullName)
 }
 func (m *mockService) Login(ctx context.Context, email, password string) (*AuthResponse, error) {
+	if m.loginFn == nil {
+		return nil, nil
+	}
 	return m.loginFn(ctx, email, password)
 }
 func (m *mockService) Refresh(ctx context.Context, refreshToken string) (*RefreshResponse, error) {
+	if m.refreshFn == nil {
+		return nil, nil
+	}
 	return m.refreshFn(ctx, refreshToken)
 }
 func (m *mockService) Logout(ctx context.Context, refreshToken string) error {
+	if m.logoutFn == nil {
+		return nil
+	}
 	return m.logoutFn(ctx, refreshToken)
 }
 func (m *mockService) Me(ctx context.Context, userID, orgID string) (*MeResponse, error) {
+	if m.meFn == nil {
+		return nil, nil
+	}
 	return m.meFn(ctx, userID, orgID)
+}
+func (m *mockService) Setup(ctx context.Context, orgID, orgName, contactEmail, schemeName, schemeAddress string, unitCount int32) (*SetupResponse, error) {
+	if m.setupFn == nil {
+		return nil, nil
+	}
+	return m.setupFn(ctx, orgID, orgName, contactEmail, schemeName, schemeAddress, unitCount)
+}
+func (m *mockService) ForgotPassword(ctx context.Context, email string) error {
+	if m.forgotFn == nil {
+		return nil
+	}
+	return m.forgotFn(ctx, email)
+}
+func (m *mockService) ResetPassword(ctx context.Context, token, password string) error {
+	if m.resetFn == nil {
+		return nil
+	}
+	return m.resetFn(ctx, token, password)
 }
 
 // helpers
@@ -67,7 +103,7 @@ func TestRegister_MissingFields(t *testing.T) {
 
 func TestRegister_DuplicateEmail(t *testing.T) {
 	svc := &mockService{
-		registerFn: func(_ context.Context, _, _, _, _ string) (*AuthResponse, error) {
+		registerFn: func(_ context.Context, _, _, _ string) (*AuthResponse, error) {
 			return nil, ErrEmailExists
 		},
 	}
@@ -83,7 +119,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 
 func TestRegister_Success(t *testing.T) {
 	svc := &mockService{
-		registerFn: func(_ context.Context, _, _, _, _ string) (*AuthResponse, error) {
+		registerFn: func(_ context.Context, _, _, _ string) (*AuthResponse, error) {
 			return &AuthResponse{
 				AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 900,
 				User: UserInfo{ID: "u1", Email: "a@b.com", FullName: "A B"},
@@ -242,9 +278,7 @@ func TestMe_Success(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodGet, "/me", nil)
-	ctx := context.WithValue(req.Context(), UserIDKey, "u1")
-	ctx = context.WithValue(ctx, OrgIDKey, "o1")
-	req = req.WithContext(ctx)
+	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Me(w, req)
 	if w.Code != http.StatusOK {

@@ -19,11 +19,11 @@ type Config struct {
 	AIBaseURL           string
 	AIAPIKey            string
 	AIModel             string
+	AppBaseURL          string
+	EmailFrom           string
 	AllowedOrigins      []string
 	JWTExpiry           time.Duration
 	RefreshExpiry       time.Duration
-	AppBaseURL          string
-	EmailFrom           string
 }
 
 func Load() (*Config, error) {

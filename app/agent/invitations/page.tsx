@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
+import { readApiData, readApiError } from "@/lib/api-contract";
 import { useToast } from "@/lib/toast";
 
 interface Invitation {
@@ -28,11 +29,18 @@ export default function InvitationsPage() {
   useEffect(() => {
     apiFetch("/api/v1/invitations")
       .then(async (res) => {
-        if (!res.ok) throw new Error("Failed to load");
-        const data = await res.json();
-        setInvitations(data ?? []);
+        if (!res.ok) {
+          throw new Error(await readApiError(res, "Failed to load invitations"));
+        }
+        const data = await readApiData<Invitation[]>(res);
+        setInvitations(data);
       })
-      .catch(() => addToast("Failed to load invitations", "error" as never))
+      .catch((error: unknown) =>
+        addToast(
+          error instanceof Error ? error.message : "Failed to load invitations",
+          "error" as never,
+        ),
+      )
       .finally(() => setLoading(false));
   }, [addToast]);
 

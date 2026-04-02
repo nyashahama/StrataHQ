@@ -16,16 +16,16 @@ type Sender interface {
 }
 
 type EmailClient struct {
+	httpClient *http.Client
 	apiKey     string
 	fromAddr   string
-	httpClient *http.Client
 }
 
 func NewEmailClient(apiKey, fromAddr string) *EmailClient {
 	return &EmailClient{
+		httpClient: &http.Client{},
 		apiKey:     apiKey,
 		fromAddr:   fromAddr,
-		httpClient: &http.Client{},
 	}
 }
 

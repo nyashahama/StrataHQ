@@ -48,6 +48,9 @@ make migrate-up
 # Generate sqlc code
 make generate
 
+# Seed demo users + a scheme
+make seed
+
 # Start the server
 make run
 ```
@@ -131,6 +134,10 @@ backend/
 6. Add tests next to your code (`*_test.go`) and in `tests/integration/`
 
 ## API
+
+## Demo Seed Data
+
+Running `make seed` creates one managing-agent admin, one trustee, one resident, and a demo scheme with representative units. The command is idempotent. Set `SEED_DEMO_PASSWORD` if you want a fixed local password; otherwise the first run generates one and prints it, and later runs keep the existing credentials unchanged.
 
 All API routes are prefixed with `/api/v1`.
 

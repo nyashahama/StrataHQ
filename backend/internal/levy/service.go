@@ -74,12 +74,14 @@ type DashboardResponse struct {
 	TotalCollectedCents int64                  `json:"total_collected_cents"`
 }
 
+//nolint:govet // Keep input DTO fields grouped by domain meaning rather than field packing.
 type CreatePeriodInput struct {
 	AmountCents int64
 	DueDate     time.Time
 	Label       string
 }
 
+//nolint:govet // Keep input DTO fields grouped by domain meaning rather than field packing.
 type ReconcilePaymentInput struct {
 	AmountCents int64
 	PaymentDate time.Time

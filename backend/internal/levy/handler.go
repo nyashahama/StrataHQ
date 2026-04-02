@@ -26,6 +26,7 @@ type createPeriodRequest struct {
 	AmountCents int64  `json:"amount_cents"`
 }
 
+//nolint:govet // Keep request DTO fields grouped by API meaning rather than field packing.
 type reconcilePaymentRequest struct {
 	AmountCents int64   `json:"amount_cents"`
 	BankRef     *string `json:"bank_ref"`

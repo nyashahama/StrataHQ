@@ -15,6 +15,7 @@ type Config struct {
 	JWTSecret           string
 	StripeSecretKey     string
 	StripeWebhookSecret string
+	StripePriceID       string
 	ResendAPIKey        string
 	AIBaseURL           string
 	AIAPIKey            string
@@ -35,6 +36,7 @@ func Load() (*Config, error) {
 		JWTSecret:           os.Getenv("JWT_SECRET"),
 		StripeSecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
 		StripeWebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
+		StripePriceID:       os.Getenv("STRIPE_PRICE_ID"),
 		ResendAPIKey:        os.Getenv("RESEND_API_KEY"),
 		AIBaseURL:           os.Getenv("AI_BASE_URL"),
 		AIAPIKey:            os.Getenv("AI_API_KEY"),
@@ -70,16 +72,14 @@ func Load() (*Config, error) {
 
 func (c *Config) validate() error {
 	required := map[string]string{
-		"DATABASE_URL":          c.DatabaseURL,
-		"REDIS_URL":             c.RedisURL,
-		"JWT_SECRET":            c.JWTSecret,
-		"STRIPE_SECRET_KEY":     c.StripeSecretKey,
-		"STRIPE_WEBHOOK_SECRET": c.StripeWebhookSecret,
-		"RESEND_API_KEY":        c.ResendAPIKey,
-		"AI_BASE_URL":           c.AIBaseURL,
-		"AI_API_KEY":            c.AIAPIKey,
-		"AI_MODEL":              c.AIModel,
-		"APP_BASE_URL":          c.AppBaseURL,
+		"DATABASE_URL":   c.DatabaseURL,
+		"REDIS_URL":      c.RedisURL,
+		"JWT_SECRET":     c.JWTSecret,
+		"RESEND_API_KEY": c.ResendAPIKey,
+		"AI_BASE_URL":    c.AIBaseURL,
+		"AI_API_KEY":     c.AIAPIKey,
+		"AI_MODEL":       c.AIModel,
+		"APP_BASE_URL":   c.AppBaseURL,
 	}
 
 	var missing []string

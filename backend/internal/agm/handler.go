@@ -20,6 +20,7 @@ func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
 
+//nolint:govet // Keep request DTO fields grouped by API meaning rather than field packing.
 type scheduleMeetingRequest struct {
 	Date           string                      `json:"date"`
 	QuorumRequired int32                       `json:"quorum_required"`

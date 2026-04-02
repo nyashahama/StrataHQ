@@ -54,6 +54,7 @@ type DashboardResponse struct {
 	Role     string       `json:"role"`
 }
 
+//nolint:govet // Keep input DTO fields grouped by meaning rather than field packing.
 type ScheduleMeetingInput struct {
 	MeetingDate    time.Time
 	QuorumRequired int32
@@ -170,18 +171,18 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 		if strings.TrimSpace(resolution.Title) == "" || strings.TrimSpace(resolution.Description) == "" {
 			return nil, ErrInvalidInput
 		}
-		if _, err := q.CreateAgmResolution(ctx, dbgen.CreateAgmResolutionParams{
+		if _, createErr := q.CreateAgmResolution(ctx, dbgen.CreateAgmResolutionParams{
 			MeetingID:     meeting.ID,
 			Title:         strings.TrimSpace(resolution.Title),
 			Description:   strings.TrimSpace(resolution.Description),
 			TotalEligible: totalEligible,
-		}); err != nil {
-			return nil, err
+		}); createErr != nil {
+			return nil, createErr
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return nil, commitErr
 	}
 
 	createdMeeting, err := s.db.Q.GetAgmMeeting(ctx, meeting.ID)
@@ -229,18 +230,18 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 	if err != nil {
 		return nil, ErrInvalidInput
 	}
-	if _, err := s.db.Q.GetAgmVote(ctx, dbgen.GetAgmVoteParams{ResolutionID: resolution.ID, VoterUserID: userID}); err == nil {
+	if _, voteErr := s.db.Q.GetAgmVote(ctx, dbgen.GetAgmVoteParams{ResolutionID: resolution.ID, VoterUserID: userID}); voteErr == nil {
 		return nil, ErrForbidden
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
+	} else if !errors.Is(voteErr, pgx.ErrNoRows) {
+		return nil, voteErr
 	}
 
-	if _, err := s.db.Q.CreateAgmVote(ctx, dbgen.CreateAgmVoteParams{
+	if _, createErr := s.db.Q.CreateAgmVote(ctx, dbgen.CreateAgmVoteParams{
 		ResolutionID: resolution.ID,
 		VoterUserID:  userID,
 		Vote:         dbgen.VoteChoice(input.Choice),
-	}); err != nil {
-		return nil, err
+	}); createErr != nil {
+		return nil, createErr
 	}
 
 	votes, err := s.db.Q.ListAgmVotesByResolution(ctx, resolution.ID)
@@ -267,16 +268,14 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 		return nil, err
 	}
 
-	status := updated.Status
 	if votesFor+votesAgainst >= updated.TotalEligible {
+		nextStatus := dbgen.ResolutionStatusFailed
 		if votesFor > votesAgainst {
-			status = dbgen.ResolutionStatusPassed
-		} else {
-			status = dbgen.ResolutionStatusFailed
+			nextStatus = dbgen.ResolutionStatusPassed
 		}
 		updated, err = s.db.Q.UpdateAgmResolutionStatus(ctx, dbgen.UpdateAgmResolutionStatusParams{
 			ID:     updated.ID,
-			Status: status,
+			Status: nextStatus,
 		})
 		if err != nil {
 			return nil, err
@@ -336,13 +335,13 @@ func (s *Service) AssignProxy(ctx context.Context, identity auth.Identity, schem
 		return ErrForbidden
 	}
 
-	if _, err := s.db.Q.GetProxyAssignment(ctx, dbgen.GetProxyAssignmentParams{
+	if _, proxyErr := s.db.Q.GetProxyAssignment(ctx, dbgen.GetProxyAssignmentParams{
 		MeetingID:     meeting.ID,
 		GrantorUserID: grantorID,
-	}); err == nil {
+	}); proxyErr == nil {
 		return ErrForbidden
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return err
+	} else if !errors.Is(proxyErr, pgx.ErrNoRows) {
+		return proxyErr
 	}
 
 	_, err = s.db.Q.CreateProxyAssignment(ctx, dbgen.CreateProxyAssignmentParams{

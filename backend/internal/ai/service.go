@@ -99,11 +99,13 @@ func (s *Service) buildPortfolioPrompt(ctx context.Context, identity auth.Identi
 		if err != nil {
 			return "", err
 		}
-		maintenance, err := s.db.Q.ListMaintenanceRequestsByScheme(ctx, scheme.ID)
+		var maintenance []dbgen.MaintenanceRequest
+		maintenance, err = s.db.Q.ListMaintenanceRequestsByScheme(ctx, scheme.ID)
 		if err != nil {
 			return "", err
 		}
-		periods, err := s.db.Q.ListLevyPeriodsByScheme(ctx, scheme.ID)
+		var periods []dbgen.LevyPeriod
+		periods, err = s.db.Q.ListLevyPeriodsByScheme(ctx, scheme.ID)
 		if err != nil {
 			return "", err
 		}

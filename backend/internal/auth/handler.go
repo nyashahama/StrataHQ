@@ -3,6 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/stratahq/backend/internal/platform/response"
 )
@@ -32,6 +33,23 @@ type refreshRequest struct {
 
 type logoutRequest struct {
 	RefreshToken string `json:"refresh_token"`
+}
+
+type updateProfileRequest struct {
+	Email    string  `json:"email"`
+	FullName string  `json:"full_name"`
+	Phone    *string `json:"phone"`
+}
+
+type updateOrgRequest struct {
+	Name         string  `json:"name"`
+	ContactEmail *string `json:"contact_email"`
+	ContactPhone *string `json:"contact_phone"`
+}
+
+type changePasswordRequest struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
 }
 
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +113,9 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email string `json:"email"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req) // best-effort; always 200
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req.Email = ""
+	}
 	_ = h.service.ForgotPassword(r.Context(), req.Email)
 	response.JSON(w, http.StatusOK, map[string]string{
 		"message": "if that email is registered, a reset link has been sent",
@@ -200,4 +220,119 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusOK, res)
+}
+
+func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	identity, ok := IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	var req updateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
+		return
+	}
+	if req.Email == "" || req.FullName == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email and full_name are required")
+		return
+	}
+
+	email := strings.TrimSpace(req.Email)
+	fullName := strings.TrimSpace(req.FullName)
+	if email == "" || fullName == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email and full_name are required")
+		return
+	}
+
+	res, err := h.service.UpdateProfile(r.Context(), identity.UserID, identity.OrgID, email, fullName, normalizeOptionalString(req.Phone))
+	if err != nil {
+		switch err {
+		case ErrEmailExists:
+			response.Error(w, http.StatusConflict, response.CodeConflict, "email already registered")
+		default:
+			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to update profile")
+		}
+		return
+	}
+
+	response.JSON(w, http.StatusOK, res)
+}
+
+func (h *Handler) UpdateOrg(w http.ResponseWriter, r *http.Request) {
+	identity, ok := IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	if !IsAdminRole(identity.Role) {
+		response.Error(w, http.StatusForbidden, response.CodeForbidden, "only org admins can update organisation settings")
+		return
+	}
+
+	var req updateOrgRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
+		return
+	}
+	if req.Name == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "name is required")
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "name is required")
+		return
+	}
+
+	res, err := h.service.UpdateOrg(r.Context(), identity.OrgID, name, normalizeOptionalString(req.ContactEmail), normalizeOptionalString(req.ContactPhone))
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to update organisation settings")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, res)
+}
+
+func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	identity, ok := IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	var req changePasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
+		return
+	}
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "current_password and new_password are required")
+		return
+	}
+
+	if err := h.service.ChangePassword(r.Context(), identity.UserID, req.CurrentPassword, req.NewPassword); err != nil {
+		switch err {
+		case ErrWrongPassword:
+			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "current password is incorrect")
+		default:
+			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to update password")
+		}
+		return
+	}
+
+	response.NoContent(w)
+}
+
+func normalizeOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -24,6 +25,7 @@ var (
 	ErrEmailExists        = errors.New("email already registered")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidToken       = errors.New("invalid or expired token")
+	ErrWrongPassword      = errors.New("current password is incorrect")
 )
 
 // Response types returned by the service.
@@ -32,11 +34,14 @@ type UserInfo struct {
 	ID       string `json:"id"`
 	Email    string `json:"email"`
 	FullName string `json:"full_name"`
+	Phone    string `json:"phone,omitempty"`
 }
 
 type OrgInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	ContactEmail *string `json:"contact_email"`
+	ContactPhone *string `json:"contact_phone"`
 }
 
 type AuthResponse struct {
@@ -53,10 +58,11 @@ type RefreshResponse struct {
 }
 
 type SchemeMembership struct {
-	SchemeID   string  `json:"scheme_id"`
-	SchemeName string  `json:"scheme_name"`
-	UnitID     *string `json:"unit_id"`
-	Role       string  `json:"role"`
+	SchemeID       string  `json:"scheme_id"`
+	SchemeName     string  `json:"scheme_name"`
+	UnitID         *string `json:"unit_id"`
+	UnitIdentifier *string `json:"unit_identifier"`
+	Role           string  `json:"role"`
 }
 
 //nolint:govet // Keep the response DTO grouped by API meaning rather than field packing.
@@ -66,6 +72,7 @@ type MeResponse struct {
 	ID                string             `json:"id"`
 	Email             string             `json:"email"`
 	FullName          string             `json:"full_name"`
+	Phone             *string            `json:"phone"`
 	Role              string             `json:"role"`
 	WizardComplete    bool               `json:"wizard_complete"`
 }
@@ -88,6 +95,9 @@ type Servicer interface {
 	Setup(ctx context.Context, orgID, orgName, contactEmail, schemeName, schemeAddress string, unitCount int32) (*SetupResponse, error)
 	ForgotPassword(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, password string) error
+	UpdateProfile(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error)
+	UpdateOrg(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error)
+	ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error
 }
 
 // Service implements Servicer.
@@ -260,8 +270,14 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 		ID:       user.ID.String(),
 		Email:    user.Email,
 		FullName: user.FullName,
-		Org:      OrgInfo{ID: org.ID.String(), Name: org.Name},
-		Role:     membership.Role,
+		Phone:    textPointer(user.Phone),
+		Org: OrgInfo{
+			ID:           org.ID.String(),
+			Name:         org.Name,
+			ContactEmail: textPointer(org.ContactEmail),
+			ContactPhone: textPointer(org.ContactPhone),
+		},
+		Role: membership.Role,
 	}
 
 	if membership.Role == "admin" {
@@ -272,10 +288,11 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 		resp.WizardComplete = len(schemes) > 0
 		for _, sc := range schemes {
 			resp.SchemeMemberships = append(resp.SchemeMemberships, SchemeMembership{
-				SchemeID:   sc.ID.String(),
-				SchemeName: sc.Name,
-				UnitID:     nil,
-				Role:       "admin",
+				SchemeID:       sc.ID.String(),
+				SchemeName:     sc.Name,
+				UnitID:         nil,
+				UnitIdentifier: nil,
+				Role:           "admin",
 			})
 		}
 	} else {
@@ -294,6 +311,10 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 				unitStr := uuid.UUID(m.UnitID.Bytes).String()
 				sm.UnitID = &unitStr
 			}
+			if m.UnitIdentifier.Valid {
+				identifier := m.UnitIdentifier.String
+				sm.UnitIdentifier = &identifier
+			}
 			resp.SchemeMemberships = append(resp.SchemeMemberships, sm)
 		}
 	}
@@ -303,6 +324,83 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 	}
 
 	return resp, nil
+}
+
+func (s *Service) UpdateProfile(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error) {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	user, err := s.db.Q.UpdateUserProfile(ctx, dbgen.UpdateUserProfileParams{
+		ID:       uid,
+		Email:    email,
+		FullName: fullName,
+		Phone:    textValue(phone),
+	})
+	if err != nil {
+		if isUniqueEmailViolation(err) {
+			return nil, ErrEmailExists
+		}
+		return nil, err
+	}
+
+	return s.Me(ctx, user.ID.String(), orgID)
+}
+
+func (s *Service) UpdateOrg(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error) {
+	oid, err := uuid.Parse(orgID)
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	org, err := s.db.Q.UpdateOrg(ctx, dbgen.UpdateOrgParams{
+		ID:           oid,
+		Name:         name,
+		ContactEmail: textValue(contactEmail),
+		ContactPhone: textValue(contactPhone),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &OrgInfo{
+		ID:           org.ID.String(),
+		Name:         org.Name,
+		ContactEmail: textPointer(org.ContactEmail),
+		ContactPhone: textPointer(org.ContactPhone),
+	}, nil
+}
+
+func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return ErrInvalidToken
+	}
+
+	user, err := s.db.Q.GetUserByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return ErrWrongPassword
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(nextPassword), 12)
+	if err != nil {
+		return err
+	}
+
+	return database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		if txErr := q.UpdateUserPassword(ctx, dbgen.UpdateUserPasswordParams{
+			ID:           uid,
+			PasswordHash: string(hash),
+		}); txErr != nil {
+			return txErr
+		}
+		return q.RevokeAllUserRefreshTokens(ctx, uid)
+	})
 }
 
 func (s *Service) Setup(ctx context.Context, orgID, orgName, contactEmail, schemeName, schemeAddress string, unitCount int32) (*SetupResponse, error) {
@@ -317,12 +415,18 @@ func (s *Service) Setup(ctx context.Context, orgID, orgName, contactEmail, schem
 		orgRow, txErr := q.UpdateOrg(ctx, dbgen.UpdateOrgParams{
 			Name:         orgName,
 			ContactEmail: pgtype.Text{String: contactEmail, Valid: true},
+			ContactPhone: pgtype.Text{},
 			ID:           oid,
 		})
 		if txErr != nil {
 			return txErr
 		}
-		resp.Org = OrgInfo{ID: orgRow.ID.String(), Name: orgRow.Name}
+		resp.Org = OrgInfo{
+			ID:           orgRow.ID.String(),
+			Name:         orgRow.Name,
+			ContactEmail: textPointer(orgRow.ContactEmail),
+			ContactPhone: textPointer(orgRow.ContactPhone),
+		}
 
 		scheme, txErr := q.CreateScheme(ctx, dbgen.CreateSchemeParams{
 			OrgID:     oid,
@@ -431,6 +535,34 @@ func (s *Service) issueTokens(ctx context.Context, user dbgen.User, orgID, role 
 			ID:       user.ID.String(),
 			Email:    user.Email,
 			FullName: user.FullName,
+			Phone:    textString(user.Phone),
 		},
 	}, nil
+}
+
+func textPointer(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	copy := value.String
+	return &copy
+}
+
+func textString(value pgtype.Text) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String
+}
+
+func textValue(value *string) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: *value, Valid: true}
+}
+
+func isUniqueEmailViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

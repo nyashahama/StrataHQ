@@ -18,6 +18,14 @@ UPDATE users
 SET password_hash = $2
 WHERE id = $1;
 
+-- name: UpdateUserProfile :one
+UPDATE users
+SET email = $2,
+    full_name = $3,
+    phone = $4
+WHERE id = $1
+RETURNING *;
+
 -- name: CreateOrg :one
 INSERT INTO orgs (name)
 VALUES ($1)
@@ -69,13 +77,20 @@ WHERE user_id = $1;
 
 -- name: UpdateOrg :one
 UPDATE orgs
-SET name = $1, contact_email = $2
-WHERE id = $3
-RETURNING id, name;
+SET name = $1,
+    contact_email = $2,
+    contact_phone = $3
+WHERE id = $4
+RETURNING *;
 
 -- name: ListSchemeMembershipsByUser :many
-SELECT sm.scheme_id, s.name AS scheme_name, sm.unit_id, sm.role
+SELECT sm.scheme_id,
+       s.name AS scheme_name,
+       sm.unit_id,
+       u.identifier AS unit_identifier,
+       sm.role
 FROM scheme_memberships sm
 JOIN schemes s ON s.id = sm.scheme_id
+LEFT JOIN units u ON u.id = sm.unit_id
 WHERE sm.user_id = $1
 ORDER BY s.name;

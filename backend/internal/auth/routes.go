@@ -20,3 +20,13 @@ func (h *Handler) OnboardingRoutes() chi.Router {
 	r.Post("/setup", h.Setup)
 	return r
 }
+
+// ProtectedRoutes registers protected auth account endpoints (requires JWT).
+func (h *Handler) ProtectedRoutes() chi.Router {
+	r := chi.NewRouter()
+	r.Get("/me", h.Me)
+	r.Patch("/profile", h.UpdateProfile)
+	r.Patch("/org", h.UpdateOrg)
+	r.Post("/change-password", h.ChangePassword)
+	return r
+}

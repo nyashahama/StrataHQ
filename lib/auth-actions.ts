@@ -41,9 +41,11 @@ async function setAuthCookies(
     id: me.id,
     email: me.email,
     full_name: me.full_name,
+    phone: me.phone ?? null,
     role: me.role,
     wizard_complete: me.wizard_complete,
     scheme_memberships: me.scheme_memberships ?? [],
+    org: me.org,
   };
   cookieStore.set("sh_access", accessToken, ACCESS_OPTS);
   cookieStore.set("sh_refresh", refreshToken, REFRESH_OPTS);
@@ -238,6 +240,7 @@ export async function setupAction(data: {
   if (!res.ok) return { error: "Setup failed — please try again" };
 
   const result = await readApiData<{
+    org: { id: string; name: string; contact_email?: string | null; contact_phone?: string | null };
     scheme: { id: string; name: string };
   }>(res);
 
@@ -246,11 +249,18 @@ export async function setupAction(data: {
   if (raw) {
     const session = JSON.parse(decodeURIComponent(raw)) as SessionUser;
     session.wizard_complete = true;
+    session.org = {
+      id: result.org.id,
+      name: result.org.name,
+      contact_email: data.contact_email,
+      contact_phone: result.org.contact_phone ?? session.org?.contact_phone ?? null,
+    };
     session.scheme_memberships = [
       {
         scheme_id: result.scheme.id,
         scheme_name: result.scheme.name,
         unit_id: null,
+        unit_identifier: null,
         role: APP_ROLES.admin,
       },
     ];

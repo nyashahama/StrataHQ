@@ -16,7 +16,7 @@ import (
 const createOrg = `-- name: CreateOrg :one
 INSERT INTO orgs (name)
 VALUES ($1)
-RETURNING id, name, created_at, contact_email
+RETURNING id, name, created_at, contact_email, contact_phone
 `
 
 func (q *Queries) CreateOrg(ctx context.Context, name string) (Org, error) {
@@ -27,6 +27,7 @@ func (q *Queries) CreateOrg(ctx context.Context, name string) (Org, error) {
 		&i.Name,
 		&i.CreatedAt,
 		&i.ContactEmail,
+		&i.ContactPhone,
 	)
 	return i, err
 }
@@ -84,7 +85,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, full_name)
 VALUES ($1, $2, $3)
-RETURNING id, email, password_hash, full_name, created_at, updated_at
+RETURNING id, email, password_hash, full_name, created_at, updated_at, phone
 `
 
 type CreateUserParams struct {
@@ -103,12 +104,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.FullName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getOrg = `-- name: GetOrg :one
-SELECT id, name, created_at, contact_email FROM orgs
+SELECT id, name, created_at, contact_email, contact_phone FROM orgs
 WHERE id = $1
 LIMIT 1
 `
@@ -121,6 +123,7 @@ func (q *Queries) GetOrg(ctx context.Context, id uuid.UUID) (Org, error) {
 		&i.Name,
 		&i.CreatedAt,
 		&i.ContactEmail,
+		&i.ContactPhone,
 	)
 	return i, err
 }
@@ -171,7 +174,7 @@ func (q *Queries) GetRefreshToken(ctx context.Context, token string) (RefreshTok
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, password_hash, full_name, created_at, updated_at FROM users
+SELECT id, email, password_hash, full_name, created_at, updated_at, phone FROM users
 WHERE email = $1
 LIMIT 1
 `
@@ -186,12 +189,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.FullName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, password_hash, full_name, created_at, updated_at FROM users
+SELECT id, email, password_hash, full_name, created_at, updated_at, phone FROM users
 WHERE id = $1
 LIMIT 1
 `
@@ -206,6 +210,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.FullName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Phone,
 	)
 	return i, err
 }
@@ -255,18 +260,24 @@ func (q *Queries) ListOrgMembershipsByUser(ctx context.Context, userID uuid.UUID
 }
 
 const listSchemeMembershipsByUser = `-- name: ListSchemeMembershipsByUser :many
-SELECT sm.scheme_id, s.name AS scheme_name, sm.unit_id, sm.role
+SELECT sm.scheme_id,
+       s.name AS scheme_name,
+       sm.unit_id,
+       u.identifier AS unit_identifier,
+       sm.role
 FROM scheme_memberships sm
 JOIN schemes s ON s.id = sm.scheme_id
+LEFT JOIN units u ON u.id = sm.unit_id
 WHERE sm.user_id = $1
 ORDER BY s.name
 `
 
 type ListSchemeMembershipsByUserRow struct {
-	SchemeID   uuid.UUID   `json:"scheme_id"`
-	SchemeName string      `json:"scheme_name"`
-	UnitID     pgtype.UUID `json:"unit_id"`
-	Role       string      `json:"role"`
+	SchemeID       uuid.UUID   `json:"scheme_id"`
+	SchemeName     string      `json:"scheme_name"`
+	UnitID         pgtype.UUID `json:"unit_id"`
+	UnitIdentifier pgtype.Text `json:"unit_identifier"`
+	Role           string      `json:"role"`
 }
 
 func (q *Queries) ListSchemeMembershipsByUser(ctx context.Context, userID uuid.UUID) ([]ListSchemeMembershipsByUserRow, error) {
@@ -282,6 +293,7 @@ func (q *Queries) ListSchemeMembershipsByUser(ctx context.Context, userID uuid.U
 			&i.SchemeID,
 			&i.SchemeName,
 			&i.UnitID,
+			&i.UnitIdentifier,
 			&i.Role,
 		); err != nil {
 			return nil, err
@@ -318,26 +330,35 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) error {
 
 const updateOrg = `-- name: UpdateOrg :one
 UPDATE orgs
-SET name = $1, contact_email = $2
-WHERE id = $3
-RETURNING id, name
+SET name = $1,
+    contact_email = $2,
+    contact_phone = $3
+WHERE id = $4
+RETURNING id, name, created_at, contact_email, contact_phone
 `
 
 type UpdateOrgParams struct {
 	Name         string      `json:"name"`
 	ContactEmail pgtype.Text `json:"contact_email"`
+	ContactPhone pgtype.Text `json:"contact_phone"`
 	ID           uuid.UUID   `json:"id"`
 }
 
-type UpdateOrgRow struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-}
-
-func (q *Queries) UpdateOrg(ctx context.Context, arg UpdateOrgParams) (UpdateOrgRow, error) {
-	row := q.db.QueryRow(ctx, updateOrg, arg.Name, arg.ContactEmail, arg.ID)
-	var i UpdateOrgRow
-	err := row.Scan(&i.ID, &i.Name)
+func (q *Queries) UpdateOrg(ctx context.Context, arg UpdateOrgParams) (Org, error) {
+	row := q.db.QueryRow(ctx, updateOrg,
+		arg.Name,
+		arg.ContactEmail,
+		arg.ContactPhone,
+		arg.ID,
+	)
+	var i Org
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.ContactEmail,
+		&i.ContactPhone,
+	)
 	return i, err
 }
 
@@ -355,4 +376,40 @@ type UpdateUserPasswordParams struct {
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error {
 	_, err := q.db.Exec(ctx, updateUserPassword, arg.ID, arg.PasswordHash)
 	return err
+}
+
+const updateUserProfile = `-- name: UpdateUserProfile :one
+UPDATE users
+SET email = $2,
+    full_name = $3,
+    phone = $4
+WHERE id = $1
+RETURNING id, email, password_hash, full_name, created_at, updated_at, phone
+`
+
+type UpdateUserProfileParams struct {
+	ID       uuid.UUID   `json:"id"`
+	Email    string      `json:"email"`
+	FullName string      `json:"full_name"`
+	Phone    pgtype.Text `json:"phone"`
+}
+
+func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserProfile,
+		arg.ID,
+		arg.Email,
+		arg.FullName,
+		arg.Phone,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.PasswordHash,
+		&i.FullName,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Phone,
+	)
+	return i, err
 }

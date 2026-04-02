@@ -10,16 +10,26 @@ export interface SchemeMembership {
   scheme_id: string;
   scheme_name: string;
   unit_id: string | null;
+  unit_identifier?: string | null;
   role: string;
+}
+
+export interface SessionOrg {
+  id: string;
+  name: string;
+  contact_email?: string | null;
+  contact_phone?: string | null;
 }
 
 export interface SessionUser {
   id: string;
   email: string;
   full_name: string;
+  phone?: string | null;
   role: AppRole;
   wizard_complete: boolean;
   scheme_memberships: SchemeMembership[];
+  org?: SessionOrg;
 }
 
 export function isAdminRole(role?: string | null): role is "admin" {

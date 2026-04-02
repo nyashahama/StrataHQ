@@ -354,3 +354,100 @@ func TestAuth_ForgotResetPassword(t *testing.T) {
 		t.Errorf("reuse token: status=%d, want 401", w.Code)
 	}
 }
+
+func TestAuth_ProfileOrgAndPasswordManagement(t *testing.T) {
+	h := newAuthHandler(t)
+	email := uniqueEmail(t)
+
+	regBody, _ := json.Marshal(map[string]string{
+		"email":     email,
+		"password":  testPassword,
+		"full_name": "Identity User",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(regBody))
+	w := httptest.NewRecorder()
+	h.Register(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("register: status=%d body=%s", w.Code, w.Body)
+	}
+	regResp := decodeSuccess[auth.AuthResponse](t, w)
+	accessToken := regResp.AccessToken
+
+	setupBody, _ := json.Marshal(map[string]any{
+		"org_name":       "Identity Org",
+		"contact_email":  "hello@identity.test",
+		"scheme_name":    "Identity Scheme",
+		"scheme_address": "1 Test Street",
+		"unit_count":     4,
+	})
+	req = httptest.NewRequest(http.MethodPost, "/onboarding/setup", bytes.NewReader(setupBody))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.Setup(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("setup: status=%d body=%s", w.Code, w.Body)
+	}
+
+	profileBody, _ := json.Marshal(map[string]any{
+		"email":     "updated+" + email,
+		"full_name": "Updated Identity User",
+		"phone":     "+27 82 555 0101",
+	})
+	req = httptest.NewRequest(http.MethodPatch, "/auth/profile", bytes.NewReader(profileBody))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.UpdateProfile(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("update profile: status=%d body=%s", w.Code, w.Body)
+	}
+	profileResp := decodeSuccess[auth.MeResponse](t, w)
+	if profileResp.Email != "updated+"+email {
+		t.Fatalf("updated email=%q", profileResp.Email)
+	}
+	if profileResp.Phone == nil || *profileResp.Phone != "+27 82 555 0101" {
+		t.Fatalf("updated phone=%v", profileResp.Phone)
+	}
+
+	orgBody, _ := json.Marshal(map[string]any{
+		"name":          "Updated Identity Org",
+		"contact_email": "ops@identity.test",
+		"contact_phone": "+27 21 555 0101",
+	})
+	req = httptest.NewRequest(http.MethodPatch, "/auth/org", bytes.NewReader(orgBody))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.UpdateOrg(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("update org: status=%d body=%s", w.Code, w.Body)
+	}
+	orgResp := decodeSuccess[auth.OrgInfo](t, w)
+	if orgResp.Name != "Updated Identity Org" {
+		t.Fatalf("updated org name=%q", orgResp.Name)
+	}
+	if orgResp.ContactPhone == nil || *orgResp.ContactPhone != "+27 21 555 0101" {
+		t.Fatalf("updated org phone=%v", orgResp.ContactPhone)
+	}
+
+	passwordBody, _ := json.Marshal(map[string]string{
+		"current_password": testPassword,
+		"new_password":     "N3wPassword!2026",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/auth/change-password", bytes.NewReader(passwordBody))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.ChangePassword(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("change password: status=%d body=%s", w.Code, w.Body)
+	}
+
+	loginBody, _ := json.Marshal(map[string]string{
+		"email":    "updated+" + email,
+		"password": "N3wPassword!2026",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(loginBody))
+	w = httptest.NewRecorder()
+	h.Login(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("login with new password: status=%d body=%s", w.Code, w.Body)
+	}
+}

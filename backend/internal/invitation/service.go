@@ -35,13 +35,13 @@ type CreateParams struct {
 }
 
 type InvitationResponse struct {
+	ExpiresAt time.Time `json:"expires_at"`
 	ID        string    `json:"id"`
 	Email     string    `json:"email"`
 	FullName  string    `json:"full_name"`
 	Role      string    `json:"role"`
 	SchemeID  string    `json:"scheme_id"`
 	Status    string    `json:"status"`
-	ExpiresAt time.Time `json:"expires_at"`
 }
 
 type VerifyResponse struct {
@@ -104,8 +104,8 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 
 	var unitID pgtype.UUID
 	if p.UnitID != "" {
-		uid, err := uuid.Parse(p.UnitID)
-		if err != nil {
+		uid, parseErr := uuid.Parse(p.UnitID)
+		if parseErr != nil {
 			return nil, errors.New("invalid unit_id")
 		}
 		unitID = pgtype.UUID{Bytes: uid, Valid: true}

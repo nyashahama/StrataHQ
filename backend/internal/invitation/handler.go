@@ -20,10 +20,13 @@ func NewHandler(service Servicer, appBaseURL string) *Handler {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	orgID, _ := r.Context().Value(auth.OrgIDKey).(string)
-	role, _ := r.Context().Value(auth.RoleKey).(string)
-	if role != "admin" {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "only org admins can send invitations")
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	if !auth.IsAdminRole(identity.Role) {
+		response.Error(w, http.StatusForbidden, response.CodeForbidden, "only org admins can send invitations")
 		return
 	}
 
@@ -35,19 +38,23 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		UnitID   string `json:"unit_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
 	if req.Email == "" || req.FullName == "" || req.Role == "" || req.SchemeID == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "email, full_name, role, and scheme_id are required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email, full_name, role, and scheme_id are required")
+		return
+	}
+	if !auth.IsInvitableRole(req.Role) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "role must be trustee or resident")
 		return
 	}
 	if req.Role == "resident" && req.UnitID == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "unit_id is required for residents")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "unit_id is required for residents")
 		return
 	}
 
-	inv, err := h.service.Create(r.Context(), orgID, CreateParams{
+	inv, err := h.service.Create(r.Context(), identity.OrgID, CreateParams{
 		Email:    req.Email,
 		FullName: req.FullName,
 		Role:     req.Role,
@@ -57,9 +64,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err.Error() {
 		case "invalid scheme_id", "invalid unit_id":
-			response.Error(w, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
 		default:
-			response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create invitation")
+			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to create invitation")
 		}
 		return
 	}
@@ -67,37 +74,43 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	orgID, _ := r.Context().Value(auth.OrgIDKey).(string)
-	role, _ := r.Context().Value(auth.RoleKey).(string)
-	if role != "admin" {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "only org admins can list invitations")
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
 		return
 	}
-	invs, err := h.service.List(r.Context(), orgID)
+	if !auth.IsAdminRole(identity.Role) {
+		response.Error(w, http.StatusForbidden, response.CodeForbidden, "only org admins can list invitations")
+		return
+	}
+	invs, err := h.service.List(r.Context(), identity.OrgID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to list invitations")
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to list invitations")
 		return
 	}
 	response.JSON(w, http.StatusOK, invs)
 }
 
 func (h *Handler) Resend(w http.ResponseWriter, r *http.Request) {
-	orgID, _ := r.Context().Value(auth.OrgIDKey).(string)
-	role, _ := r.Context().Value(auth.RoleKey).(string)
-	if role != "admin" {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "only org admins can resend invitations")
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	if !auth.IsAdminRole(identity.Role) {
+		response.Error(w, http.StatusForbidden, response.CodeForbidden, "only org admins can resend invitations")
 		return
 	}
 	id := chi.URLParam(r, "id")
-	inv, err := h.service.Resend(r.Context(), orgID, id, h.appBaseURL)
+	inv, err := h.service.Resend(r.Context(), identity.OrgID, id, h.appBaseURL)
 	if err != nil {
 		switch err {
 		case ErrNotFound:
-			response.Error(w, http.StatusNotFound, "NOT_FOUND", "invitation not found")
+			response.Error(w, http.StatusNotFound, response.CodeNotFound, "invitation not found")
 		case ErrForbidden:
-			response.Error(w, http.StatusForbidden, "FORBIDDEN", "invitation belongs to a different org")
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "invitation belongs to a different org")
 		default:
-			response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to resend invitation")
+			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to resend invitation")
 		}
 		return
 	}
@@ -105,32 +118,35 @@ func (h *Handler) Resend(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Revoke(w http.ResponseWriter, r *http.Request) {
-	orgID, _ := r.Context().Value(auth.OrgIDKey).(string)
-	role, _ := r.Context().Value(auth.RoleKey).(string)
-	if role != "admin" {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "only org admins can revoke invitations")
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	if !auth.IsAdminRole(identity.Role) {
+		response.Error(w, http.StatusForbidden, response.CodeForbidden, "only org admins can revoke invitations")
 		return
 	}
 	id := chi.URLParam(r, "id")
-	if err := h.service.Revoke(r.Context(), orgID, id); err != nil {
+	if err := h.service.Revoke(r.Context(), identity.OrgID, id); err != nil {
 		switch err {
 		case ErrNotFound:
-			response.Error(w, http.StatusNotFound, "NOT_FOUND", "invitation not found")
+			response.Error(w, http.StatusNotFound, response.CodeNotFound, "invitation not found")
 		case ErrForbidden:
-			response.Error(w, http.StatusForbidden, "FORBIDDEN", "invitation belongs to a different org")
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "invitation belongs to a different org")
 		default:
-			response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to revoke invitation")
+			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to revoke invitation")
 		}
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.NoContent(w)
 }
 
 func (h *Handler) Verify(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
 	v, err := h.service.Verify(r.Context(), token)
 	if err != nil {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired invitation token")
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid or expired invitation token")
 		return
 	}
 	response.JSON(w, http.StatusOK, v)
@@ -142,18 +158,18 @@ func (h *Handler) Accept(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Password == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "password is required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "password is required")
 		return
 	}
 	authResp, err := h.service.Accept(r.Context(), token, req.Password)
 	if err != nil {
 		switch err {
 		case ErrInvalidToken:
-			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired invitation token")
+			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid or expired invitation token")
 		case ErrEmailExists:
-			response.Error(w, http.StatusConflict, "CONFLICT", "email already registered")
+			response.Error(w, http.StatusConflict, response.CodeConflict, "email already registered")
 		default:
-			response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to accept invitation")
+			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to accept invitation")
 		}
 		return
 	}

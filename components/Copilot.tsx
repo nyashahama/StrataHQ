@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/lib/auth'
+import { isResidentRole } from '@/lib/session'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -26,7 +27,7 @@ export default function Copilot() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   // Only available for agents and trustees
-  if (!user || user.role === 'resident') return null
+  if (!user || isResidentRole(user.role)) return null
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {

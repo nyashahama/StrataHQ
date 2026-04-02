@@ -37,20 +37,20 @@ type logoutRequest struct {
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
 	if req.Email == "" || req.Password == "" || req.FullName == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "email, password, and full_name are required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email, password, and full_name are required")
 		return
 	}
 	res, err := h.service.Register(r.Context(), req.Email, req.Password, req.FullName)
 	if err != nil {
 		if err == ErrEmailExists {
-			response.Error(w, http.StatusConflict, "CONFLICT", "email already registered")
+			response.Error(w, http.StatusConflict, response.CodeConflict, "email already registered")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "registration failed")
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "registration failed")
 		return
 	}
 	response.JSON(w, http.StatusCreated, res)
@@ -65,24 +65,27 @@ type setupRequest struct {
 }
 
 func (h *Handler) Setup(w http.ResponseWriter, r *http.Request) {
-	role, _ := r.Context().Value(RoleKey).(string)
-	if role != "admin" {
-		response.Error(w, http.StatusForbidden, "FORBIDDEN", "only org admins can complete onboarding")
+	identity, ok := IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	if !IsAdminRole(identity.Role) {
+		response.Error(w, http.StatusForbidden, response.CodeForbidden, "only org admins can complete onboarding")
 		return
 	}
 	var req setupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
 	if req.OrgName == "" || req.ContactEmail == "" || req.SchemeName == "" || req.SchemeAddress == "" || req.UnitCount <= 0 {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "org_name, contact_email, scheme_name, scheme_address, and unit_count are required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "org_name, contact_email, scheme_name, scheme_address, and unit_count are required")
 		return
 	}
-	orgID, _ := r.Context().Value(OrgIDKey).(string)
-	res, err := h.service.Setup(r.Context(), orgID, req.OrgName, req.ContactEmail, req.SchemeName, req.SchemeAddress, req.UnitCount)
+	res, err := h.service.Setup(r.Context(), identity.OrgID, req.OrgName, req.ContactEmail, req.SchemeName, req.SchemeAddress, req.UnitCount)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "onboarding failed")
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "onboarding failed")
 		return
 	}
 	response.JSON(w, http.StatusCreated, res)
@@ -92,7 +95,7 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email string `json:"email"`
 	}
-	json.NewDecoder(r.Body).Decode(&req) // best-effort; always 200
+	_ = json.NewDecoder(r.Body).Decode(&req) // best-effort; always 200
 	_ = h.service.ForgotPassword(r.Context(), req.Email)
 	response.JSON(w, http.StatusOK, map[string]string{
 		"message": "if that email is registered, a reset link has been sent",
@@ -105,42 +108,42 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
 	if req.Token == "" || req.Password == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "token and password are required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "token and password are required")
 		return
 	}
 	if err := h.service.ResetPassword(r.Context(), req.Token, req.Password); err != nil {
 		if err == ErrInvalidToken {
-			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired reset token")
+			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid or expired reset token")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "password reset failed")
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "password reset failed")
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	response.NoContent(w)
 }
 
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
 	if req.Email == "" || req.Password == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "email and password are required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email and password are required")
 		return
 	}
 
 	res, err := h.service.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if err == ErrInvalidCredentials {
-			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid credentials")
+			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid credentials")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "login failed")
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "login failed")
 		return
 	}
 	response.JSON(w, http.StatusOK, res)
@@ -149,21 +152,21 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req refreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
 	if req.RefreshToken == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "refresh_token is required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "refresh_token is required")
 		return
 	}
 
 	res, err := h.service.Refresh(r.Context(), req.RefreshToken)
 	if err != nil {
 		if err == ErrInvalidToken {
-			response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired token")
+			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid or expired token")
 			return
 		}
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "token refresh failed")
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "token refresh failed")
 		return
 	}
 	response.JSON(w, http.StatusOK, res)
@@ -172,29 +175,28 @@ func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req logoutRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
 	if req.RefreshToken == "" {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "refresh_token is required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "refresh_token is required")
 		return
 	}
 	// Idempotent — ignore service errors (token may already be revoked)
 	_ = h.service.Logout(r.Context(), req.RefreshToken)
-	w.WriteHeader(http.StatusNoContent)
+	response.NoContent(w)
 }
 
 func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
-	userID, _ := r.Context().Value(UserIDKey).(string)
-	orgID, _ := r.Context().Value(OrgIDKey).(string)
-	if userID == "" || orgID == "" {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing auth context")
+	identity, ok := IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
 		return
 	}
 
-	res, err := h.service.Me(r.Context(), userID, orgID)
+	res, err := h.service.Me(r.Context(), identity.UserID, identity.OrgID)
 	if err != nil {
-		response.Error(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to fetch user")
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to fetch user")
 		return
 	}
 	response.JSON(w, http.StatusOK, res)

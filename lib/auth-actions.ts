@@ -1,7 +1,9 @@
 "use server";
 
 import { cookies } from "next/headers";
-import type { SessionUser } from "./auth";
+import { readApiData, readApiError } from "./api-contract";
+import type { SessionUser } from "./session";
+import { APP_ROLES } from "./session";
 
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
 
@@ -58,9 +60,7 @@ async function fetchMe(accessToken: string): Promise<SessionUser | null> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!res.ok) return null;
-  const body = await res.json();
-  // Unwrap { data: ... } envelope if present
-  return body.data ?? body;
+  return readApiData<SessionUser>(res);
 }
 
 // ─── Login ────────────────────────────────────────────────────────────────────
@@ -77,22 +77,27 @@ export async function loginAction(
 
   if (!res.ok) {
     return {
-      error:
+      error: await readApiError(
+        res,
         res.status === 401
           ? "Invalid email or password"
           : "Login failed — please try again",
+      ),
     };
   }
 
-  const { data } = await res.json();
-  const { access_token, refresh_token, user: rawUser } = data;
+  const { access_token, refresh_token, user: rawUser } = await readApiData<{
+    access_token: string;
+    refresh_token: string;
+    user: Pick<SessionUser, "id" | "email" | "full_name">;
+  }>(res);
 
   // Backend returns user inline; try /me for full shape, fall back to inline user
   const me = (await fetchMe(access_token)) ?? {
     id: rawUser.id,
     email: rawUser.email,
     full_name: rawUser.full_name,
-    role: "admin" as const,
+    role: APP_ROLES.admin,
     wizard_complete: false,
     scheme_memberships: [],
   };
@@ -122,19 +127,29 @@ export async function registerAction(
 
   if (!res.ok) {
     if (res.status === 409)
-      return { error: "An account with this email already exists" };
-    return { error: "Registration failed — please try again" };
+      return {
+        error: await readApiError(
+          res,
+          "An account with this email already exists",
+        ),
+      };
+    return {
+      error: await readApiError(res, "Registration failed — please try again"),
+    };
   }
 
-  const { data } = await res.json();
-  const { access_token, refresh_token, user: rawUser } = data;
+  const { access_token, refresh_token, user: rawUser } = await readApiData<{
+    access_token: string;
+    refresh_token: string;
+    user: Pick<SessionUser, "id" | "email" | "full_name">;
+  }>(res);
 
   // Backend returns user inline; try /me for full shape, fall back to inline user
   const me = (await fetchMe(access_token)) ?? {
     id: rawUser.id,
     email: rawUser.email,
     full_name: rawUser.full_name,
-    role: "admin" as const,
+    role: APP_ROLES.admin,
     wizard_complete: false,
     scheme_memberships: [],
   };
@@ -183,8 +198,7 @@ export async function refreshTokens(): Promise<string | null> {
 
   if (!res.ok) return null;
 
-  const body = await res.json();
-  const access_token = body.data?.access_token ?? body.access_token;
+  const { access_token } = await readApiData<{ access_token: string }>(res);
   if (!access_token) return null;
   cookieStore.set("sh_access", access_token, ACCESS_OPTS);
   return access_token;
@@ -223,8 +237,9 @@ export async function setupAction(data: {
 
   if (!res.ok) return { error: "Setup failed — please try again" };
 
-  const body = await res.json();
-  const result = body.data ?? body;
+  const result = await readApiData<{
+    scheme: { id: string; name: string };
+  }>(res);
 
   // Update session cookie: wizard_complete + first scheme membership
   const raw = cookieStore.get("sh_session")?.value;
@@ -236,7 +251,7 @@ export async function setupAction(data: {
         scheme_id: result.scheme.id,
         scheme_name: result.scheme.name,
         unit_id: null,
-        role: "admin",
+        role: APP_ROLES.admin,
       },
     ];
     cookieStore.set(
@@ -275,8 +290,13 @@ export async function resetPasswordAction(
 
   if (!res.ok) {
     if (res.status === 401)
-      return { error: "This reset link is invalid or has expired" };
-    return { error: "Reset failed — please try again" };
+      return {
+        error: await readApiError(
+          res,
+          "This reset link is invalid or has expired",
+        ),
+      };
+    return { error: await readApiError(res, "Reset failed — please try again") };
   }
 
   return { ok: true };
@@ -296,16 +316,28 @@ export async function acceptInviteAction(
 
   if (!res.ok) {
     if (res.status === 401)
-      return { error: "This invite link is invalid or has expired" };
+      return {
+        error: await readApiError(
+          res,
+          "This invite link is invalid or has expired",
+        ),
+      };
     if (res.status === 409)
       return {
-        error: "An account with this email already exists — log in instead",
+        error: await readApiError(
+          res,
+          "An account with this email already exists — log in instead",
+        ),
       };
-    return { error: "Something went wrong — please try again" };
+    return {
+      error: await readApiError(res, "Something went wrong — please try again"),
+    };
   }
 
-  const inviteBody = await res.json();
-  const { access_token, refresh_token } = inviteBody.data ?? inviteBody;
+  const { access_token, refresh_token } = await readApiData<{
+    access_token: string;
+    refresh_token: string;
+  }>(res);
   const me = await fetchMe(access_token);
   if (!me) return { error: "Something went wrong — please try again" };
 

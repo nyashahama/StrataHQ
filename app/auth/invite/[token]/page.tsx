@@ -6,6 +6,8 @@ import Link from 'next/link'
 import LogoIcon from '@/components/LogoIcon'
 import { acceptInviteAction } from '@/lib/auth-actions'
 import { setSessionCookie } from '@/lib/auth'
+import { readApiData, readApiError } from '@/lib/api-contract'
+import { postLoginPath } from '@/lib/session'
 
 interface InviteInfo {
   email: string
@@ -28,10 +30,10 @@ export default function AcceptInvitePage() {
     fetch(`${apiUrl}/api/v1/invitations/${token}`)
       .then(async res => {
         if (!res.ok) {
-          setFetchError('This invite link is invalid or has expired.')
+          setFetchError(await readApiError(res, 'This invite link is invalid or has expired.'))
           return
         }
-        const data = await res.json()
+        const data = await readApiData<InviteInfo>(res)
         setInvite(data)
       })
       .catch(() => setFetchError('Something went wrong — please try again.'))
@@ -50,8 +52,7 @@ export default function AcceptInvitePage() {
     }
 
     setSessionCookie(result.user)
-    const schemeId = result.user.scheme_memberships[0]?.scheme_id ?? ''
-    window.location.replace(`/app/${schemeId}`)
+    window.location.replace(postLoginPath(result.user))
   }
 
   const ROLE_LABELS: Record<string, string> = {

@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import Sidebar from "@/components/Sidebar";
 import { ToastProvider } from "@/lib/toast";
 import Copilot from "@/components/Copilot";
+import { isAdminRole, primarySchemeId } from "@/lib/session";
 
 export default function AgentLayout({
   children,
@@ -19,12 +20,12 @@ export default function AgentLayout({
     if (loading) return;
     if (user === null) {
       router.replace("/auth/login");
-    } else if (user.role !== "admin") {
-      router.replace(`/app/${user.scheme_memberships[0]?.scheme_id ?? ""}`);
+    } else if (!isAdminRole(user.role)) {
+      router.replace(`/app/${primarySchemeId(user) ?? ""}`);
     }
   }, [user, loading, router]);
 
-  if (loading || !user || user.role !== "admin") return null;
+  if (loading || !user || !isAdminRole(user.role)) return null;
 
   return (
     <ToastProvider>

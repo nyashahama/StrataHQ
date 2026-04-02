@@ -80,7 +80,8 @@ func main() {
 	financialsService := financials.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
-	billingService := billing.NewService(db)
+	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
+	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 
 	// Handlers

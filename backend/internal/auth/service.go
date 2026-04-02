@@ -38,10 +38,10 @@ type UserInfo struct {
 }
 
 type OrgInfo struct {
-	ID           string  `json:"id"`
-	Name         string  `json:"name"`
 	ContactEmail *string `json:"contact_email"`
 	ContactPhone *string `json:"contact_phone"`
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
 }
 
 type AuthResponse struct {
@@ -383,7 +383,7 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 		return err
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); compareErr != nil {
 		return ErrWrongPassword
 	}
 

@@ -36,15 +36,15 @@ type logoutRequest struct {
 }
 
 type updateProfileRequest struct {
+	Phone    *string `json:"phone"`
 	Email    string  `json:"email"`
 	FullName string  `json:"full_name"`
-	Phone    *string `json:"phone"`
 }
 
 type updateOrgRequest struct {
-	Name         string  `json:"name"`
 	ContactEmail *string `json:"contact_email"`
 	ContactPhone *string `json:"contact_phone"`
+	Name         string  `json:"name"`
 }
 
 type changePasswordRequest struct {

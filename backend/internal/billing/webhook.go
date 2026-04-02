@@ -1,10 +1,9 @@
 package billing
 
-import (
-	"net/http"
-	"github.com/stratahq/backend/internal/platform/response"
-)
+import "github.com/go-chi/chi/v5"
 
-func (h *Handler) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
-	response.JSON(w, http.StatusOK, map[string]string{"message": "stripe webhook received"})
+func (h *Handler) WebhookRoutes() chi.Router {
+	r := chi.NewRouter()
+	r.Post("/stripe", h.HandleStripeWebhook)
+	return r
 }

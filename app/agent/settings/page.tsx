@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import Modal from '@/components/Modal'
 import { changePassword, updateOrgSettings } from '@/lib/account-api'
 import { setSessionCookie, useAuth } from '@/lib/auth'
+import { createCheckoutSession, createPortalSession, getSubscription } from '@/lib/billing-api'
+import type { BillingSubscription } from '@/lib/billing'
 import { useToast } from '@/lib/toast'
 
 export default function AgentSettingsPage() {
@@ -19,6 +21,10 @@ export default function AgentSettingsPage() {
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [savingOrg, setSavingOrg] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
+  const [subscription, setSubscription] = useState<BillingSubscription | null>(null)
+  const [loadingBilling, setLoadingBilling] = useState(true)
+  const [startingCheckout, setStartingCheckout] = useState(false)
+  const [openingPortal, setOpeningPortal] = useState(false)
 
   useEffect(() => {
     setOrgForm({
@@ -27,6 +33,24 @@ export default function AgentSettingsPage() {
       contact_phone: user?.org?.contact_phone ?? '',
     })
   }, [user])
+
+  useEffect(() => {
+    async function loadBilling() {
+      try {
+        setLoadingBilling(true)
+        setSubscription(await getSubscription())
+      } catch (error) {
+        addToast(
+          error instanceof Error ? error.message : 'Failed to load billing status',
+          'error',
+        )
+      } finally {
+        setLoadingBilling(false)
+      }
+    }
+
+    loadBilling()
+  }, [addToast])
 
   async function handleOrgSave() {
     if (!user) return
@@ -84,6 +108,34 @@ export default function AgentSettingsPage() {
     }
   }
 
+  async function handleStartCheckout() {
+    setStartingCheckout(true)
+    try {
+      const session = await createCheckoutSession()
+      window.location.assign(session.url)
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Failed to start checkout',
+        'error',
+      )
+      setStartingCheckout(false)
+    }
+  }
+
+  async function handleOpenPortal() {
+    setOpeningPortal(true)
+    try {
+      const session = await createPortalSession()
+      window.location.assign(session.url)
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Failed to open billing portal',
+        'error',
+      )
+      setOpeningPortal(false)
+    }
+  }
+
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[700px]">
       <p className="text-[12px] text-muted mb-4">Settings</p>
@@ -132,6 +184,74 @@ export default function AgentSettingsPage() {
               {savingOrg ? 'Saving…' : 'Save changes'}
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-surface border border-border rounded-lg overflow-hidden mb-6">
+        <div className="px-5 py-3 border-b border-border">
+          <span className="text-[13px] font-semibold text-ink">Billing</span>
+        </div>
+        <div className="px-5 py-4 flex flex-col gap-4">
+          {loadingBilling ? (
+            <p className="text-[13px] text-muted">Loading subscription status…</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[12px] font-semibold text-ink mb-1">Subscription status</p>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-semibold px-2 py-[2px] rounded-full ${
+                      subscription?.entitlement_active
+                        ? 'bg-green-bg text-green'
+                        : subscription?.status === 'checkout_pending'
+                          ? 'bg-yellowbg text-amber'
+                          : 'bg-red-bg text-red'
+                    }`}>
+                      {subscription?.status ?? 'inactive'}
+                    </span>
+                    <span className="text-[12px] text-muted">Plan: {subscription?.plan_code ?? 'starter'}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {subscription?.has_portal_access ? (
+                    <button
+                      onClick={handleOpenPortal}
+                      disabled={openingPortal}
+                      className="text-[12px] font-semibold border border-border bg-surface text-ink px-4 py-2 rounded hover:bg-hover-subtle transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {openingPortal ? 'Opening…' : 'Manage billing'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleStartCheckout}
+                      disabled={startingCheckout}
+                      className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {startingCheckout ? 'Redirecting…' : 'Start subscription'}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[12px]">
+                <div className="bg-page/50 border border-border rounded-lg px-3 py-3">
+                  <div className="text-muted mb-1">Entitlement</div>
+                  <div className="font-semibold text-ink">{subscription?.entitlement_active ? 'Active' : 'Inactive'}</div>
+                </div>
+                <div className="bg-page/50 border border-border rounded-lg px-3 py-3">
+                  <div className="text-muted mb-1">Current period end</div>
+                  <div className="font-semibold text-ink">
+                    {subscription?.current_period_end
+                      ? new Date(subscription.current_period_end).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                      : 'Not available'}
+                  </div>
+                </div>
+                <div className="bg-page/50 border border-border rounded-lg px-3 py-3">
+                  <div className="text-muted mb-1">Auto-renew</div>
+                  <div className="font-semibold text-ink">{subscription?.cancel_at_period_end ? 'Cancels at period end' : 'Renews automatically'}</div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

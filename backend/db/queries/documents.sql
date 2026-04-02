@@ -15,10 +15,24 @@ SELECT * FROM scheme_documents
 WHERE scheme_id = $1
 ORDER BY created_at DESC;
 
+-- name: ListSchemeDocumentsDetailed :many
+SELECT sd.*, u.full_name AS uploaded_by_name
+FROM scheme_documents sd
+LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
+WHERE sd.scheme_id = $1
+ORDER BY sd.created_at DESC;
+
 -- name: ListSchemeDocumentsByCategory :many
 SELECT * FROM scheme_documents
 WHERE scheme_id = $1 AND category = $2
 ORDER BY created_at DESC;
+
+-- name: ListSchemeDocumentsDetailedByCategory :many
+SELECT sd.*, u.full_name AS uploaded_by_name
+FROM scheme_documents sd
+LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
+WHERE sd.scheme_id = $1 AND sd.category = $2
+ORDER BY sd.created_at DESC;
 
 -- name: DeleteSchemeDocument :exec
 DELETE FROM scheme_documents

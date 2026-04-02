@@ -12,6 +12,7 @@ import (
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/documents"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/maintenance"
@@ -72,6 +73,7 @@ func main() {
 	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
 	schemeService := scheme.NewService(db)
 	communicationsService := communications.NewService(db)
+	documentsService := documents.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
 	billingService := billing.NewService(db)
@@ -83,6 +85,7 @@ func main() {
 		Auth:           auth.NewHandler(authService),
 		Scheme:         scheme.NewHandler(schemeService),
 		Communications: communications.NewHandler(communicationsService),
+		Documents:      documents.NewHandler(documentsService),
 		Levy:           levy.NewHandler(levyService),
 		Maintenance:    maintenance.NewHandler(maintenanceService),
 		Billing:        billing.NewHandler(billingService),

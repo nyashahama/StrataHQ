@@ -10,6 +10,7 @@ import (
 
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
+	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
@@ -70,6 +71,7 @@ func main() {
 	// Services
 	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
 	schemeService := scheme.NewService(db)
+	communicationsService := communications.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
 	billingService := billing.NewService(db)
@@ -77,13 +79,14 @@ func main() {
 
 	// Handlers
 	handlers := server.Handlers{
-		Health:      health.New(db, &redisChecker{rdb}),
-		Auth:        auth.NewHandler(authService),
-		Scheme:      scheme.NewHandler(schemeService),
-		Levy:        levy.NewHandler(levyService),
-		Maintenance: maintenance.NewHandler(maintenanceService),
-		Billing:     billing.NewHandler(billingService),
-		Invitation:  invitation.NewHandler(invitationService, cfg.AppBaseURL),
+		Health:         health.New(db, &redisChecker{rdb}),
+		Auth:           auth.NewHandler(authService),
+		Scheme:         scheme.NewHandler(schemeService),
+		Communications: communications.NewHandler(communicationsService),
+		Levy:           levy.NewHandler(levyService),
+		Maintenance:    maintenance.NewHandler(maintenanceService),
+		Billing:        billing.NewHandler(billingService),
+		Invitation:     invitation.NewHandler(invitationService, cfg.AppBaseURL),
 	}
 
 	// Router & Server

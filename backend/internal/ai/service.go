@@ -79,6 +79,7 @@ func (s *Service) buildPortfolioPrompt(ctx context.Context, identity auth.Identi
 		return "", err
 	}
 
+	//nolint:govet // Keep this prompt payload grouped by semantic fields for readability.
 	type schemeSummary struct {
 		Name                 string `json:"name"`
 		Address              string `json:"address"`
@@ -93,7 +94,8 @@ func (s *Service) buildPortfolioPrompt(ctx context.Context, identity auth.Identi
 
 	summaries := make([]schemeSummary, 0, len(schemes))
 	for _, scheme := range schemes {
-		members, err := s.db.Q.ListSchemeMembersByScheme(ctx, scheme.ID)
+		var members []dbgen.ListSchemeMembersBySchemeRow
+		members, err = s.db.Q.ListSchemeMembersByScheme(ctx, scheme.ID)
 		if err != nil {
 			return "", err
 		}
@@ -127,7 +129,8 @@ func (s *Service) buildPortfolioPrompt(ctx context.Context, identity auth.Identi
 			OpenMaintenanceCount: countOpenMaintenance(maintenance),
 		}
 		if len(periods) > 0 {
-			accounts, err := s.db.Q.ListLevyAccountsByPeriod(ctx, periods[0].ID)
+			var accounts []dbgen.ListLevyAccountsByPeriodRow
+			accounts, err = s.db.Q.ListLevyAccountsByPeriod(ctx, periods[0].ID)
 			if err != nil {
 				return "", err
 			}
@@ -191,7 +194,8 @@ func (s *Service) buildSchemePrompt(ctx context.Context, identity auth.Identity,
 
 	levySummary := map[string]any{}
 	if len(periods) > 0 {
-		accounts, err := s.db.Q.ListLevyAccountsByPeriod(ctx, periods[0].ID)
+		var accounts []dbgen.ListLevyAccountsByPeriodRow
+		accounts, err = s.db.Q.ListLevyAccountsByPeriod(ctx, periods[0].ID)
 		if err != nil {
 			return "", err
 		}

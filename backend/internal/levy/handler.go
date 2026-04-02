@@ -27,11 +27,11 @@ type createPeriodRequest struct {
 }
 
 type reconcilePaymentRequest struct {
+	AmountCents int64   `json:"amount_cents"`
+	BankRef     *string `json:"bank_ref"`
 	AccountID   string  `json:"account_id"`
 	PaymentDate string  `json:"payment_date"`
 	Reference   string  `json:"reference"`
-	BankRef     *string `json:"bank_ref"`
-	AmountCents int64   `json:"amount_cents"`
 }
 
 type reconcileRequest struct {

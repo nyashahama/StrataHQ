@@ -75,17 +75,17 @@ type DashboardResponse struct {
 }
 
 type CreatePeriodInput struct {
-	Label       string
-	DueDate     time.Time
 	AmountCents int64
+	DueDate     time.Time
+	Label       string
 }
 
 type ReconcilePaymentInput struct {
-	AccountID   string
-	PaymentDate time.Time
-	Reference   string
-	BankRef     *string
 	AmountCents int64
+	PaymentDate time.Time
+	BankRef     *string
+	AccountID   string
+	Reference   string
 }
 
 type ReconcileResult struct {
@@ -208,7 +208,9 @@ func (s *Service) CreatePeriod(ctx context.Context, identity auth.Identity, sche
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	q := s.db.Q.WithTx(tx)
 	period, err := q.CreateLevyPeriod(ctx, dbgen.CreateLevyPeriodParams{
@@ -260,7 +262,9 @@ func (s *Service) Reconcile(ctx context.Context, identity auth.Identity, schemeI
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	q := s.db.Q.WithTx(tx)
 	result := &ReconcileResult{

@@ -21,6 +21,7 @@ var (
 	ErrInvalidInput = errors.New("invalid input")
 )
 
+//nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type NoticeInfo struct {
 	SentByName *string   `json:"sent_by_name"`
 	ID         string    `json:"id"`
@@ -31,6 +32,7 @@ type NoticeInfo struct {
 	SentAt     time.Time `json:"sent_at"`
 }
 
+//nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type DashboardResponse struct {
 	Notices []NoticeInfo `json:"notices"`
 	Role    string       `json:"role"`

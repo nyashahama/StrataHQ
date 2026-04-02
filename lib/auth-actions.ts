@@ -308,7 +308,7 @@ export async function acceptInviteAction(
   token: string,
   password: string,
 ): Promise<{ user: SessionUser } | { error: string }> {
-  const res = await fetch(`${BACKEND()}/api/v1/invitations/${token}/accept`, {
+  const res = await fetch(`${BACKEND()}/api/v1/invitations/verify/${token}/accept`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password }),

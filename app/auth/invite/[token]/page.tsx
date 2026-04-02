@@ -27,7 +27,7 @@ export default function AcceptInvitePage() {
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
-    fetch(`${apiUrl}/api/v1/invitations/${token}`)
+    fetch(`${apiUrl}/api/v1/invitations/verify/${token}`)
       .then(async res => {
         if (!res.ok) {
           setFetchError(await readApiError(res, 'This invite link is invalid or has expired.'))

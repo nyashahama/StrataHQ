@@ -103,8 +103,8 @@ type UpdateUnitInput struct {
 }
 
 type UpdateMemberInput struct {
-	Role   string
 	UnitID *string
+	Role   string
 }
 
 type Service struct {

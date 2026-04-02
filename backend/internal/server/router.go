@@ -14,6 +14,7 @@ import (
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/documents"
+	"github.com/stratahq/backend/internal/financials"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/maintenance"
@@ -29,6 +30,7 @@ type Handlers struct {
 	Scheme         *scheme.Handler
 	Communications *communications.Handler
 	Documents      *documents.Handler
+	Financials     *financials.Handler
 	Levy           *levy.Handler
 	Maintenance    *maintenance.Handler
 	Billing        *billing.Handler
@@ -72,6 +74,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			r.Mount("/schemes", h.Scheme.Routes())
 			r.Mount("/communications", h.Communications.Routes())
 			r.Mount("/documents", h.Documents.Routes())
+			r.Mount("/financials", h.Financials.Routes())
 			r.Mount("/levies", h.Levy.Routes())
 			r.Mount("/maintenance", h.Maintenance.Routes())
 			r.Mount("/billing", h.Billing.Routes())

@@ -32,6 +32,11 @@ type unitRequest struct {
 	SectionValueBps int32  `json:"section_value_bps"`
 }
 
+type memberRequest struct {
+	UnitID *string `json:"unit_id"`
+	Role   string  `json:"role"`
+}
+
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	identity, ok := auth.IdentityFromRequest(r)
 	if !ok {
@@ -207,6 +212,53 @@ func (h *Handler) UpdateUnit(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, unit)
 }
 
+func (h *Handler) ListMembers(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	members, err := h.service.ListMembers(r.Context(), identity, chi.URLParam(r, "id"))
+	if err != nil {
+		writeSchemeError(w, err, "failed to list members")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, members)
+}
+
+func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	var req memberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
+		return
+	}
+
+	role := strings.TrimSpace(req.Role)
+	if role != string(auth.RoleTrustee) && role != string(auth.RoleResident) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "role must be trustee or resident")
+		return
+	}
+
+	member, err := h.service.UpdateMember(r.Context(), identity, chi.URLParam(r, "id"), chi.URLParam(r, "userId"), UpdateMemberInput{
+		Role:   role,
+		UnitID: normalizeOptionalString(req.UnitID),
+	})
+	if err != nil {
+		writeSchemeError(w, err, "failed to update member")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, member)
+}
+
 func normalizeSchemeRequest(req schemeRequest) (CreateSchemeInput, bool) {
 	name := strings.TrimSpace(req.Name)
 	address := strings.TrimSpace(req.Address)
@@ -234,6 +286,17 @@ func normalizeUnitRequest(req unitRequest) (CreateUnitInput, bool) {
 	}, true
 }
 
+func normalizeOptionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
 func writeSchemeError(w http.ResponseWriter, err error, fallback string) {
 	switch err {
 	case ErrForbidden:
@@ -241,7 +304,7 @@ func writeSchemeError(w http.ResponseWriter, err error, fallback string) {
 	case ErrNotFound:
 		response.Error(w, http.StatusNotFound, response.CodeNotFound, "scheme not found")
 	case ErrInvalidInput:
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid scheme identifier")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request")
 	default:
 		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, fallback)
 	}

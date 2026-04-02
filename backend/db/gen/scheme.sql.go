@@ -174,22 +174,29 @@ func (q *Queries) GetUnit(ctx context.Context, id uuid.UUID) (Unit, error) {
 }
 
 const listSchemeMembersByScheme = `-- name: ListSchemeMembersByScheme :many
-SELECT sm.id, sm.user_id, sm.scheme_id, sm.unit_id, sm.role, sm.created_at, u.full_name, u.email
+SELECT sm.id, sm.user_id, sm.scheme_id, sm.unit_id, sm.role, sm.created_at,
+       u.full_name,
+       u.email,
+       u.phone,
+       un.identifier AS unit_identifier
 FROM scheme_memberships sm
 JOIN users u ON u.id = sm.user_id
+LEFT JOIN units un ON un.id = sm.unit_id
 WHERE sm.scheme_id = $1
 ORDER BY u.full_name
 `
 
 type ListSchemeMembersBySchemeRow struct {
-	ID        uuid.UUID   `json:"id"`
-	UserID    uuid.UUID   `json:"user_id"`
-	SchemeID  uuid.UUID   `json:"scheme_id"`
-	UnitID    pgtype.UUID `json:"unit_id"`
-	Role      string      `json:"role"`
-	CreatedAt time.Time   `json:"created_at"`
-	FullName  string      `json:"full_name"`
-	Email     string      `json:"email"`
+	ID             uuid.UUID   `json:"id"`
+	UserID         uuid.UUID   `json:"user_id"`
+	SchemeID       uuid.UUID   `json:"scheme_id"`
+	UnitID         pgtype.UUID `json:"unit_id"`
+	Role           string      `json:"role"`
+	CreatedAt      time.Time   `json:"created_at"`
+	FullName       string      `json:"full_name"`
+	Email          string      `json:"email"`
+	Phone          pgtype.Text `json:"phone"`
+	UnitIdentifier pgtype.Text `json:"unit_identifier"`
 }
 
 func (q *Queries) ListSchemeMembersByScheme(ctx context.Context, schemeID uuid.UUID) ([]ListSchemeMembersBySchemeRow, error) {
@@ -210,6 +217,8 @@ func (q *Queries) ListSchemeMembersByScheme(ctx context.Context, schemeID uuid.U
 			&i.CreatedAt,
 			&i.FullName,
 			&i.Email,
+			&i.Phone,
+			&i.UnitIdentifier,
 		); err != nil {
 			return nil, err
 		}

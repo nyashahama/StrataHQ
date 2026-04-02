@@ -362,6 +362,32 @@ func (q *Queries) UpdateOrg(ctx context.Context, arg UpdateOrgParams) (Org, erro
 	return i, err
 }
 
+const updateOrgMembershipRole = `-- name: UpdateOrgMembershipRole :one
+UPDATE org_memberships
+SET role = $3
+WHERE user_id = $1 AND org_id = $2
+RETURNING id, user_id, org_id, role, created_at
+`
+
+type UpdateOrgMembershipRoleParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	OrgID  uuid.UUID `json:"org_id"`
+	Role   string    `json:"role"`
+}
+
+func (q *Queries) UpdateOrgMembershipRole(ctx context.Context, arg UpdateOrgMembershipRoleParams) (OrgMembership, error) {
+	row := q.db.QueryRow(ctx, updateOrgMembershipRole, arg.UserID, arg.OrgID, arg.Role)
+	var i OrgMembership
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrgID,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET password_hash = $2

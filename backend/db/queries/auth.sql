@@ -46,6 +46,12 @@ SELECT * FROM org_memberships
 WHERE user_id = $1 AND org_id = $2
 LIMIT 1;
 
+-- name: UpdateOrgMembershipRole :one
+UPDATE org_memberships
+SET role = $3
+WHERE user_id = $1 AND org_id = $2
+RETURNING *;
+
 -- name: ListOrgMembershipsByUser :many
 SELECT om.*, o.name AS org_name
 FROM org_memberships om

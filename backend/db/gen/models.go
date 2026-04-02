@@ -499,6 +499,20 @@ type OrgMembership struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type OrgSubscription struct {
+	OrgID             uuid.UUID          `json:"org_id"`
+	Provider          string             `json:"provider"`
+	Status            string             `json:"status"`
+	PlanCode          string             `json:"plan_code"`
+	CustomerID        pgtype.Text        `json:"customer_id"`
+	SubscriptionID    pgtype.Text        `json:"subscription_id"`
+	CheckoutSessionID pgtype.Text        `json:"checkout_session_id"`
+	CurrentPeriodEnd  pgtype.Timestamptz `json:"current_period_end"`
+	CancelAtPeriodEnd bool               `json:"cancel_at_period_end"`
+	CreatedAt         time.Time          `json:"created_at"`
+	UpdatedAt         time.Time          `json:"updated_at"`
+}
+
 type ProxyAssignment struct {
 	ID            uuid.UUID `json:"id"`
 	MeetingID     uuid.UUID `json:"meeting_id"`

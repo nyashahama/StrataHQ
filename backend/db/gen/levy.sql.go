@@ -116,6 +116,27 @@ func (q *Queries) CreateLevyPeriod(ctx context.Context, arg CreateLevyPeriodPara
 	return i, err
 }
 
+const getLatestLevyPeriodByScheme = `-- name: GetLatestLevyPeriodByScheme :one
+SELECT id, scheme_id, label, amount_cents, due_date, created_at FROM levy_periods
+WHERE scheme_id = $1
+ORDER BY due_date DESC, created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestLevyPeriodByScheme(ctx context.Context, schemeID uuid.UUID) (LevyPeriod, error) {
+	row := q.db.QueryRow(ctx, getLatestLevyPeriodByScheme, schemeID)
+	var i LevyPeriod
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.Label,
+		&i.AmountCents,
+		&i.DueDate,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLevyAccount = `-- name: GetLevyAccount :one
 SELECT id, unit_id, period_id, amount_cents, paid_cents, status, due_date, paid_date, created_at, updated_at FROM levy_accounts
 WHERE id = $1
@@ -266,6 +287,65 @@ func (q *Queries) ListLevyAccountsByPeriod(ctx context.Context, periodID uuid.UU
 	return items, nil
 }
 
+const listLevyAccountsByUnit = `-- name: ListLevyAccountsByUnit :many
+SELECT la.id, la.unit_id, la.period_id, la.amount_cents, la.paid_cents, la.status, la.due_date, la.paid_date, la.created_at, la.updated_at, lp.label AS period_label, u.identifier AS unit_identifier, u.owner_name
+FROM levy_accounts la
+JOIN levy_periods lp ON lp.id = la.period_id
+JOIN units u ON u.id = la.unit_id
+WHERE la.unit_id = $1
+ORDER BY la.due_date DESC, la.created_at DESC
+`
+
+type ListLevyAccountsByUnitRow struct {
+	ID             uuid.UUID   `json:"id"`
+	UnitID         uuid.UUID   `json:"unit_id"`
+	PeriodID       uuid.UUID   `json:"period_id"`
+	AmountCents    int64       `json:"amount_cents"`
+	PaidCents      int64       `json:"paid_cents"`
+	Status         string      `json:"status"`
+	DueDate        pgtype.Date `json:"due_date"`
+	PaidDate       pgtype.Date `json:"paid_date"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
+	PeriodLabel    string      `json:"period_label"`
+	UnitIdentifier string      `json:"unit_identifier"`
+	OwnerName      string      `json:"owner_name"`
+}
+
+func (q *Queries) ListLevyAccountsByUnit(ctx context.Context, unitID uuid.UUID) ([]ListLevyAccountsByUnitRow, error) {
+	rows, err := q.db.Query(ctx, listLevyAccountsByUnit, unitID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLevyAccountsByUnitRow{}
+	for rows.Next() {
+		var i ListLevyAccountsByUnitRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UnitID,
+			&i.PeriodID,
+			&i.AmountCents,
+			&i.PaidCents,
+			&i.Status,
+			&i.DueDate,
+			&i.PaidDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.PeriodLabel,
+			&i.UnitIdentifier,
+			&i.OwnerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLevyPaymentsByAccount = `-- name: ListLevyPaymentsByAccount :many
 SELECT id, levy_account_id, amount_cents, payment_date, reference, bank_ref, created_at FROM levy_payments
 WHERE levy_account_id = $1
@@ -274,6 +354,42 @@ ORDER BY payment_date DESC
 
 func (q *Queries) ListLevyPaymentsByAccount(ctx context.Context, levyAccountID uuid.UUID) ([]LevyPayment, error) {
 	rows, err := q.db.Query(ctx, listLevyPaymentsByAccount, levyAccountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LevyPayment{}
+	for rows.Next() {
+		var i LevyPayment
+		if err := rows.Scan(
+			&i.ID,
+			&i.LevyAccountID,
+			&i.AmountCents,
+			&i.PaymentDate,
+			&i.Reference,
+			&i.BankRef,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLevyPaymentsByUnit = `-- name: ListLevyPaymentsByUnit :many
+SELECT lp.id, lp.levy_account_id, lp.amount_cents, lp.payment_date, lp.reference, lp.bank_ref, lp.created_at
+FROM levy_payments lp
+JOIN levy_accounts la ON la.id = lp.levy_account_id
+WHERE la.unit_id = $1
+ORDER BY lp.payment_date DESC, lp.created_at DESC
+`
+
+func (q *Queries) ListLevyPaymentsByUnit(ctx context.Context, unitID uuid.UUID) ([]LevyPayment, error) {
+	rows, err := q.db.Query(ctx, listLevyPaymentsByUnit, unitID)
 	if err != nil {
 		return nil, err
 	}

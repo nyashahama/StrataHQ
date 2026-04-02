@@ -2,13 +2,13 @@
 import { useState, useRef, useCallback } from 'react'
 import { parseBankStatementCSV, matchTransactions, summariseMatches } from '@/lib/reconcile'
 import { SAMPLE_BANK_STATEMENT_CSV } from '@/lib/mock/bank-statement'
-import type { LevyAccount } from '@/lib/mock/levy'
+import type { LevyAccountInfo, ReconcilePaymentInput } from '@/lib/levy'
 import type { ReconcileMatch } from '@/lib/reconcile'
 
 interface ReconcileModalProps {
-  levyAccounts: LevyAccount[]
+  levyAccounts: LevyAccountInfo[]
   periodLabel: string
-  onConfirm: (updates: Array<{ id: string; paid_cents: number; status: LevyAccount['status'] }>) => void
+  onConfirm: (payments: ReconcilePaymentInput[]) => void
   onClose: () => void
 }
 
@@ -76,10 +76,16 @@ export default function ReconcileModal({
   }
 
   function handleConfirm() {
-    const updates = matches
+    const payments = matches
       .filter(m => m.account !== null)
-      .map(m => ({ id: m.account!.id, paid_cents: m.new_paid_cents, status: m.new_status }))
-    onConfirm(updates)
+      .map((m, index) => ({
+        account_id: m.account!.id,
+        amount_cents: m.transaction.amount_cents,
+        payment_date: normalizeDate(m.transaction.date),
+        reference: buildReference(m.transaction.description, m.transaction.amount_cents, m.transaction.date, index),
+        bank_ref: m.transaction.description,
+      }))
+    onConfirm(payments)
   }
 
   const summary = matches.length > 0 ? summariseMatches(matches) : null
@@ -357,4 +363,21 @@ export default function ReconcileModal({
       </div>
     </div>
   )
+}
+
+function normalizeDate(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().toISOString().slice(0, 10)
+  }
+  return parsed.toISOString().slice(0, 10)
+}
+
+function buildReference(description: string, amountCents: number, date: string, index: number): string {
+  const slug = description
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 72)
+  return `${normalizeDate(date)}-${amountCents}-${index + 1}-${slug}`
 }

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 import { isResidentRole } from '@/lib/session'
 
@@ -17,6 +18,7 @@ const SUGGESTED_QUESTIONS = [
 
 export default function Copilot() {
   const { user } = useAuth()
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -25,6 +27,7 @@ export default function Copilot() {
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const schemeId = pathname.startsWith('/app/') ? pathname.split('/')[2] ?? null : null
 
   // Only available for agents and trustees
   if (!user || isResidentRole(user.role)) return null
@@ -56,7 +59,7 @@ export default function Copilot() {
       const response = await fetch('/api/copilot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text.trim(), history }),
+        body: JSON.stringify({ message: text.trim(), history, scheme_id: schemeId }),
       })
 
       if (!response.ok || !response.body) {

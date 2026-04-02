@@ -14,6 +14,7 @@ import (
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/documents"
+	"github.com/stratahq/backend/internal/financials"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/maintenance"
@@ -76,6 +77,7 @@ func main() {
 	schemeService := scheme.NewService(db)
 	communicationsService := communications.NewService(db)
 	documentsService := documents.NewService(db)
+	financialsService := financials.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
 	billingService := billing.NewService(db)
@@ -89,6 +91,7 @@ func main() {
 		Scheme:         scheme.NewHandler(schemeService),
 		Communications: communications.NewHandler(communicationsService),
 		Documents:      documents.NewHandler(documentsService),
+		Financials:     financials.NewHandler(financialsService),
 		Levy:           levy.NewHandler(levyService),
 		Maintenance:    maintenance.NewHandler(maintenanceService),
 		Billing:        billing.NewHandler(billingService),

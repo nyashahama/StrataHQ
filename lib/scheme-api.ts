@@ -37,6 +37,17 @@ export interface NoticeInfo {
   sent_at: string;
 }
 
+export interface MemberInfo {
+  phone?: string | null;
+  unit_id?: string | null;
+  unit_identifier?: string | null;
+  user_id: string;
+  full_name: string;
+  email: string;
+  role: "trustee" | "resident";
+  created_at: string;
+}
+
 export interface SchemeDetail extends SchemeSummary {
   units: UnitInfo[];
   recent_notices: NoticeInfo[];
@@ -117,5 +128,26 @@ export async function updateSchemeUnit(
       body: JSON.stringify(input),
     }),
     "Failed to update unit",
+  );
+}
+
+export async function listSchemeMembers(schemeId: string): Promise<MemberInfo[]> {
+  return parse(
+    await apiFetch(`/api/v1/schemes/${schemeId}/members`),
+    "Failed to load members",
+  );
+}
+
+export async function updateSchemeMember(
+  schemeId: string,
+  userId: string,
+  input: { role: "trustee" | "resident"; unit_id: string | null },
+): Promise<MemberInfo> {
+  return parse(
+    await apiFetch(`/api/v1/schemes/${schemeId}/members/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+    "Failed to update member",
   );
 }

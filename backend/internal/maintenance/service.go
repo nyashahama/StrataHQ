@@ -41,6 +41,7 @@ type RequestInfo struct {
 	SlaBreached     bool       `json:"sla_breached"`
 }
 
+//nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type DashboardResponse struct {
 	Requests             []RequestInfo `json:"requests"`
 	Role                 string        `json:"role"`
@@ -56,11 +57,13 @@ type CreateInput struct {
 	Category    string
 }
 
+//nolint:govet // Keep input DTO fields grouped by domain meaning rather than field packing.
 type AssignInput struct {
 	ContractorName  string
 	ContractorPhone *string
 }
 
+//nolint:govet // Keep access helper fields grouped by access meaning rather than field packing.
 type accessInfo struct {
 	scheme         dbgen.Scheme
 	role           string

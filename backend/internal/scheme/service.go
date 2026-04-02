@@ -29,6 +29,7 @@ type UnitInfo struct {
 	SectionValuePct float64 `json:"section_value_pct"`
 }
 
+//nolint:govet // Keep API response fields grouped by meaning rather than field packing.
 type NoticeInfo struct {
 	ID     string    `json:"id"`
 	Title  string    `json:"title"`
@@ -36,6 +37,7 @@ type NoticeInfo struct {
 	SentAt time.Time `json:"sent_at"`
 }
 
+//nolint:govet // Keep API response fields grouped by meaning rather than field packing.
 type SchemeSummary struct {
 	UnitID               *string `json:"unit_id"`
 	UnitIdentifier       *string `json:"unit_identifier"`
@@ -55,6 +57,7 @@ type SchemeSummary struct {
 	DaysToAgm            *int    `json:"days_to_agm"`
 }
 
+//nolint:govet // Keep API response fields grouped by meaning rather than field packing.
 type SchemeDetail struct {
 	Units         []UnitInfo   `json:"units"`
 	RecentNotices []NoticeInfo `json:"recent_notices"`

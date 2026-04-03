@@ -146,6 +146,49 @@ func (ns NullDocumentFileType) Value() (driver.Value, error) {
 	return string(ns.DocumentFileType), nil
 }
 
+type EarlyAccessStatus string
+
+const (
+	EarlyAccessStatusPending  EarlyAccessStatus = "pending"
+	EarlyAccessStatusApproved EarlyAccessStatus = "approved"
+	EarlyAccessStatusRejected EarlyAccessStatus = "rejected"
+)
+
+func (e *EarlyAccessStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EarlyAccessStatus(s)
+	case string:
+		*e = EarlyAccessStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EarlyAccessStatus: %T", src)
+	}
+	return nil
+}
+
+type NullEarlyAccessStatus struct {
+	EarlyAccessStatus EarlyAccessStatus `json:"early_access_status"`
+	Valid             bool              `json:"valid"` // Valid is true if EarlyAccessStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEarlyAccessStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.EarlyAccessStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EarlyAccessStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEarlyAccessStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EarlyAccessStatus), nil
+}
+
 type MaintenanceCategory string
 
 const (
@@ -407,6 +450,17 @@ type BudgetLine struct {
 	ActualCents   int64     `json:"actual_cents"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type EarlyAccessRequest struct {
+	ID         uuid.UUID          `json:"id"`
+	FullName   string             `json:"full_name"`
+	Email      string             `json:"email"`
+	SchemeName string             `json:"scheme_name"`
+	UnitCount  int32              `json:"unit_count"`
+	Status     EarlyAccessStatus  `json:"status"`
+	CreatedAt  time.Time          `json:"created_at"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 }
 
 type Invitation struct {

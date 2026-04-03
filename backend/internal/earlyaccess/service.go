@@ -49,16 +49,17 @@ type Servicer interface {
 }
 
 type Service struct {
-	db          *dbgen.Queries
-	authService auth.Servicer
-	notifier    notification.Sender
-	appBaseURL  string
-	adminEmail  string
-	adminSecret string
+	db             *dbgen.Queries
+	authService    auth.Servicer
+	notifier       notification.Sender
+	backendBaseURL string
+	appBaseURL     string
+	adminEmail     string
+	adminSecret    string
 }
 
-func NewService(db *dbgen.Queries, authService auth.Servicer, notifier notification.Sender, appBaseURL, adminEmail, adminSecret string) *Service {
-	return &Service{db: db, authService: authService, notifier: notifier, appBaseURL: appBaseURL, adminEmail: adminEmail, adminSecret: adminSecret}
+func NewService(db *dbgen.Queries, authService auth.Servicer, notifier notification.Sender, backendBaseURL, appBaseURL, adminEmail, adminSecret string) *Service {
+	return &Service{db: db, authService: authService, notifier: notifier, backendBaseURL: backendBaseURL, appBaseURL: appBaseURL, adminEmail: adminEmail, adminSecret: adminSecret}
 }
 
 func generateActionToken(secret, id, action string, exp int64) string {
@@ -91,8 +92,8 @@ func (s *Service) Submit(ctx context.Context, p SubmitParams) (*RequestResponse,
 		exp := time.Now().Add(7 * 24 * time.Hour).Unix()
 		approveSig := generateActionToken(s.adminSecret, row.ID.String(), "approve", exp)
 		rejectSig := generateActionToken(s.adminSecret, row.ID.String(), "reject", exp)
-		approveURL := fmt.Sprintf("%s/api/v1/early-access/%s/approve?exp=%d&sig=%s", s.appBaseURL, row.ID.String(), exp, approveSig)
-		rejectURL := fmt.Sprintf("%s/api/v1/early-access/%s/reject?exp=%d&sig=%s", s.appBaseURL, row.ID.String(), exp, rejectSig)
+		approveURL := fmt.Sprintf("%s/api/v1/early-access/%s/approve?exp=%d&sig=%s", s.backendBaseURL, row.ID.String(), exp, approveSig)
+		rejectURL := fmt.Sprintf("%s/api/v1/early-access/%s/reject?exp=%d&sig=%s", s.backendBaseURL, row.ID.String(), exp, rejectSig)
 		_ = s.notifier.SendNewEarlyAccessRequest(ctx, s.adminEmail, row.FullName, row.Email, row.SchemeName, row.UnitCount, approveURL, rejectURL)
 	}
 

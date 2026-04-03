@@ -26,6 +26,7 @@ type ConfigStrings struct {
 	AIAPIKey            string
 	AIModel             string
 	AppBaseURL          string
+	BackendBaseURL      string
 	EmailFrom           string
 	AdminEmail          string
 	AdminSecret         string
@@ -53,6 +54,7 @@ func Load() (*Config, error) {
 			AIAPIKey:            os.Getenv("AI_API_KEY"),
 			AIModel:             os.Getenv("AI_MODEL"),
 			AppBaseURL:          os.Getenv("APP_BASE_URL"),
+			BackendBaseURL:      getEnv("BACKEND_BASE_URL", os.Getenv("APP_BASE_URL")),
 			EmailFrom:           getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
 			AdminEmail:          os.Getenv("ADMIN_EMAIL"),
 			AdminSecret:         os.Getenv("ADMIN_SECRET"),

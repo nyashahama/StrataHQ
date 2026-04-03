@@ -208,6 +208,9 @@ func (s *Service) SeedDemo(ctx context.Context) (*Result, error) {
 		if txErr = seedDemoWhatsApp(ctx, q, scheme.ID, adminUser.ID, residentUser.ID, unitIDs); txErr != nil {
 			return txErr
 		}
+		if txErr = seedDemoCompliance(ctx, q, scheme.ID); txErr != nil {
+			return txErr
+		}
 
 		return nil
 	})
@@ -440,4 +443,157 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 	}
 
 	return nil
+}
+
+func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUID) error {
+	items := []struct {
+		assessedAt  time.Time
+		dueDate     *time.Time
+		category    dbgen.ComplianceCategory
+		title       string
+		requirement string
+		status      dbgen.ComplianceStatus
+		detail      string
+		action      string
+	}{
+		{
+			category:    dbgen.ComplianceCategoryFinancial,
+			title:       "Annual financial statements",
+			requirement: "Financial statements must be prepared and approved within 4 months of financial year end.",
+			status:      dbgen.ComplianceStatusCompliant,
+			detail:      "Statements for FY2024/25 approved on 31 Aug 2025.",
+			action:      "No action required.",
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryFinancial,
+			title:       "Reserve fund minimum contribution",
+			requirement: "Reserve fund must receive a minimum 10% of total levy income annually (STSMA Reg 2).",
+			status:      dbgen.ComplianceStatusAtRisk,
+			detail:      "Reserve fund at R 67 420 — 67% of the recommended R 100 000 target. Current contribution rate is 6.2%.",
+			action:      "Increase reserve fund levy contribution to at least 10% before the next budget cycle.",
+			dueDate:     timePointer(time.Date(2025, time.December, 1, 0, 0, 0, 0, time.UTC)),
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryFinancial,
+			title:       "CSOS levy payment",
+			requirement: "Annual Community Schemes Ombud Service (CSOS) levy must be paid.",
+			status:      dbgen.ComplianceStatusCompliant,
+			detail:      "CSOS levy of R 1 850 paid on 15 Apr 2025. Next due Apr 2026.",
+			action:      "No action required.",
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryFinancial,
+			title:       "Approved annual budget",
+			requirement: "Budget must be approved by trustees and presented at AGM before the start of the financial year.",
+			status:      dbgen.ComplianceStatusCompliant,
+			detail:      "FY2025/26 budget of R 420 000 approved at AGM on 14 Oct 2025.",
+			action:      "No action required.",
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryGovernance,
+			title:       "Annual General Meeting held",
+			requirement: "AGM must be held within 4 months of the financial year end each year (STSMA Reg 17).",
+			status:      dbgen.ComplianceStatusCompliant,
+			detail:      "AGM held on 14 Oct 2025 with 62% quorum achieved.",
+			action:      "No action required.",
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryGovernance,
+			title:       "Trustee meeting minutes",
+			requirement: "Minutes of all trustee meetings must be recorded and kept on file.",
+			status:      dbgen.ComplianceStatusAtRisk,
+			detail:      "Q3 2025 (Jul–Sep) trustee meeting minutes have not been uploaded to the document vault.",
+			action:      "Upload Q3 trustee meeting minutes to the document vault.",
+			dueDate:     timePointer(time.Date(2025, time.October, 31, 0, 0, 0, 0, time.UTC)),
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryGovernance,
+			title:       "Trustee election on record",
+			requirement: "Trustee committee elections must be held at the AGM and results recorded.",
+			status:      dbgen.ComplianceStatusCompliant,
+			detail:      "Three trustees elected at Oct 2025 AGM. Election recorded in meeting minutes.",
+			action:      "No action required.",
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryAdministrative,
+			title:       "Scheme rules registered with CSOS",
+			requirement: "Management and conduct rules must be filed with the Community Schemes Ombud Service.",
+			status:      dbgen.ComplianceStatusNonCompliant,
+			detail:      "Scheme rules have not been registered with CSOS. This is a legal requirement under STSMA s10.",
+			action:      "Submit scheme rules to CSOS via the CSOS online portal. Filing fee: R 400.",
+			dueDate:     timePointer(time.Date(2025, time.November, 30, 0, 0, 0, 0, time.UTC)),
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryAdministrative,
+			title:       "10-year maintenance plan",
+			requirement: "A written maintenance, repair, and replacement plan for common property must exist (STSMA Reg 3).",
+			status:      dbgen.ComplianceStatusNonCompliant,
+			detail:      "No formal maintenance plan on record. The reserve fund target cannot be properly justified without one.",
+			action:      "Appoint a qualified assessor to compile a 10-year maintenance plan.",
+			dueDate:     timePointer(time.Date(2026, time.February, 28, 0, 0, 0, 0, time.UTC)),
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryAdministrative,
+			title:       "Conduct rules in place",
+			requirement: "Scheme must have registered conduct rules governing owner and resident behaviour.",
+			status:      dbgen.ComplianceStatusCompliant,
+			detail:      "Conduct rules adopted and distributed to all residents. On file in document vault.",
+			action:      "No action required.",
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryInsurance,
+			title:       "Building insurance in force",
+			requirement: "Body corporate must insure all buildings to full replacement value (STSMA s3(1)(b)).",
+			status:      dbgen.ComplianceStatusCompliant,
+			detail:      "Santam policy BC-2025-9834. Buildings insured to R 18.5M replacement value. Renewed Mar 2025.",
+			action:      "No action required.",
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			category:    dbgen.ComplianceCategoryInsurance,
+			title:       "Replacement valuation current",
+			requirement: "Insurance replacement valuation must be updated at least every 3 years.",
+			status:      dbgen.ComplianceStatusAtRisk,
+			detail:      "Last valuation: August 2022 (3 years 2 months ago). May no longer reflect replacement cost.",
+			action:      "Commission an updated replacement valuation from a registered quantity surveyor.",
+			dueDate:     timePointer(time.Date(2025, time.December, 31, 0, 0, 0, 0, time.UTC)),
+			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+		},
+	}
+
+	for _, item := range items {
+		dueDate := pgtype.Date{}
+		if item.dueDate != nil {
+			dueDate = pgtype.Date{Time: *item.dueDate, Valid: true}
+		}
+		if _, err := q.CreateComplianceItem(ctx, dbgen.CreateComplianceItemParams{
+			SchemeID:    schemeID,
+			Category:    item.category,
+			Title:       item.title,
+			Requirement: item.requirement,
+			Status:      item.status,
+			Detail:      item.detail,
+			Action:      item.action,
+			DueDate:     dueDate,
+			AssessedAt:  item.assessedAt,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func timePointer(value time.Time) *time.Time {
+	return &value
 }

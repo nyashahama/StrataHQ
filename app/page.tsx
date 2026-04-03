@@ -6,7 +6,6 @@ import FeaturesSection from '@/components/FeaturesSection'
 import InsightsSection from '@/components/InsightsSection'
 import ModulesSection from '@/components/ModulesSection'
 import RolesSection from '@/components/RolesSection'
-import DemoTeaser from '@/components/DemoTeaser'
 import QuoteSection from '@/components/QuoteSection'
 import PricingSection from '@/components/PricingSection'
 import CTASection from '@/components/CTASection'
@@ -24,7 +23,6 @@ export default function Home() {
         <InsightsSection />
         <ModulesSection />
         <RolesSection />
-        <DemoTeaser />
         <QuoteSection />
         <PricingSection />
         <CTASection />

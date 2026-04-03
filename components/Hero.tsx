@@ -29,27 +29,16 @@ export default function Hero() {
         {/* CTAs */}
         <div className="flex flex-wrap items-center gap-[10px] mb-4">
           <Link
-            href="#"
+            href="/early-access"
             className="px-6 py-[10px] text-[15px] font-medium text-white bg-accent border border-accent
               rounded hover:opacity-90 transition-opacity duration-150 no-underline"
           >
-            Start free trial →
-          </Link>
-          <Link
-            href="/demo"
-            className="inline-flex items-center gap-2 px-6 py-[10px] text-[15px] font-medium text-accent
-              bg-accent-bg border border-[rgba(43,108,176,0.2)] rounded hover:bg-accent-dim transition-colors duration-150 no-underline"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-60" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent" />
-            </span>
-            Try interactive demo
+            Request early access →
           </Link>
           <Link
             href="#features"
             className="px-6 py-[10px] text-[15px] font-medium text-ink-2 bg-surface border border-border-2
-              rounded hover:bg-page transition-colors duration-150 no-underline hidden sm:inline-flex"
+              rounded hover:bg-page transition-colors duration-150 hidden sm:inline-flex no-underline"
           >
             See how it works
           </Link>
@@ -57,7 +46,7 @@ export default function Hero() {
 
         {/* Note */}
         <p className="text-[13px] text-muted-2">
-          30-day free trial · No credit card · Full access from day one
+          Limited early access · STSMA compliant · Built for South Africa
         </p>
       </div>
     </section>

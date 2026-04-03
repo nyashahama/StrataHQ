@@ -38,14 +38,6 @@ export default function Nav() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <Link
-            href="/demo"
-            className="hidden sm:inline-flex items-center gap-[6px] px-[14px] py-[10px] text-[14px] font-medium text-accent
-              bg-accent-bg border border-[rgba(43,108,176,0.2)] rounded hover:bg-accent-dim transition-colors duration-150 no-underline"
-          >
-            <span className="w-[5px] h-[5px] rounded-full bg-accent flex-shrink-0" />
-            Live demo
-          </Link>
-          <Link
             href="/auth/login"
             className="px-[14px] py-[10px] text-[14px] font-medium text-ink-2 bg-transparent
               border border-border-2 rounded hover:bg-hover-subtle transition-colors duration-150 no-underline"
@@ -53,11 +45,11 @@ export default function Nav() {
             Log in
           </Link>
           <Link
-            href="/auth/register"
+            href="/early-access"
             className="px-4 py-[10px] text-[14px] font-medium text-white bg-accent
               border border-accent rounded hover:opacity-90 transition-opacity duration-150 no-underline"
           >
-            Get started
+            Request early access
           </Link>
         </div>
       </div>

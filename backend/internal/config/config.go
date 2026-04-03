@@ -8,6 +8,8 @@ import (
 )
 
 type Config struct {
+	JWTExpiry           time.Duration
+	RefreshExpiry       time.Duration
 	Port                string
 	Env                 string
 	DatabaseURL         string
@@ -25,8 +27,6 @@ type Config struct {
 	AllowedOrigins      []string
 	AdminEmail          string
 	AdminSecret         string
-	JWTExpiry           time.Duration
-	RefreshExpiry       time.Duration
 }
 
 func Load() (*Config, error) {

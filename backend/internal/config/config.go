@@ -27,9 +27,9 @@ type ConfigStrings struct {
 	AIModel             string
 	AppBaseURL          string
 	EmailFrom           string
-	AllowedOrigins      []string
 	AdminEmail          string
 	AdminSecret         string
+	AllowedOrigins      []string
 }
 
 type ConfigDurations struct {

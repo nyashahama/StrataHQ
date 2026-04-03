@@ -15,6 +15,7 @@ import (
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/documents"
+	"github.com/stratahq/backend/internal/earlyaccess"
 	"github.com/stratahq/backend/internal/financials"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
@@ -89,6 +90,7 @@ func main() {
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
+	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.AppBaseURL)
 
 	// Handlers
 	handlers := server.Handlers{
@@ -104,6 +106,7 @@ func main() {
 		Maintenance:    maintenance.NewHandler(maintenanceService),
 		Billing:        billing.NewHandler(billingService),
 		Invitation:     invitation.NewHandler(invitationService, cfg.AppBaseURL),
+		EarlyAccess:    earlyaccess.NewHandler(earlyAccessService),
 	}
 
 	// Router & Server

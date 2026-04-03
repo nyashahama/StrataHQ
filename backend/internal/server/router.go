@@ -15,6 +15,7 @@ import (
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/documents"
+	"github.com/stratahq/backend/internal/earlyaccess"
 	"github.com/stratahq/backend/internal/financials"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
@@ -37,6 +38,7 @@ type Handlers struct {
 	Maintenance    *maintenance.Handler
 	Billing        *billing.Handler
 	Invitation     *invitation.Handler
+	EarlyAccess    *earlyaccess.Handler
 }
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Handlers) *chi.Mux {
@@ -61,6 +63,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			r.Mount("/auth", h.Auth.Routes())
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
 			r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
+			r.Mount("/early-access", h.EarlyAccess.PublicRoutes())
 		})
 
 		// Protected routes
@@ -81,6 +84,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			r.Mount("/levies", h.Levy.Routes())
 			r.Mount("/maintenance", h.Maintenance.Routes())
 			r.Mount("/billing", h.Billing.Routes())
+			r.Mount("/admin/early-access", h.EarlyAccess.ProtectedRoutes())
 		})
 	})
 

@@ -23,10 +23,10 @@ type Config struct {
 	AppBaseURL          string
 	EmailFrom           string
 	AllowedOrigins      []string
-	JWTExpiry           time.Duration
-	RefreshExpiry       time.Duration
 	AdminEmail          string
 	AdminSecret         string
+	JWTExpiry           time.Duration
+	RefreshExpiry       time.Duration
 }
 
 func Load() (*Config, error) {

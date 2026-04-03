@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -138,6 +139,7 @@ func (s *Service) SeedDemo(ctx context.Context) (*Result, error) {
 		result.SchemeID = scheme.ID.String()
 
 		var residentUnitID pgtype.UUID
+		unitIDs := make(map[string]uuid.UUID, len(demoUnits))
 		for _, unit := range demoUnits {
 			unitRow, unitErr := q.CreateUnit(ctx, dbgen.CreateUnitParams{
 				SchemeID:        scheme.ID,
@@ -149,6 +151,7 @@ func (s *Service) SeedDemo(ctx context.Context) (*Result, error) {
 			if unitErr != nil {
 				return unitErr
 			}
+			unitIDs[unit.Identifier] = unitRow.ID
 			if unit.ShouldAttachUser {
 				residentUnitID = pgtype.UUID{Bytes: unitRow.ID, Valid: true}
 			}
@@ -199,6 +202,10 @@ func (s *Service) SeedDemo(ctx context.Context) (*Result, error) {
 			UnitID:   residentUnitID,
 			Role:     string(auth.RoleResident),
 		}); txErr != nil {
+			return txErr
+		}
+
+		if txErr = seedDemoWhatsApp(ctx, q, scheme.ID, adminUser.ID, residentUser.ID, unitIDs); txErr != nil {
 			return txErr
 		}
 
@@ -259,4 +266,178 @@ func demoPassword() (string, error) {
 	}
 
 	return "Demo-" + hex.EncodeToString(buf) + "!", nil
+}
+
+func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUserID, residentUserID uuid.UUID, unitIDs map[string]uuid.UUID) error {
+	base := time.Date(2025, time.October, 16, 9, 17, 0, 0, time.UTC)
+
+	type threadSeed struct {
+		lastActiveAt   time.Time
+		residentUserID *uuid.UUID
+		unitIdentifier string
+		phoneNumber    string
+		messages       []struct {
+			sender dbgen.WhatsappMessageSender
+			body   string
+		}
+		unreadCount int32
+		connected   bool
+	}
+
+	residentCopy := residentUserID
+	threads := []threadSeed{
+		{
+			unitIdentifier: "2B",
+			phoneNumber:    "+27825550202",
+			connected:      true,
+			unreadCount:    2,
+			lastActiveAt:   base,
+			messages: []struct {
+				sender dbgen.WhatsappMessageSender
+				body   string
+			}{
+				{sender: dbgen.WhatsappMessageSenderResident, body: "Hi"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: "Hi Molefe! Welcome to Sunridge Heights on WhatsApp.\n\nReply with:\n1 Balance - check your levy account\n2 Request - log a maintenance request\n3 Notices - see recent scheme notices"},
+				{sender: dbgen.WhatsappMessageSenderResident, body: "1"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: "Unit 2B levy account for October 2025:\nMonthly levy: R 2 450\nAmount paid: R 1 200\nOutstanding: R 1 250\nDue date: 1 Oct 2025"},
+				{sender: dbgen.WhatsappMessageSenderResident, body: "ok thanks ill pay tomorrow"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: "No problem. Please use reference SH-2B-OCT25 when paying."},
+			},
+		},
+		{
+			unitIdentifier: "4B",
+			residentUserID: &residentCopy,
+			phoneNumber:    "+27715550404",
+			connected:      true,
+			unreadCount:    0,
+			lastActiveAt:   base.Add(-19 * time.Hour),
+			messages: []struct {
+				sender dbgen.WhatsappMessageSender
+				body   string
+			}{
+				{sender: dbgen.WhatsappMessageSenderResident, body: "The light in the parking garage is not working. Has been out for 2 days now"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: "Thanks Naidoo. I've logged a maintenance request on your behalf.\n\nCategory: Electrical\nLocation: Parking garage\nStatus: Open"},
+				{sender: dbgen.WhatsappMessageSenderResident, body: "thank you"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: "You're welcome. We'll keep you posted."},
+			},
+		},
+		{
+			unitIdentifier: "1A",
+			phoneNumber:    "+27825550101",
+			connected:      true,
+			unreadCount:    0,
+			lastActiveAt:   base.Add(-46 * time.Hour),
+			messages: []struct {
+				sender dbgen.WhatsappMessageSender
+				body   string
+			}{
+				{sender: dbgen.WhatsappMessageSenderResident, body: "Did you receive my levy payment?"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: "Payment confirmed for Unit 1A. October 2025 levy status: paid in full."},
+				{sender: dbgen.WhatsappMessageSenderResident, body: "great thanks"},
+			},
+		},
+		{
+			unitIdentifier: "5A",
+			phoneNumber:    "+27825550505",
+			connected:      true,
+			unreadCount:    0,
+			lastActiveAt:   base.Add(-64 * time.Hour),
+			messages: []struct {
+				sender dbgen.WhatsappMessageSender
+				body   string
+			}{
+				{sender: dbgen.WhatsappMessageSenderResident, body: "When is the agm?"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: "The next AGM is scheduled for Tuesday, 14 October 2025 at 18:30 in the community room."},
+				{sender: dbgen.WhatsappMessageSenderResident, body: "ill be there"},
+			},
+		},
+		{
+			unitIdentifier: "3A",
+			connected:      false,
+			unreadCount:    0,
+			lastActiveAt:   base.Add(-15 * 24 * time.Hour),
+		},
+	}
+
+	for _, thread := range threads {
+		unitID, ok := unitIDs[thread.unitIdentifier]
+		if !ok {
+			continue
+		}
+
+		residentRef := pgtype.UUID{}
+		if thread.residentUserID != nil {
+			residentRef = pgtype.UUID{Bytes: *thread.residentUserID, Valid: true}
+		}
+
+		phone := pgtype.Text{}
+		if thread.phoneNumber != "" {
+			phone = pgtype.Text{String: thread.phoneNumber, Valid: true}
+		}
+
+		consentedAt := pgtype.Timestamptz{}
+		if thread.connected {
+			consentedAt = pgtype.Timestamptz{Time: thread.lastActiveAt.Add(-24 * time.Hour), Valid: true}
+		}
+
+		createdThread, err := q.CreateWhatsAppThread(ctx, dbgen.CreateWhatsAppThreadParams{
+			SchemeID:       schemeID,
+			UnitID:         unitID,
+			ResidentUserID: residentRef,
+			PhoneNumber:    phone,
+			Connected:      thread.connected,
+			ConsentedAt:    consentedAt,
+			UnreadCount:    thread.unreadCount,
+			LastActiveAt:   thread.lastActiveAt,
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, message := range thread.messages {
+			if _, err := q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
+				ThreadID:             createdThread.ID,
+				Sender:               message.sender,
+				Body:                 message.body,
+				MaintenanceRequestID: pgtype.UUID{},
+				NoticeID:             pgtype.UUID{},
+			}); err != nil {
+				return err
+			}
+		}
+	}
+
+	broadcasts := []struct {
+		sentAt         time.Time
+		kind           dbgen.WhatsappBroadcastType
+		message        string
+		recipientCount int32
+	}{
+		{
+			sentAt:         base.Add(-5 * 24 * time.Hour),
+			kind:           dbgen.WhatsappBroadcastTypeAgm,
+			message:        "AGM notice: the annual general meeting will be held on Tuesday, 14 October 2025 at 18:30 in the community room.",
+			recipientCount: 4,
+		},
+		{
+			sentAt:         base.Add(-15 * 24 * time.Hour),
+			kind:           dbgen.WhatsappBroadcastTypeLevy,
+			message:        "October 2025 levy reminder: please use your unit reference when making payment.",
+			recipientCount: 4,
+		},
+	}
+
+	for _, broadcast := range broadcasts {
+		if _, err := q.CreateWhatsAppBroadcast(ctx, dbgen.CreateWhatsAppBroadcastParams{
+			SchemeID:       schemeID,
+			SentByUserID:   pgtype.UUID{Bytes: adminUserID, Valid: true},
+			Type:           broadcast.kind,
+			Message:        broadcast.message,
+			RecipientCount: broadcast.recipientCount,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

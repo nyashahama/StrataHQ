@@ -26,6 +26,7 @@ import (
 	"github.com/stratahq/backend/internal/platform/health"
 	"github.com/stratahq/backend/internal/scheme"
 	"github.com/stratahq/backend/internal/server"
+	"github.com/stratahq/backend/internal/whatsapp"
 )
 
 // redisChecker adapts *redis.Client to health.Checker.
@@ -87,6 +88,7 @@ func main() {
 	financialsService := financials.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
+	whatsAppService := whatsapp.NewService(db)
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
@@ -104,6 +106,7 @@ func main() {
 		Financials:     financials.NewHandler(financialsService),
 		Levy:           levy.NewHandler(levyService),
 		Maintenance:    maintenance.NewHandler(maintenanceService),
+		WhatsApp:       whatsapp.NewHandler(whatsAppService),
 		Billing:        billing.NewHandler(billingService),
 		Invitation:     invitation.NewHandler(invitationService, cfg.AppBaseURL),
 		EarlyAccess:    earlyaccess.NewHandler(earlyAccessService),

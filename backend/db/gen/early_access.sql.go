@@ -3,30 +3,9 @@ package dbgen
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
-
-type EarlyAccessStatus string
-
-const (
-	EarlyAccessStatusPending  EarlyAccessStatus = "pending"
-	EarlyAccessStatusApproved EarlyAccessStatus = "approved"
-	EarlyAccessStatusRejected EarlyAccessStatus = "rejected"
-)
-
-type EarlyAccessRequest struct {
-	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
-	CreatedAt  time.Time          `json:"created_at"`
-	ID         uuid.UUID          `json:"id"`
-	FullName   string             `json:"full_name"`
-	Email      string             `json:"email"`
-	SchemeName string             `json:"scheme_name"`
-	Status     EarlyAccessStatus  `json:"status"`
-	UnitCount  int32              `json:"unit_count"`
-}
 
 type CreateEarlyAccessRequestParams struct {
 	FullName   string

@@ -23,6 +23,7 @@ import (
 	"github.com/stratahq/backend/internal/middleware"
 	"github.com/stratahq/backend/internal/platform/health"
 	"github.com/stratahq/backend/internal/scheme"
+	"github.com/stratahq/backend/internal/whatsapp"
 )
 
 type Handlers struct {
@@ -36,6 +37,7 @@ type Handlers struct {
 	Financials     *financials.Handler
 	Levy           *levy.Handler
 	Maintenance    *maintenance.Handler
+	WhatsApp       *whatsapp.Handler
 	Billing        *billing.Handler
 	Invitation     *invitation.Handler
 	EarlyAccess    *earlyaccess.Handler
@@ -83,6 +85,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			r.Mount("/financials", h.Financials.Routes())
 			r.Mount("/levies", h.Levy.Routes())
 			r.Mount("/maintenance", h.Maintenance.Routes())
+			r.Mount("/whatsapp", h.WhatsApp.Routes())
 			r.Mount("/billing", h.Billing.Routes())
 			r.Mount("/admin/early-access", h.EarlyAccess.ProtectedRoutes())
 		})

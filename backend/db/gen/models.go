@@ -56,6 +56,93 @@ func (ns NullAgmStatus) Value() (driver.Value, error) {
 	return string(ns.AgmStatus), nil
 }
 
+type ComplianceCategory string
+
+const (
+	ComplianceCategoryFinancial      ComplianceCategory = "financial"
+	ComplianceCategoryGovernance     ComplianceCategory = "governance"
+	ComplianceCategoryAdministrative ComplianceCategory = "administrative"
+	ComplianceCategoryInsurance      ComplianceCategory = "insurance"
+)
+
+func (e *ComplianceCategory) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ComplianceCategory(s)
+	case string:
+		*e = ComplianceCategory(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ComplianceCategory: %T", src)
+	}
+	return nil
+}
+
+type NullComplianceCategory struct {
+	ComplianceCategory ComplianceCategory `json:"compliance_category"`
+	Valid              bool               `json:"valid"` // Valid is true if ComplianceCategory is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullComplianceCategory) Scan(value interface{}) error {
+	if value == nil {
+		ns.ComplianceCategory, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ComplianceCategory.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullComplianceCategory) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ComplianceCategory), nil
+}
+
+type ComplianceStatus string
+
+const (
+	ComplianceStatusCompliant    ComplianceStatus = "compliant"
+	ComplianceStatusAtRisk       ComplianceStatus = "at-risk"
+	ComplianceStatusNonCompliant ComplianceStatus = "non-compliant"
+)
+
+func (e *ComplianceStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ComplianceStatus(s)
+	case string:
+		*e = ComplianceStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ComplianceStatus: %T", src)
+	}
+	return nil
+}
+
+type NullComplianceStatus struct {
+	ComplianceStatus ComplianceStatus `json:"compliance_status"`
+	Valid            bool             `json:"valid"` // Valid is true if ComplianceStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullComplianceStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ComplianceStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ComplianceStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullComplianceStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ComplianceStatus), nil
+}
+
 type DocumentCategory string
 
 const (
@@ -537,6 +624,21 @@ type BudgetLine struct {
 	ActualCents   int64     `json:"actual_cents"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type ComplianceItem struct {
+	ID          uuid.UUID          `json:"id"`
+	SchemeID    uuid.UUID          `json:"scheme_id"`
+	Category    ComplianceCategory `json:"category"`
+	Title       string             `json:"title"`
+	Requirement string             `json:"requirement"`
+	Status      ComplianceStatus   `json:"status"`
+	Detail      string             `json:"detail"`
+	Action      string             `json:"action"`
+	DueDate     pgtype.Date        `json:"due_date"`
+	AssessedAt  time.Time          `json:"assessed_at"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
 }
 
 type EarlyAccessRequest struct {

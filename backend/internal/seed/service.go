@@ -447,14 +447,14 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 
 func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUID) error {
 	items := []struct {
+		assessedAt  time.Time
+		dueDate     *time.Time
 		category    dbgen.ComplianceCategory
 		title       string
 		requirement string
 		status      dbgen.ComplianceStatus
 		detail      string
 		action      string
-		dueDate     *time.Time
-		assessedAt  time.Time
 	}{
 		{
 			category:    dbgen.ComplianceCategoryFinancial,

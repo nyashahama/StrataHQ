@@ -90,7 +90,7 @@ func main() {
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
-	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.AppBaseURL)
+	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
 
 	// Handlers
 	handlers := server.Handlers{

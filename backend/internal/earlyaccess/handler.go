@@ -4,6 +4,7 @@ package earlyaccess
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stratahq/backend/internal/auth"
@@ -96,4 +97,66 @@ func (h *Handler) Reject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) ApproveWithToken(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	sig := r.URL.Query().Get("sig")
+	expStr := r.URL.Query().Get("exp")
+	exp, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil || sig == "" {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`))
+		return
+	}
+	_, err = h.service.ApproveByToken(r.Context(), id, sig, exp)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		if err == ErrInvalidToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Link expired</h2><p>This approve link is invalid or has expired.</p></body></html>`))
+		} else if err == ErrNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Not found</h2><p>This request no longer exists.</p></body></html>`))
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Error</h2><p>Something went wrong. Please try again.</p></body></html>`))
+		}
+		return
+	}
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2 style="color:#16a34a">✓ Approved</h2><p>The early access request has been approved. The user will receive an email to set their password.</p></body></html>`))
+}
+
+func (h *Handler) RejectWithToken(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	sig := r.URL.Query().Get("sig")
+	expStr := r.URL.Query().Get("exp")
+	exp, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil || sig == "" {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`))
+		return
+	}
+	_, err = h.service.RejectByToken(r.Context(), id, sig, exp)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		if err == ErrInvalidToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Link expired</h2><p>This reject link is invalid or has expired.</p></body></html>`))
+		} else if err == ErrNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Not found</h2><p>This request no longer exists.</p></body></html>`))
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2>Error</h2><p>Something went wrong. Please try again.</p></body></html>`))
+		}
+		return
+	}
+	w.Header().Set("Content-Type", "text/html")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`<html><body style="font-family:sans-serif;padding:40px"><h2 style="color:#dc2626">✗ Rejected</h2><p>The early access request has been rejected.</p></body></html>`))
 }

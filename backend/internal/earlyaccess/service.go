@@ -94,8 +94,8 @@ func (s *Service) Approve(ctx context.Context, id string) (*RequestResponse, err
 
 	// Create account with random temp password (user will reset it)
 	tempPass := make([]byte, 16)
-	if _, err := rand.Read(tempPass); err != nil {
-		return nil, err
+	if _, readErr := rand.Read(tempPass); readErr != nil {
+		return nil, readErr
 	}
 	_, regErr := s.authService.Register(ctx, req.Email, hex.EncodeToString(tempPass), req.FullName)
 	if regErr != nil && !errors.Is(regErr, auth.ErrEmailExists) {

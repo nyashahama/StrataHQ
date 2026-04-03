@@ -95,6 +95,7 @@ type Servicer interface {
 	Setup(ctx context.Context, orgID, orgName, contactEmail, schemeName, schemeAddress string, unitCount int32) (*SetupResponse, error)
 	ForgotPassword(ctx context.Context, email string) error
 	ResetPassword(ctx context.Context, token, password string) error
+	IssuePasswordResetURL(ctx context.Context, email, appBaseURL string) (string, error)
 	UpdateProfile(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error)
 	UpdateOrg(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error)
 	ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error
@@ -470,6 +471,25 @@ func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 
 	resetURL := s.appBaseURL + "/auth/reset-password?token=" + token
 	return s.sender.SendPasswordReset(ctx, user.Email, resetURL)
+}
+
+// IssuePasswordResetURL generates a password reset token and returns the URL
+// without sending any email. Used by earlyaccess approval flow.
+func (s *Service) IssuePasswordResetURL(ctx context.Context, email, appBaseURL string) (string, error) {
+	user, err := s.db.Q.GetUserByEmail(ctx, email)
+	if err != nil {
+		return "", err
+	}
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(tokenBytes)
+	key := "pwreset:" + token
+	if err := s.cache.Set(ctx, key, user.ID.String(), 24*time.Hour).Err(); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/auth/reset-password?token=%s", appBaseURL, token), nil
 }
 
 func (s *Service) ResetPassword(ctx context.Context, token, password string) error {

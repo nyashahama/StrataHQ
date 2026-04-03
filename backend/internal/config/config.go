@@ -25,6 +25,8 @@ type Config struct {
 	AllowedOrigins      []string
 	JWTExpiry           time.Duration
 	RefreshExpiry       time.Duration
+	AdminEmail          string
+	AdminSecret         string
 }
 
 func Load() (*Config, error) {
@@ -43,6 +45,8 @@ func Load() (*Config, error) {
 		AIModel:             os.Getenv("AI_MODEL"),
 		AppBaseURL:          os.Getenv("APP_BASE_URL"),
 		EmailFrom:           getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
+		AdminEmail:          os.Getenv("ADMIN_EMAIL"),
+		AdminSecret:         os.Getenv("ADMIN_SECRET"),
 	}
 
 	var err error

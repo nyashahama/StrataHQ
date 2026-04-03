@@ -14,6 +14,7 @@ type Sender interface {
 	SendInvitation(ctx context.Context, to, name, inviteURL string) error
 	SendPasswordReset(ctx context.Context, to, resetURL string) error
 	SendEarlyAccessApproval(ctx context.Context, to, name, setPasswordURL string) error
+	SendNewEarlyAccessRequest(ctx context.Context, adminEmail, requesterName, requesterEmail, schemeName string, unitCount int32, approveURL, rejectURL string) error
 }
 
 type EmailClient struct {
@@ -43,6 +44,11 @@ func (c *EmailClient) SendPasswordReset(ctx context.Context, to, resetURL string
 func (c *EmailClient) SendEarlyAccessApproval(ctx context.Context, to, name, setPasswordURL string) error {
 	subject, body := EarlyAccessApprovalEmail(name, setPasswordURL)
 	return c.send(ctx, to, subject, body)
+}
+
+func (c *EmailClient) SendNewEarlyAccessRequest(ctx context.Context, adminEmail, requesterName, requesterEmail, schemeName string, unitCount int32, approveURL, rejectURL string) error {
+	subject, body := NewEarlyAccessRequestEmail(requesterName, requesterEmail, schemeName, unitCount, approveURL, rejectURL)
+	return c.send(ctx, adminEmail, subject, body)
 }
 
 func (c *EmailClient) send(ctx context.Context, to, subject, htmlBody string) error {

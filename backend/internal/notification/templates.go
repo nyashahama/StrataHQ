@@ -51,3 +51,27 @@ func EarlyAccessApprovalEmail(name, setPasswordURL string) (subject, htmlBody st
 </body></html>`, name, setPasswordURL)
 	return
 }
+
+func NewEarlyAccessRequestEmail(requesterName, requesterEmail, schemeName string, unitCount int32, approveURL, rejectURL string) (subject, htmlBody string) {
+	subject = fmt.Sprintf("New early access request — %s (%s)", requesterName, schemeName)
+	htmlBody = fmt.Sprintf(`<!DOCTYPE html>
+<html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+<h2>New early access request</h2>
+<table style="border-collapse:collapse;width:100%%;margin-bottom:24px">
+  <tr><td style="padding:8px 0;color:#71717a;width:120px">Name</td><td style="padding:8px 0;font-weight:600">%s</td></tr>
+  <tr><td style="padding:8px 0;color:#71717a">Email</td><td style="padding:8px 0">%s</td></tr>
+  <tr><td style="padding:8px 0;color:#71717a">Scheme</td><td style="padding:8px 0">%s</td></tr>
+  <tr><td style="padding:8px 0;color:#71717a">Units</td><td style="padding:8px 0">%d</td></tr>
+</table>
+<div style="display:flex;gap:12px;margin-bottom:24px">
+  <a href="%s" style="background:#18181b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin-right:12px">
+    Approve
+  </a>
+  <a href="%s" style="background:#f4f4f5;color:#18181b;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">
+    Reject
+  </a>
+</div>
+<p style="color:#71717a;font-size:13px">These links expire in 7 days.</p>
+</body></html>`, requesterName, requesterEmail, schemeName, unitCount, approveURL, rejectURL)
+	return
+}

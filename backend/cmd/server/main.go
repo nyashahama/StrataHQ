@@ -13,6 +13,7 @@ import (
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
+	"github.com/stratahq/backend/internal/compliance"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/documents"
 	"github.com/stratahq/backend/internal/earlyaccess"
@@ -83,6 +84,7 @@ func main() {
 		Model:   cfg.AIModel,
 	}))
 	schemeService := scheme.NewService(db)
+	complianceService := compliance.NewService(db)
 	communicationsService := communications.NewService(db)
 	documentsService := documents.NewService(db)
 	financialsService := financials.NewService(db)
@@ -101,6 +103,7 @@ func main() {
 		Agm:            agm.NewHandler(agmService),
 		AI:             ai.NewHandler(aiService),
 		Scheme:         scheme.NewHandler(schemeService),
+		Compliance:     compliance.NewHandler(complianceService),
 		Communications: communications.NewHandler(communicationsService),
 		Documents:      documents.NewHandler(documentsService),
 		Financials:     financials.NewHandler(financialsService),

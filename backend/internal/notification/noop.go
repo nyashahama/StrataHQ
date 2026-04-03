@@ -18,3 +18,8 @@ func (n *NoopSender) SendPasswordReset(_ context.Context, to, _ string) error {
 	n.PasswordResets = append(n.PasswordResets, to)
 	return nil
 }
+
+func (n *NoopSender) SendEarlyAccessApproval(_ context.Context, to, _, _ string) error {
+	n.InvitationsSent = append(n.InvitationsSent, to)
+	return nil
+}

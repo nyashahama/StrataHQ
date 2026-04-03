@@ -13,6 +13,7 @@ import (
 type Sender interface {
 	SendInvitation(ctx context.Context, to, name, inviteURL string) error
 	SendPasswordReset(ctx context.Context, to, resetURL string) error
+	SendEarlyAccessApproval(ctx context.Context, to, name, setPasswordURL string) error
 }
 
 type EmailClient struct {
@@ -36,6 +37,11 @@ func (c *EmailClient) SendInvitation(ctx context.Context, to, name, inviteURL st
 
 func (c *EmailClient) SendPasswordReset(ctx context.Context, to, resetURL string) error {
 	subject, body := PasswordResetEmail(resetURL)
+	return c.send(ctx, to, subject, body)
+}
+
+func (c *EmailClient) SendEarlyAccessApproval(ctx context.Context, to, name, setPasswordURL string) error {
+	subject, body := EarlyAccessApprovalEmail(name, setPasswordURL)
 	return c.send(ctx, to, subject, body)
 }
 

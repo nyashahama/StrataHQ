@@ -8,8 +8,11 @@ import (
 )
 
 type Config struct {
-	JWTExpiry           time.Duration
-	RefreshExpiry       time.Duration
+	ConfigStrings
+	ConfigDurations
+}
+
+type ConfigStrings struct {
 	Port                string
 	Env                 string
 	DatabaseURL         string
@@ -29,32 +32,39 @@ type Config struct {
 	AdminSecret         string
 }
 
+type ConfigDurations struct {
+	JWTExpiry     time.Duration
+	RefreshExpiry time.Duration
+}
+
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:                getEnv("PORT", "8080"),
-		Env:                 getEnv("ENV", "development"),
-		DatabaseURL:         os.Getenv("DATABASE_URL"),
-		RedisURL:            os.Getenv("REDIS_URL"),
-		JWTSecret:           os.Getenv("JWT_SECRET"),
-		StripeSecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
-		StripeWebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
-		StripePriceID:       os.Getenv("STRIPE_PRICE_ID"),
-		ResendAPIKey:        os.Getenv("RESEND_API_KEY"),
-		AIBaseURL:           os.Getenv("AI_BASE_URL"),
-		AIAPIKey:            os.Getenv("AI_API_KEY"),
-		AIModel:             os.Getenv("AI_MODEL"),
-		AppBaseURL:          os.Getenv("APP_BASE_URL"),
-		EmailFrom:           getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
-		AdminEmail:          os.Getenv("ADMIN_EMAIL"),
-		AdminSecret:         os.Getenv("ADMIN_SECRET"),
+		ConfigStrings: ConfigStrings{
+			Port:                getEnv("PORT", "8080"),
+			Env:                 getEnv("ENV", "development"),
+			DatabaseURL:         os.Getenv("DATABASE_URL"),
+			RedisURL:            os.Getenv("REDIS_URL"),
+			JWTSecret:           os.Getenv("JWT_SECRET"),
+			StripeSecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
+			StripeWebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
+			StripePriceID:       os.Getenv("STRIPE_PRICE_ID"),
+			ResendAPIKey:        os.Getenv("RESEND_API_KEY"),
+			AIBaseURL:           os.Getenv("AI_BASE_URL"),
+			AIAPIKey:            os.Getenv("AI_API_KEY"),
+			AIModel:             os.Getenv("AI_MODEL"),
+			AppBaseURL:          os.Getenv("APP_BASE_URL"),
+			EmailFrom:           getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
+			AdminEmail:          os.Getenv("ADMIN_EMAIL"),
+			AdminSecret:         os.Getenv("ADMIN_SECRET"),
+		},
 	}
 
 	var err error
-	cfg.JWTExpiry, err = parseDuration("JWT_EXPIRY", 15*time.Minute)
+	cfg.ConfigDurations.JWTExpiry, err = parseDuration("JWT_EXPIRY", 15*time.Minute)
 	if err != nil {
 		return nil, err
 	}
-	cfg.RefreshExpiry, err = parseDuration("REFRESH_EXPIRY", 168*time.Hour)
+	cfg.ConfigDurations.RefreshExpiry, err = parseDuration("REFRESH_EXPIRY", 168*time.Hour)
 	if err != nil {
 		return nil, err
 	}

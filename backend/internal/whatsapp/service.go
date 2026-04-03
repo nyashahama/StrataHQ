@@ -25,43 +25,43 @@ var (
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type MessageInfo struct {
+	SentAt time.Time `json:"sent_at"`
 	ID     string    `json:"id"`
 	From   string    `json:"from"`
 	Text   string    `json:"text"`
-	SentAt time.Time `json:"sent_at"`
 }
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type ThreadInfo struct {
+	LastActive     time.Time     `json:"last_active"`
 	PhoneNumber    *string       `json:"phone_number"`
-	Messages       []MessageInfo `json:"messages"`
 	ID             string        `json:"id"`
 	UnitID         string        `json:"unit_id"`
 	UnitIdentifier string        `json:"unit_identifier"`
 	OwnerName      string        `json:"owner_name"`
-	Connected      bool          `json:"connected"`
-	LastActive     time.Time     `json:"last_active"`
+	Messages       []MessageInfo `json:"messages"`
 	Unread         int           `json:"unread"`
+	Connected      bool          `json:"connected"`
 }
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type BroadcastInfo struct {
+	SentAt         time.Time `json:"sent_at"`
 	SentByName     *string   `json:"sent_by_name"`
 	ID             string    `json:"id"`
 	SchemeID       string    `json:"scheme_id"`
 	Message        string    `json:"message"`
 	Type           string    `json:"type"`
-	SentAt         time.Time `json:"sent_at"`
 	RecipientCount int       `json:"recipient_count"`
 }
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type DashboardResponse struct {
 	ResidentThread *ThreadInfo     `json:"resident_thread"`
-	Threads        []ThreadInfo    `json:"threads"`
-	Broadcasts     []BroadcastInfo `json:"broadcasts"`
 	Role           string          `json:"role"`
 	PhoneNumber    string          `json:"phone_number"`
+	Threads        []ThreadInfo    `json:"threads"`
+	Broadcasts     []BroadcastInfo `json:"broadcasts"`
 	TotalResidents int             `json:"total_residents"`
 	ConnectedCount int             `json:"connected_count"`
 	UnreadCount    int             `json:"unread_count"`
@@ -74,9 +74,9 @@ type CreateBroadcastInput struct {
 
 type accessInfo struct {
 	scheme       dbgen.Scheme
+	memberUnitID *uuid.UUID
 	role         string
 	userID       string
-	memberUnitID *uuid.UUID
 }
 
 type Service struct {

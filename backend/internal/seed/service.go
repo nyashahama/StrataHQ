@@ -272,16 +272,16 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 	base := time.Date(2025, time.October, 16, 9, 17, 0, 0, time.UTC)
 
 	type threadSeed struct {
-		unitIdentifier string
-		residentUserID *uuid.UUID
-		phoneNumber    string
-		connected      bool
-		unreadCount    int32
 		lastActiveAt   time.Time
+		residentUserID *uuid.UUID
+		unitIdentifier string
+		phoneNumber    string
 		messages       []struct {
 			sender dbgen.WhatsappMessageSender
 			body   string
 		}
+		unreadCount int32
+		connected   bool
 	}
 
 	residentCopy := residentUserID

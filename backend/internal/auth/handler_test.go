@@ -92,6 +92,10 @@ func (m *mockService) ChangePassword(ctx context.Context, userID, currentPasswor
 	return m.changePasswordFn(ctx, userID, currentPassword, nextPassword)
 }
 
+func (m *mockService) IssuePasswordResetURL(_ context.Context, _, _ string) (string, error) {
+	return "", nil
+}
+
 // helpers
 
 func body(t *testing.T, m map[string]string) *bytes.Reader {

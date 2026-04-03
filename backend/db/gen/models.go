@@ -409,6 +409,93 @@ func (ns NullVoteChoice) Value() (driver.Value, error) {
 	return string(ns.VoteChoice), nil
 }
 
+type WhatsappBroadcastType string
+
+const (
+	WhatsappBroadcastTypeLevy        WhatsappBroadcastType = "levy"
+	WhatsappBroadcastTypeAgm         WhatsappBroadcastType = "agm"
+	WhatsappBroadcastTypeMaintenance WhatsappBroadcastType = "maintenance"
+	WhatsappBroadcastTypeGeneral     WhatsappBroadcastType = "general"
+)
+
+func (e *WhatsappBroadcastType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = WhatsappBroadcastType(s)
+	case string:
+		*e = WhatsappBroadcastType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for WhatsappBroadcastType: %T", src)
+	}
+	return nil
+}
+
+type NullWhatsappBroadcastType struct {
+	WhatsappBroadcastType WhatsappBroadcastType `json:"whatsapp_broadcast_type"`
+	Valid                 bool                  `json:"valid"` // Valid is true if WhatsappBroadcastType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullWhatsappBroadcastType) Scan(value interface{}) error {
+	if value == nil {
+		ns.WhatsappBroadcastType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.WhatsappBroadcastType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullWhatsappBroadcastType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.WhatsappBroadcastType), nil
+}
+
+type WhatsappMessageSender string
+
+const (
+	WhatsappMessageSenderResident WhatsappMessageSender = "resident"
+	WhatsappMessageSenderBot      WhatsappMessageSender = "bot"
+	WhatsappMessageSenderOperator WhatsappMessageSender = "operator"
+)
+
+func (e *WhatsappMessageSender) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = WhatsappMessageSender(s)
+	case string:
+		*e = WhatsappMessageSender(s)
+	default:
+		return fmt.Errorf("unsupported scan type for WhatsappMessageSender: %T", src)
+	}
+	return nil
+}
+
+type NullWhatsappMessageSender struct {
+	WhatsappMessageSender WhatsappMessageSender `json:"whatsapp_message_sender"`
+	Valid                 bool                  `json:"valid"` // Valid is true if WhatsappMessageSender is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullWhatsappMessageSender) Scan(value interface{}) error {
+	if value == nil {
+		ns.WhatsappMessageSender, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.WhatsappMessageSender.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullWhatsappMessageSender) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.WhatsappMessageSender), nil
+}
+
 type AgmMeeting struct {
 	ID             uuid.UUID   `json:"id"`
 	SchemeID       uuid.UUID   `json:"scheme_id"`
@@ -639,4 +726,39 @@ type User struct {
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
 	Phone        pgtype.Text `json:"phone"`
+}
+
+type WhatsappBroadcast struct {
+	ID             uuid.UUID             `json:"id"`
+	SchemeID       uuid.UUID             `json:"scheme_id"`
+	SentByUserID   pgtype.UUID           `json:"sent_by_user_id"`
+	Type           WhatsappBroadcastType `json:"type"`
+	Message        string                `json:"message"`
+	RecipientCount int32                 `json:"recipient_count"`
+	SentAt         time.Time             `json:"sent_at"`
+	CreatedAt      time.Time             `json:"created_at"`
+}
+
+type WhatsappMessage struct {
+	ID                   uuid.UUID             `json:"id"`
+	ThreadID             uuid.UUID             `json:"thread_id"`
+	Sender               WhatsappMessageSender `json:"sender"`
+	Body                 string                `json:"body"`
+	MaintenanceRequestID pgtype.UUID           `json:"maintenance_request_id"`
+	NoticeID             pgtype.UUID           `json:"notice_id"`
+	CreatedAt            time.Time             `json:"created_at"`
+}
+
+type WhatsappThread struct {
+	ID             uuid.UUID          `json:"id"`
+	SchemeID       uuid.UUID          `json:"scheme_id"`
+	UnitID         uuid.UUID          `json:"unit_id"`
+	ResidentUserID pgtype.UUID        `json:"resident_user_id"`
+	PhoneNumber    pgtype.Text        `json:"phone_number"`
+	Connected      bool               `json:"connected"`
+	ConsentedAt    pgtype.Timestamptz `json:"consented_at"`
+	UnreadCount    int32              `json:"unread_count"`
+	LastActiveAt   time.Time          `json:"last_active_at"`
+	CreatedAt      time.Time          `json:"created_at"`
+	UpdatedAt      time.Time          `json:"updated_at"`
 }

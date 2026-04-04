@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   description:
     "One platform for managing agents, trustees and residents. Levy collections, maintenance, communications and AGMs — clear, connected and under control.",
   icons: {
-    icon: "./stratahq_logo.svg",
+    icon: "/stratahq_logo.svg",
   },
 };
 

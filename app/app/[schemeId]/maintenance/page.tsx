@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import {
   assignMaintenanceRequest,
   createMaintenanceRequest,
@@ -68,9 +69,18 @@ export default function MaintenancePage() {
 
   useEffect(() => {
     async function load() {
+      const key = `scheme:${schemeId}:maintenance`
+      const cached = getCached<MaintenanceDashboard>(key)
+      if (cached) {
+        setDashboard(cached)
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
-        setDashboard(await getMaintenanceDashboard(schemeId))
+        const result = await getMaintenanceDashboard(schemeId)
+        setCached(key, result)
+        setDashboard(result)
       } catch (error) {
         addToast(
           error instanceof Error ? error.message : 'Failed to load maintenance requests',
@@ -85,7 +95,20 @@ export default function MaintenancePage() {
   }, [addToast, schemeId])
 
   async function refreshDashboard() {
-    setDashboard(await getMaintenanceDashboard(schemeId))
+    invalidateCache(`scheme:${schemeId}:maintenance`)
+    setLoading(true)
+    try {
+      const result = await getMaintenanceDashboard(schemeId)
+      setCached(`scheme:${schemeId}:maintenance`, result)
+      setDashboard(result)
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Failed to refresh maintenance data',
+        'error',
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleCreate() {

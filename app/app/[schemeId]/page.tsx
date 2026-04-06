@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth'
+import { getCached, setCached } from '@/lib/data-cache'
 import { getScheme, type SchemeDetail } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
 
@@ -32,8 +33,17 @@ export default function SchemeOverviewPage() {
 
   useEffect(() => {
     async function load() {
+      const key = `scheme:${schemeId}:overview`
+      const cached = getCached<SchemeDetail>(key)
+      if (cached) {
+        setScheme(cached)
+        setLoading(false)
+        return
+      }
       try {
-        setScheme(await getScheme(schemeId))
+        const result = await getScheme(schemeId)
+        setCached(key, result)
+        setScheme(result)
       } catch (error) {
         addToast(
           error instanceof Error ? error.message : 'Failed to load scheme',

@@ -1,5 +1,7 @@
 import { refreshTokens, clearAuth } from "./auth-actions";
 
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+
 function getAccessToken(): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(/(?:^|;\s*)sh_access=([^;]+)/);
@@ -18,10 +20,9 @@ export async function apiFetch(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
   const token = getAccessToken();
 
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: buildHeaders(token, options.headers),
   });
@@ -37,7 +38,7 @@ export async function apiFetch(
   }
 
   // Retry once with new token
-  const retry = await fetch(`${base}${path}`, {
+  const retry = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: buildHeaders(newToken, options.headers),
   });

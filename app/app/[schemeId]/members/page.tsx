@@ -7,6 +7,7 @@ import Modal from '@/components/Modal'
 import { apiFetch } from '@/lib/api'
 import { readApiError } from '@/lib/api-contract'
 import { useAuth } from '@/lib/auth'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import {
   listSchemeMembers,
   listSchemeUnits,
@@ -69,11 +70,23 @@ export default function MembersPage() {
 
   useEffect(() => {
     async function load() {
+      const membersKey = `scheme:${schemeId}:members`
+      const unitsKey = `scheme:${schemeId}:members:units`
+      const cachedMembers = getCached<MemberInfo[]>(membersKey)
+      const cachedUnits = getCached<UnitInfo[]>(unitsKey)
+      if (cachedMembers && cachedUnits) {
+        setMembers(cachedMembers)
+        setUnits(cachedUnits)
+        setLoading(false)
+        return
+      }
       try {
         const [loadedMembers, loadedUnits] = await Promise.all([
           listSchemeMembers(schemeId),
           listSchemeUnits(schemeId),
         ])
+        setCached(membersKey, loadedMembers)
+        setCached(unitsKey, loadedUnits)
         setMembers(loadedMembers)
         setUnits(loadedUnits)
       } catch (error) {
@@ -118,6 +131,7 @@ export default function MembersPage() {
   }
 
   async function handleInvite() {
+    invalidateCache(`scheme:${schemeId}:members`)
     if (!inviteForm.full_name.trim() || !inviteForm.email.trim()) return
     if (inviteForm.role === 'resident' && !inviteForm.unit_id) {
       addToast('Residents require a unit assignment', 'error')

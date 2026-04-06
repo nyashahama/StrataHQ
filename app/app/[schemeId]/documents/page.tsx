@@ -7,6 +7,7 @@ import Modal from '@/components/Modal'
 import { createDocument, deleteDocument, getDocumentsDashboard } from '@/lib/documents-api'
 import type { DocumentCategory, DocumentFileType, SchemeDocumentInfo } from '@/lib/documents'
 import { useAuth } from '@/lib/auth'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
@@ -65,9 +66,17 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     async function load() {
+      const key = `scheme:${schemeId}:documents:${categoryFilter}`
+      const cached = getCached<SchemeDocumentInfo[]>(key)
+      if (cached) {
+        setDocuments(cached)
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
         const dashboard = await getDocumentsDashboard(schemeId, categoryFilter)
+        setCached(key, dashboard.documents)
         setDocuments(dashboard.documents)
       } catch (error) {
         addToast(
@@ -83,6 +92,7 @@ export default function DocumentsPage() {
   }, [addToast, categoryFilter, schemeId])
 
   async function handleUpload() {
+    invalidateCache(`scheme:${schemeId}:documents`)
     if (!selectedFile || !form.name.trim()) return
 
     setUploading(true)
@@ -114,6 +124,7 @@ export default function DocumentsPage() {
   }
 
   async function handleDelete(document: SchemeDocumentInfo) {
+    invalidateCache(`scheme:${schemeId}:documents`)
     setDeletingId(document.id)
     try {
       await deleteDocument(schemeId, document.id)

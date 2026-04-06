@@ -7,6 +7,7 @@ import Modal from '@/components/Modal'
 import { createNotice, getCommunicationsDashboard } from '@/lib/communications-api'
 import type { NoticeInfo, NoticeType } from '@/lib/communications'
 import { useAuth } from '@/lib/auth'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
 
 const TYPE_STYLES: Record<NoticeType, string> = {
@@ -41,9 +42,17 @@ export default function CommunicationsPage() {
 
   useEffect(() => {
     async function load() {
+      const key = `scheme:${schemeId}:communications:${typeFilter}`
+      const cached = getCached<NoticeInfo[]>(key)
+      if (cached) {
+        setNotices(cached)
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
         const dashboard = await getCommunicationsDashboard(schemeId, typeFilter)
+        setCached(key, dashboard.notices)
         setNotices(dashboard.notices)
       } catch (error) {
         addToast(
@@ -59,6 +68,7 @@ export default function CommunicationsPage() {
   }, [addToast, schemeId, typeFilter])
 
   async function handleCompose() {
+    invalidateCache(`scheme:${schemeId}:communications`)
     if (!form.title.trim() || !form.body.trim()) return
 
     setSending(true)

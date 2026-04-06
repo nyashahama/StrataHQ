@@ -300,7 +300,7 @@ export default function Sidebar({ role, headerLabel, schemeId, allMemberships }:
         <NavLink item={bottomItem} pathname={pathname} />
         <ThemeToggle />
         <button
-          onClick={() => { clearUser(); router.push('/auth/login') }}
+          onClick={clearUser}
           className="flex items-center gap-2 px-3 py-[7px] text-[12px] text-muted hover:text-ink hover:bg-hover-subtle w-full transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">

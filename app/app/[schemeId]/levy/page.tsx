@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import Modal from '@/components/Modal'
 import ReconcileModal from '@/components/ReconcileModal'
 import { useAuth } from '@/lib/auth'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { createLevyPeriod, getLevyDashboard, reconcileLevyPayments } from '@/lib/levy-api'
 import type { LevyAccountInfo, LevyDashboard, ReconcilePaymentInput } from '@/lib/levy'
 import { useToast } from '@/lib/toast'
@@ -53,9 +54,18 @@ export default function LevyPaymentsPage() {
 
   useEffect(() => {
     async function load() {
+      const key = `scheme:${schemeId}:levy`
+      const cached = getCached<LevyDashboard>(key)
+      if (cached) {
+        setDashboard(cached)
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
-        setDashboard(await getLevyDashboard(schemeId))
+        const result = await getLevyDashboard(schemeId)
+        setCached(key, result)
+        setDashboard(result)
       } catch (error) {
         addToast(
           error instanceof Error ? error.message : 'Failed to load levy dashboard',
@@ -70,9 +80,12 @@ export default function LevyPaymentsPage() {
   }, [addToast, schemeId])
 
   async function refreshDashboard() {
+    invalidateCache(`scheme:${schemeId}:levy`)
     try {
       setLoading(true)
-      setDashboard(await getLevyDashboard(schemeId))
+      const result = await getLevyDashboard(schemeId)
+      setCached(`scheme:${schemeId}:levy`, result)
+      setDashboard(result)
     } catch (error) {
       addToast(
         error instanceof Error ? error.message : 'Failed to load levy dashboard',

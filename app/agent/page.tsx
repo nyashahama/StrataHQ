@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/lib/auth";
+import { getCached, setCached } from "@/lib/data-cache";
 import { listSchemes, type SchemeSummary } from "@/lib/scheme-api";
 import { useToast } from "@/lib/toast";
 
@@ -21,8 +22,17 @@ export default function AgentPortfolioPage() {
 
   useEffect(() => {
     async function load() {
+      const key = "agent:portfolio";
+      const cached = getCached<SchemeSummary[]>(key);
+      if (cached) {
+        setSchemes(cached);
+        setLoading(false);
+        return;
+      }
       try {
-        setSchemes(await listSchemes());
+        const result = await listSchemes();
+        setCached(key, result);
+        setSchemes(result);
       } catch (error) {
         addToast(
           error instanceof Error ? error.message : "Failed to load schemes",

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth'
+import { getCached, setCached } from '@/lib/data-cache'
 import { getComplianceDashboard } from '@/lib/compliance-api'
 import {
   COMPLIANCE_CATEGORIES,
@@ -174,9 +175,18 @@ export default function CompliancePage() {
     }
 
     async function load() {
+      const key = `scheme:${schemeId}:compliance`
+      const cached = getCached<ComplianceDashboard>(key)
+      if (cached) {
+        setDashboard(cached)
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
-        setDashboard(await getComplianceDashboard(schemeId))
+        const result = await getComplianceDashboard(schemeId)
+        setCached(key, result)
+        setDashboard(result)
       } catch (error) {
         addToast(
           error instanceof Error ? error.message : 'Failed to load compliance dashboard',

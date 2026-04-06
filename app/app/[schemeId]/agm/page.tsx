@@ -7,6 +7,7 @@ import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
 import { assignAgmProxy, castAgmVote, getAgmDashboard, scheduleAgmMeeting } from '@/lib/agm-api'
 import type { AgmDashboard, AgmMeetingInfo, AgmResolutionInfo, AgmVoteChoice } from '@/lib/agm'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { listSchemeMembers } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
 
@@ -76,9 +77,18 @@ export default function AgmVotingPage() {
 
   useEffect(() => {
     async function load() {
+      const key = `scheme:${schemeId}:agm`
+      const cached = getCached<AgmDashboard>(key)
+      if (cached) {
+        setDashboard(cached)
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
-        setDashboard(await getAgmDashboard(schemeId))
+        const result = await getAgmDashboard(schemeId)
+        setCached(key, result)
+        setDashboard(result)
       } catch (error) {
         addToast(
           error instanceof Error ? error.message : 'Failed to load AGM dashboard',
@@ -94,9 +104,17 @@ export default function AgmVotingPage() {
 
   useEffect(() => {
     async function loadMembers() {
+      const key = `scheme:${schemeId}:agm:members`
+      const cached = getCached<Array<{ user_id: string; full_name: string; role: string }>>(key)
+      if (cached) {
+        setProxyCandidates(cached)
+        setLoadingMembers(false)
+        return
+      }
       try {
         setLoadingMembers(true)
         const members = await listSchemeMembers(schemeId)
+        setCached(key, members)
         setProxyCandidates(members)
       } catch {
         setProxyCandidates([])
@@ -113,7 +131,20 @@ export default function AgmVotingPage() {
   }, [upcomingMeeting?.user_proxy_grantee_id])
 
   async function refreshDashboard() {
-    setDashboard(await getAgmDashboard(schemeId))
+    invalidateCache(`scheme:${schemeId}:agm`)
+    setLoading(true)
+    try {
+      const result = await getAgmDashboard(schemeId)
+      setCached(`scheme:${schemeId}:agm`, result)
+      setDashboard(result)
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Failed to refresh AGM data',
+        'error',
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleVote(resolutionId: string, choice: AgmVoteChoice) {

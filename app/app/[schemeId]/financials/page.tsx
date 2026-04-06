@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { getFinancialDashboard, updateReserveFund, upsertBudgetLine } from '@/lib/financials-api'
 import type { BudgetLineInfo, FinancialDashboard } from '@/lib/financials'
 import { useToast } from '@/lib/toast'
@@ -41,9 +42,17 @@ export default function FinancialsPage() {
 
   useEffect(() => {
     async function load() {
+      const key = `scheme:${schemeId}:financials:${selectedPeriod}`
+      const cached = getCached<FinancialDashboard>(key)
+      if (cached) {
+        setDashboard(cached)
+        setLoading(false)
+        return
+      }
       try {
         setLoading(true)
         const nextDashboard = await getFinancialDashboard(schemeId, selectedPeriod || undefined)
+        setCached(key, nextDashboard)
         setDashboard(nextDashboard)
         if (!selectedPeriod && nextDashboard.selected_period) {
           setSelectedPeriod(nextDashboard.selected_period)
@@ -99,9 +108,12 @@ export default function FinancialsPage() {
   }
 
   async function refreshDashboard(nextPeriod?: string) {
+    invalidateCache(`scheme:${schemeId}:financials`)
     setLoading(true)
     try {
       const dashboardData = await getFinancialDashboard(schemeId, nextPeriod || selectedPeriod || undefined)
+      const newPeriod = dashboardData.selected_period || nextPeriod || selectedPeriod || ''
+      setCached(`scheme:${schemeId}:financials:${newPeriod}`, dashboardData)
       setDashboard(dashboardData)
       if (dashboardData.selected_period && dashboardData.selected_period !== selectedPeriod) {
         setSelectedPeriod(dashboardData.selected_period)

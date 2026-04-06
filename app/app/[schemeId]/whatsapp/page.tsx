@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
+import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
 import { createWhatsAppBroadcast, getWhatsAppDashboard } from '@/lib/whatsapp-api'
 import type {
@@ -394,10 +395,22 @@ export default function WhatsAppPage() {
   const [dashboard, setDashboard] = useState<WhatsAppDashboard | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function loadDashboard() {
+  async function loadDashboard(invalidate = false) {
+    const key = `scheme:${schemeId}:whatsapp`
+    if (invalidate) {
+      invalidateCache(key)
+    }
+    const cached = getCached<WhatsAppDashboard>(key)
+    if (cached && !invalidate) {
+      setDashboard(cached)
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
-      setDashboard(await getWhatsAppDashboard(schemeId))
+      const result = await getWhatsAppDashboard(schemeId)
+      setCached(key, result)
+      setDashboard(result)
     } catch (error) {
       addToast(
         error instanceof Error ? error.message : 'Failed to load WhatsApp dashboard',
@@ -426,5 +439,5 @@ export default function WhatsAppPage() {
     return <ResidentView thread={dashboard.resident_thread} phoneNumber={dashboard.phone_number} />
   }
 
-  return <OperatorView dashboard={dashboard} schemeId={schemeId} onReload={loadDashboard} />
+  return <OperatorView dashboard={dashboard} schemeId={schemeId} onReload={() => loadDashboard(true)} />
 }

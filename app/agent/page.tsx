@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { useAuth } from "@/lib/auth";
-import { listSchemes, type SchemeSummary } from "@/lib/scheme-api";
+import { useApiData } from "@/lib/use-api-data";
+import { type SchemeSummary } from "@/lib/scheme-api";
 import { useToast } from "@/lib/toast";
 
 const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
@@ -16,36 +16,26 @@ const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
 export default function AgentPortfolioPage() {
   useAuth();
   const { addToast } = useToast();
-  const [schemes, setSchemes] = useState<SchemeSummary[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setSchemes(await listSchemes());
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : "Failed to load schemes",
-          "error",
-        );
-      } finally {
-        setLoading(false);
-      }
+  const { data: schemes, error, isLoading } = useApiData<SchemeSummary[]>(
+    "/api/v1/schemes",
+    {
+      onError: (err) => addToast(err.message, "error"),
+      revalidateOnMount: false,
     }
+  );
 
-    load();
-  }, [addToast]);
-
-  const totalUnits = schemes.reduce((sum, scheme) => sum + scheme.unit_count, 0);
-  const totalMaintenance = schemes.reduce(
+  const schemeList = schemes ?? []
+  const totalUnits = schemeList.reduce((sum, scheme) => sum + scheme.unit_count, 0);
+  const totalMaintenance = schemeList.reduce(
     (sum, scheme) => sum + scheme.open_maintenance_count,
     0,
   );
   const avgCollection =
-    schemes.length > 0
+    schemeList.length > 0
       ? Math.round(
-          schemes.reduce((sum, scheme) => sum + scheme.levy_collection_pct, 0) /
-            schemes.length,
+          schemeList.reduce((sum, scheme) => sum + scheme.levy_collection_pct, 0) /
+            schemeList.length,
         )
       : 0;
 
@@ -55,14 +45,14 @@ export default function AgentPortfolioPage() {
         Portfolio overview
       </h1>
       <p className="text-[14px] text-muted mb-8">
-        {loading
+        {isLoading
           ? "Loading schemes under management…"
-          : `${schemes.length} schemes under management.`}
+          : `${schemeList.length} schemes under management.`}
       </p>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-8">
         {[
-          { label: "Active schemes", value: String(schemes.length) },
+          { label: "Active schemes", value: String(schemeList.length) },
           { label: "Units managed", value: String(totalUnits) },
           { label: "Open maintenance", value: String(totalMaintenance) },
           { label: "Avg collection rate", value: `${avgCollection}%` },
@@ -72,18 +62,18 @@ export default function AgentPortfolioPage() {
             className="bg-surface border border-border rounded-lg px-5 py-4"
           >
             <div className="text-[24px] font-semibold text-ink font-serif mb-1">
-              {loading ? "…" : value}
+              {isLoading ? "…" : value}
             </div>
             <div className="text-[12px] text-muted">{label}</div>
           </div>
         ))}
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading portfolio…
         </div>
-      ) : schemes.length === 0 ? (
+      ) : schemeList.length === 0 ? (
         <div className="bg-hover-subtle border border-border rounded-lg px-6 py-12 text-center">
           <p className="text-[15px] text-ink font-medium mb-2">
             No schemes found
@@ -110,11 +100,11 @@ export default function AgentPortfolioPage() {
                 <span>Health</span>
                 <span></span>
               </div>
-              {schemes.map((scheme, index) => (
+              {schemeList.map((scheme, index) => (
                 <div
                   key={scheme.id}
                   className={`grid grid-cols-[1fr_44px_80px_100px_68px_60px] gap-4 items-center py-3 text-[13px] ${
-                    index < schemes.length - 1 ? "border-b border-border" : ""
+                    index < schemeList.length - 1 ? "border-b border-border" : ""
                   }`}
                 >
                   <div>

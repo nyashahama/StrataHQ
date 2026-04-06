@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import ReconcileModal from '@/components/ReconcileModal'
 import { useAuth } from '@/lib/auth'
-import { createLevyPeriod, getLevyDashboard, reconcileLevyPayments } from '@/lib/levy-api'
+import { useApiData } from '@/lib/use-api-data'
+import { createLevyPeriod, reconcileLevyPayments } from '@/lib/levy-api'
 import type { LevyAccountInfo, LevyDashboard, ReconcilePaymentInput } from '@/lib/levy'
 import { useToast } from '@/lib/toast'
 
@@ -40,8 +41,6 @@ export default function LevyPaymentsPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<LevyDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
   const [reconcileOpen, setReconcileOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [creatingPeriod, setCreatingPeriod] = useState(false)
@@ -51,36 +50,16 @@ export default function LevyPaymentsPage() {
   const isResident = user?.role === 'resident'
   const canEdit = user?.role === 'admin'
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true)
-        setDashboard(await getLevyDashboard(schemeId))
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load levy dashboard',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
+  const { data: dashboard, error, isLoading, mutate } = useApiData<LevyDashboard>(
+    schemeId ? `/api/v1/levy/${schemeId}/dashboard` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
-
-    load()
-  }, [addToast, schemeId])
+  )
 
   async function refreshDashboard() {
-    try {
-      setLoading(true)
-      setDashboard(await getLevyDashboard(schemeId))
-    } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : 'Failed to load levy dashboard',
-        'error',
-      )
-    } finally {
-      setLoading(false)
-    }
+    await mutate()
   }
 
   async function handleCreatePeriod() {
@@ -145,7 +124,7 @@ export default function LevyPaymentsPage() {
     [schemeId, user?.scheme_memberships],
   )
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">

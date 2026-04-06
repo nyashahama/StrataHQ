@@ -94,15 +94,11 @@ export async function loginAction(
     user: Pick<SessionUser, "id" | "email" | "full_name">;
   }>(res);
 
-  // Backend returns user inline; try /me for full shape, fall back to inline user
-  const me = (await fetchMe(access_token)) ?? {
-    id: rawUser.id,
-    email: rawUser.email,
-    full_name: rawUser.full_name,
-    role: APP_ROLES.admin,
-    wizard_complete: false,
-    scheme_memberships: [],
-  };
+  // Backend returns user inline; try /me for full shape
+  const me = await fetchMe(access_token);
+  if (!me) {
+    return { error: "Failed to load user profile — please try again" };
+  }
 
   const cookieStore = await cookies();
   const session = await setAuthCookies(
@@ -146,15 +142,11 @@ export async function registerAction(
     user: Pick<SessionUser, "id" | "email" | "full_name">;
   }>(res);
 
-  // Backend returns user inline; try /me for full shape, fall back to inline user
-  const me = (await fetchMe(access_token)) ?? {
-    id: rawUser.id,
-    email: rawUser.email,
-    full_name: rawUser.full_name,
-    role: APP_ROLES.admin,
-    wizard_complete: false,
-    scheme_memberships: [],
-  };
+  // Backend returns user inline; try /me for full shape
+  const me = await fetchMe(access_token);
+  if (!me) {
+    return { error: "Failed to load user profile — please try again" };
+  }
 
   const cookieStore = await cookies();
   const session = await setAuthCookies(

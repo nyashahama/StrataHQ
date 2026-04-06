@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { apiFetch } from '@/lib/api'
 import { readApiError } from '@/lib/api-contract'
 import { useAuth } from '@/lib/auth'
+import { useApiData } from '@/lib/use-api-data'
 import {
   listSchemeMembers,
   listSchemeUnits,
@@ -53,9 +54,6 @@ export default function MembersPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [members, setMembers] = useState<MemberInfo[]>([])
-  const [units, setUnits] = useState<UnitInfo[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -67,41 +65,37 @@ export default function MembersPage() {
 
   const canEdit = user?.role === 'admin'
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [loadedMembers, loadedUnits] = await Promise.all([
-          listSchemeMembers(schemeId),
-          listSchemeUnits(schemeId),
-        ])
-        setMembers(loadedMembers)
-        setUnits(loadedUnits)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load members',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
+  const { data: members, error: membersError, isLoading: membersLoading, mutate: mutateMembers } = useApiData<MemberInfo[]>(
+    schemeId ? `/api/v1/schemes/${schemeId}/members` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
+  )
 
-    load()
-  }, [addToast, schemeId])
+  const { data: units, error: unitsError, isLoading: unitsLoading, mutate: mutateUnits } = useApiData<UnitInfo[]>(
+    schemeId ? `/api/v1/schemes/${schemeId}/units` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
+    }
+  )
+
+  const isLoading = membersLoading || unitsLoading
 
   const trustees = useMemo(
-    () => members.filter(member => member.role === 'trustee'),
+    () => (members ?? []).filter(member => member.role === 'trustee'),
     [members],
   )
   const residents = useMemo(
-    () => members.filter(member => member.role === 'resident'),
+    () => (members ?? []).filter(member => member.role === 'resident'),
     [members],
   )
 
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return members
-    return members.filter(member =>
+    if (!query) return members ?? []
+    return (members ?? []).filter(member =>
       member.full_name.toLowerCase().includes(query) ||
       member.email.toLowerCase().includes(query) ||
       (member.unit_identifier ?? '').toLowerCase().includes(query),
@@ -167,9 +161,7 @@ export default function MembersPage() {
         role: editForm.role,
         unit_id: editForm.role === 'resident' ? editForm.unit_id : null,
       })
-      setMembers(current =>
-        current.map(member => member.user_id === updated.user_id ? updated : member),
-      )
+      await mutateMembers()
       setShowEditModal(false)
       setSelectedMember(null)
       setEditForm(EMPTY_EDIT_FORM)
@@ -184,7 +176,7 @@ export default function MembersPage() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
@@ -230,7 +222,7 @@ export default function MembersPage() {
 
       <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-8">
         {[
-          { label: 'Total members', value: String(members.length) },
+          { label: 'Total members', value: String((members ?? []).length) },
           { label: 'Trustees', value: String(trustees.length) },
           { label: 'Residents', value: String(residents.length) },
         ].map(({ label, value }) => (
@@ -342,7 +334,7 @@ export default function MembersPage() {
                 className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
               >
                 <option value="">Select unit</option>
-                {units.map(unit => (
+                {(units ?? []).map(unit => (
                   <option key={unit.id} value={unit.id}>
                     {unit.identifier} · {unit.owner_name}
                   </option>
@@ -390,7 +382,7 @@ export default function MembersPage() {
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             >
               <option value="">Select unit</option>
-              {units.map(unit => (
+              {(units ?? []).map(unit => (
                 <option key={unit.id} value={unit.id}>
                   {unit.identifier} · {unit.owner_name}
                 </option>

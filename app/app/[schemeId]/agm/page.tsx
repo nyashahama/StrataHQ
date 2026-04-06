@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
-import { assignAgmProxy, castAgmVote, getAgmDashboard, scheduleAgmMeeting } from '@/lib/agm-api'
+import { useApiData } from '@/lib/use-api-data'
+import { assignAgmProxy, castAgmVote, scheduleAgmMeeting } from '@/lib/agm-api'
 import type { AgmDashboard, AgmMeetingInfo, AgmResolutionInfo, AgmVoteChoice } from '@/lib/agm'
 import { listSchemeMembers } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
@@ -46,9 +47,6 @@ export default function AgmVotingPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<AgmDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadingMembers, setLoadingMembers] = useState(true)
   const [proxyCandidates, setProxyCandidates] = useState<Array<{ user_id: string; full_name: string; role: string }>>([])
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [savingSchedule, setSavingSchedule] = useState(false)
@@ -66,6 +64,29 @@ export default function AgmVotingPage() {
 
   const isAdmin = user?.role === 'admin'
   const canVote = user?.role === 'resident' || user?.role === 'trustee'
+
+  const { data: dashboard, error, isLoading, mutate } = useApiData<AgmDashboard>(
+    schemeId ? `/api/v1/agm/${schemeId}/dashboard` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
+    }
+  )
+
+  const { data: members, isLoading: membersLoading } = useApiData<Array<{ user_id: string; full_name: string; role: string }>>(
+    schemeId ? `/api/v1/schemes/${schemeId}/members` : null,
+    {
+      onError: () => {},
+      revalidateOnMount: false,
+    }
+  )
+
+  useEffect(() => {
+    if (members) {
+      setProxyCandidates(members)
+    }
+  }, [members])
+
   const latestMeeting = dashboard?.latest ?? null
   const upcomingMeeting = dashboard?.upcoming ?? null
 
@@ -75,45 +96,11 @@ export default function AgmVotingPage() {
   )
 
   useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true)
-        setDashboard(await getAgmDashboard(schemeId))
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load AGM dashboard',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, schemeId])
-
-  useEffect(() => {
-    async function loadMembers() {
-      try {
-        setLoadingMembers(true)
-        const members = await listSchemeMembers(schemeId)
-        setProxyCandidates(members)
-      } catch {
-        setProxyCandidates([])
-      } finally {
-        setLoadingMembers(false)
-      }
-    }
-
-    loadMembers()
-  }, [schemeId])
-
-  useEffect(() => {
     setProxyUserId(upcomingMeeting?.user_proxy_grantee_id ?? '')
   }, [upcomingMeeting?.user_proxy_grantee_id])
 
   async function refreshDashboard() {
-    setDashboard(await getAgmDashboard(schemeId))
+    await mutate()
   }
 
   async function handleVote(resolutionId: string, choice: AgmVoteChoice) {
@@ -185,7 +172,7 @@ export default function AgmVotingPage() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
@@ -291,7 +278,7 @@ export default function AgmVotingPage() {
                   <select
                     value={proxyUserId}
                     onChange={event => setProxyUserId(event.target.value)}
-                    disabled={loadingMembers || assigningProxy || !!upcomingMeeting.user_proxy_grantee_id}
+                    disabled={membersLoading || assigningProxy || !!upcomingMeeting.user_proxy_grantee_id}
                     className="border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:opacity-50"
                   >
                     <option value="">Select proxy member</option>

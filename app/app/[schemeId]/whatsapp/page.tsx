@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
+import { useApiData } from '@/lib/use-api-data'
 import { useToast } from '@/lib/toast'
-import { createWhatsAppBroadcast, getWhatsAppDashboard } from '@/lib/whatsapp-api'
+import { createWhatsAppBroadcast } from '@/lib/whatsapp-api'
 import type {
   WhatsAppBroadcast,
   WhatsAppBroadcastType,
@@ -391,28 +392,15 @@ export default function WhatsAppPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<WhatsAppDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  async function loadDashboard() {
-    try {
-      setLoading(true)
-      setDashboard(await getWhatsAppDashboard(schemeId))
-    } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : 'Failed to load WhatsApp dashboard',
-        'error',
-      )
-    } finally {
-      setLoading(false)
+  const { data: dashboard, error, isLoading, mutate } = useApiData<WhatsAppDashboard>(
+    schemeId ? `/api/v1/whatsapp/${schemeId}/dashboard` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
-  }
+  )
 
-  useEffect(() => {
-    loadDashboard()
-  }, [addToast, schemeId])
-
-  if (loading || !dashboard) {
+  if (isLoading || !dashboard) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
@@ -426,5 +414,5 @@ export default function WhatsAppPage() {
     return <ResidentView thread={dashboard.resident_thread} phoneNumber={dashboard.phone_number} />
   }
 
-  return <OperatorView dashboard={dashboard} schemeId={schemeId} onReload={loadDashboard} />
+  return <OperatorView dashboard={dashboard} schemeId={schemeId} onReload={async () => { await mutate() }} />
 }

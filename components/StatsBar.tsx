@@ -7,12 +7,12 @@ const stats = [
 
 export default function StatsBar() {
   return (
-    <div className="border-t border-b border-border bg-surface py-[clamp(20px,3vw,28px)]">
-      <div className="max-w-container mx-auto px-container">
-        <div className="stagger flex flex-wrap justify-between gap-[clamp(16px,3vw,32px)]">
+    <div className="relative bg-surface border-y border-border py-[clamp(28px,4vw,40px)]">
+      <div className="max-w-[1080px] mx-auto px-container">
+        <div className="stagger grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
           {stats.map(({ num, label }) => (
-            <div key={label} className="text-left">
-              <div className="font-serif text-clamp-stat font-bold text-ink tracking-[-0.03em] leading-none mb-1">
+            <div key={label} className="text-center md:text-left">
+              <div className="font-serif text-clamp-stat font-bold text-ink tracking-[-0.03em] leading-none mb-1.5">
                 {num}
               </div>
               <div className="text-[13px] text-muted">{label}</div>

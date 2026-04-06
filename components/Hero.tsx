@@ -3,52 +3,66 @@ import ScrollRevealInit from './ScrollRevealInit'
 
 export default function Hero() {
   return (
-    <section className="padding-hero">
+    <section className="relative overflow-hidden hero-gradient noise-overlay">
       <ScrollRevealInit />
-      <div className="max-w-container mx-auto px-container">
+
+      {/* Grid overlay */}
+      <div className="absolute inset-0 hero-grid" />
+
+      {/* Glow blobs */}
+      <div className="glow-blob w-[500px] h-[500px] bg-[var(--color-hero-accent)] top-[-100px] right-[-100px] animate-pulse-glow" />
+      <div className="glow-blob w-[400px] h-[400px] bg-[var(--color-hero-warm)] bottom-[-80px] left-[-80px] opacity-30 animate-pulse-glow" style={{ animationDelay: '2s' }} />
+
+      <div className="relative z-10 max-w-[1080px] mx-auto px-container padding-hero pt-[clamp(120px,18vh,180px)]">
         {/* Label pill */}
-        <div className="inline-flex items-center gap-[7px] text-[12px] font-medium text-accent bg-accent-bg border border-[rgba(43,108,176,0.18)] rounded-full px-3 py-1 mb-7 tracking-[0.02em]">
-          <span className="w-[5px] h-[5px] rounded-full bg-accent flex-shrink-0" />
-          Built for South African sectional title
+        <div className="hero-enter hero-enter-1 inline-flex items-center gap-2 text-[12px] font-medium shimmer-badge border border-white/[0.08] rounded-full px-4 py-1.5 mb-8 tracking-[0.03em]">
+          <span className="w-[6px] h-[6px] rounded-full bg-[var(--color-hero-accent)] flex-shrink-0 shadow-[0_0_8px_var(--color-hero-accent)]" />
+          <span className="text-white/60">Built for South African sectional title</span>
         </div>
 
         {/* Heading */}
-        <h1 className="font-serif text-clamp-hero font-bold leading-[1.12] tracking-[-0.02em] text-ink mb-6 max-w-[820px]">
+        <h1 className="hero-enter hero-enter-2 font-serif text-clamp-hero font-bold leading-[1.08] tracking-[-0.03em] text-white mb-7 max-w-[780px]">
           Stop managing schemes.{' '}
-          <br />
-          <em className="text-muted not-italic italic">Start running them.</em>
+          <br className="hidden sm:block" />
+          <span className="bg-gradient-to-r from-[var(--color-hero-accent)] to-[var(--color-hero-warm)] bg-clip-text text-transparent">
+            Start running them.
+          </span>
         </h1>
 
         {/* Subheading */}
-        <p className="text-clamp-sub text-ink-2 max-w-[560px] leading-[1.65] mb-9">
+        <p className="hero-enter hero-enter-3 text-clamp-sub text-white/50 max-w-[540px] leading-[1.7] mb-10">
           StrataHQ replaces the levy spreadsheets, the WhatsApp maintenance threads,
           and the AGM chaos — with one platform that actually knows what needs your
           attention next.
         </p>
 
         {/* CTAs */}
-        <div className="flex flex-wrap items-center gap-[10px] mb-4">
+        <div className="hero-enter hero-enter-4 flex flex-wrap items-center gap-3 mb-5">
           <Link
             href="/early-access"
-            className="px-6 py-[10px] text-[15px] font-medium text-white bg-accent border border-accent
-              rounded hover:opacity-90 transition-opacity duration-150 no-underline"
+            className="group px-7 py-3 text-[15px] font-medium text-white bg-[var(--color-hero-accent)]
+              rounded-lg hover:shadow-[0_0_32px_rgba(91,156,246,0.3)] hover:brightness-110 transition-all duration-300 no-underline inline-flex items-center gap-2"
           >
-            Request early access →
+            Request early access
+            <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
           </Link>
           <Link
             href="#features"
-            className="px-6 py-[10px] text-[15px] font-medium text-ink-2 bg-surface border border-border-2
-              rounded hover:bg-page transition-colors duration-150 hidden sm:inline-flex no-underline"
+            className="px-7 py-3 text-[15px] font-medium text-white/60 bg-white/[0.04]
+              border border-white/[0.08] rounded-lg hover:text-white hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-300 hidden sm:inline-flex no-underline"
           >
             See how it works
           </Link>
         </div>
 
         {/* Note */}
-        <p className="text-[13px] text-muted-2">
-          Limited early access · STSMA compliant · Built for South Africa
+        <p className="hero-enter hero-enter-5 text-[13px] text-white/30 tracking-[0.02em]">
+          Limited early access · STSMA compliant · Built in South Africa
         </p>
       </div>
+
+      {/* Bottom fade */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[var(--color-page)] to-transparent z-10 dark:from-[#0F0F0E]" />
     </section>
   )
 }

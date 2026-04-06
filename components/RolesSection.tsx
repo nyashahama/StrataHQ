@@ -16,7 +16,7 @@ interface Role {
   features: RoleFeature[]
 }
 
-// Role tab icons — building, person, home
+// Role tab icons
 const roleIcons: Record<string, React.ReactNode> = {
   agents: (
     <svg viewBox="0 0 16 16" fill="none" className="w-4 h-4 flex-shrink-0" aria-hidden>
@@ -38,7 +38,7 @@ const roleIcons: Record<string, React.ReactNode> = {
   ),
 }
 
-// Feature card icons — minimal strokes
+// Feature card icons
 const featureIcons: Record<string, React.ReactNode> = {
   dashboard: (
     <svg viewBox="0 0 16 16" fill="none" className="w-[15px] h-[15px]" aria-hidden>
@@ -162,24 +162,24 @@ export default function RolesSection() {
 
   return (
     <section id="roles" className="padding-section border-t border-border">
-      <div className="max-w-container mx-auto px-container">
-        <p className="reveal eyebrow text-[12px] font-semibold tracking-[0.1em] uppercase text-muted mb-3">
+      <div className="max-w-[1080px] mx-auto px-container">
+        <p className="reveal eyebrow text-[11px] font-semibold tracking-[0.14em] uppercase text-muted mb-3">
           Who it&apos;s for
         </p>
-        <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.15] tracking-[-0.02em] text-ink mb-[clamp(32px,5vw,48px)] max-w-[620px]">
+        <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.12] tracking-[-0.02em] text-ink mb-[clamp(36px,5vw,52px)] max-w-[620px]">
           Built for everyone in the scheme.
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-[clamp(24px,4vw,48px)] items-start">
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-[clamp(24px,4vw,48px)] items-start">
           {/* Role nav */}
-          <div className="reveal flex flex-col gap-[2px] md:sticky md:top-[72px]">
+          <div className="reveal flex flex-row md:flex-col gap-1 md:sticky md:top-[80px] overflow-x-auto pb-2 md:pb-0">
             {roles.map((role) => (
               <button
                 key={role.id}
                 onClick={() => setActiveId(role.id)}
-                className={`w-full text-left px-[14px] py-[11px] rounded border-none text-[14px] cursor-pointer flex items-center gap-[10px] transition-colors duration-150
+                className={`whitespace-nowrap md:w-full text-left px-4 py-3 rounded-xl border-none text-[14px] cursor-pointer flex items-center gap-[10px] transition-all duration-200
                   ${activeId === role.id
-                    ? 'bg-hover-subtle text-ink font-medium'
+                    ? 'bg-surface text-ink font-medium shadow-sm border border-border'
                     : 'bg-transparent text-muted font-normal hover:bg-hover-subtle hover:text-ink'
                   }`}
               >
@@ -194,15 +194,15 @@ export default function RolesSection() {
             <h3 className="font-serif text-clamp-role font-bold tracking-[-0.015em] text-ink mb-2">
               {active.heading}
             </h3>
-            <p className="text-[15px] text-ink-2 leading-[1.65] mb-7">{active.sub}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-[10px]">
+            <p className="text-[15px] text-ink-2 leading-[1.65] mb-8">{active.sub}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {active.features.map(({ iconKey, title, desc }) => (
                 <div
                   key={title}
-                  className="bg-surface border border-border rounded p-4 hover:border-border-2 hover:shadow-sm transition-all duration-150"
+                  className="bg-surface border border-border rounded-xl p-5 card-lift glow-border"
                 >
-                  <span className="text-ink-2 mb-2 block">{featureIcons[iconKey]}</span>
-                  <div className="text-[13px] font-semibold text-ink mb-1">{title}</div>
+                  <span className="text-accent mb-2.5 block">{featureIcons[iconKey]}</span>
+                  <div className="text-[14px] font-semibold text-ink mb-1">{title}</div>
                   <div className="text-[12px] text-muted leading-[1.55]">{desc}</div>
                 </div>
               ))}

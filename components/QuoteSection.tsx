@@ -27,15 +27,17 @@ const testimonials = [
 
 export default function QuoteSection() {
   return (
-    <section className="border-t border-b border-border bg-surface">
-      <div className="max-w-container mx-auto px-container py-[clamp(56px,8vw,80px)]">
+    <section className="relative border-t border-border overflow-hidden">
+      {/* Subtle background */}
+      <div className="absolute inset-0 bg-premium-surface pointer-events-none" />
 
+      <div className="relative max-w-[1080px] mx-auto px-container py-[clamp(64px,10vh,112px)]">
         {/* Section label */}
-        <div className="text-center mb-[clamp(32px,5vw,48px)]">
-          <p className="text-[12px] font-semibold tracking-[0.1em] uppercase text-muted mb-3">
+        <div className="text-center mb-[clamp(40px,5vw,56px)]">
+          <p className="reveal text-[11px] font-semibold tracking-[0.14em] uppercase text-muted mb-3">
             What managers say
           </p>
-          <h2 className="font-serif text-clamp-section font-bold leading-[1.15] tracking-[-0.02em] text-ink max-w-[520px] mx-auto">
+          <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.12] tracking-[-0.02em] text-ink max-w-[520px] mx-auto">
             Real results from real schemes.
           </h2>
         </div>
@@ -45,7 +47,7 @@ export default function QuoteSection() {
           {testimonials.map(({ quote, name, title, location, stat, statLabel }) => (
             <div
               key={name}
-              className="bg-page border border-border rounded-lg p-[clamp(22px,3vw,30px)] flex flex-col gap-5 hover:border-border-2 hover:shadow-sm transition-all duration-200"
+              className="relative bg-surface border border-border rounded-xl p-[clamp(24px,3vw,32px)] flex flex-col gap-5 card-lift glow-border quote-mark"
             >
               {/* Stat callout */}
               <div className="flex items-baseline gap-2">
@@ -56,7 +58,7 @@ export default function QuoteSection() {
               </div>
 
               {/* Quote */}
-              <blockquote className="font-serif text-[clamp(14px,1.6vw,16px)] italic text-ink leading-[1.6] flex-1">
+              <blockquote className="font-serif text-[clamp(14px,1.6vw,16px)] italic text-ink-2 leading-[1.65] flex-1">
                 &ldquo;{quote}&rdquo;
               </blockquote>
 
@@ -71,7 +73,7 @@ export default function QuoteSection() {
         </div>
 
         {/* Social proof strip */}
-        <div className="mt-[clamp(24px,4vw,36px)] flex flex-wrap items-center justify-center gap-[clamp(16px,3vw,32px)] text-[13px] text-muted">
+        <div className="mt-[clamp(32px,5vw,48px)] flex flex-wrap items-center justify-center gap-[clamp(16px,3vw,32px)] text-[13px] text-muted">
           <span className="font-semibold text-ink">2,400+</span> schemes managed
           <span className="text-border-2">·</span>
           <span className="font-semibold text-ink">94%</span> average collection rate

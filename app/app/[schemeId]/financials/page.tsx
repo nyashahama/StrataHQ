@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
-import { getFinancialDashboard, updateReserveFund, upsertBudgetLine } from '@/lib/financials-api'
+import { useApiData } from '@/lib/use-api-data'
+import { updateReserveFund, upsertBudgetLine } from '@/lib/financials-api'
 import type { BudgetLineInfo, FinancialDashboard } from '@/lib/financials'
 import { useToast } from '@/lib/toast'
 
@@ -19,8 +20,6 @@ export default function FinancialsPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<FinancialDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [showBudgetModal, setShowBudgetModal] = useState(false)
   const [showReserveModal, setShowReserveModal] = useState(false)
@@ -39,27 +38,16 @@ export default function FinancialsPage() {
 
   const canManage = user?.role === 'admin' || user?.role === 'trustee'
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true)
-        const nextDashboard = await getFinancialDashboard(schemeId, selectedPeriod || undefined)
-        setDashboard(nextDashboard)
-        if (!selectedPeriod && nextDashboard.selected_period) {
-          setSelectedPeriod(nextDashboard.selected_period)
-        }
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load financial dashboard',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
+  const query = selectedPeriod ? `?period=${selectedPeriod}` : ''
+  const { data: dashboard, error, isLoading, mutate } = useApiData<FinancialDashboard>(
+    schemeId ? `/api/v1/financials/${schemeId}/dashboard${query}` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
+  )
 
-    load()
-  }, [addToast, schemeId, selectedPeriod])
+  const isLoadingDashboard = isLoading
 
   const budgetLines = dashboard?.budget_lines ?? []
   const reserveFund = dashboard?.reserve_fund ?? null
@@ -99,16 +87,10 @@ export default function FinancialsPage() {
   }
 
   async function refreshDashboard(nextPeriod?: string) {
-    setLoading(true)
-    try {
-      const dashboardData = await getFinancialDashboard(schemeId, nextPeriod || selectedPeriod || undefined)
-      setDashboard(dashboardData)
-      if (dashboardData.selected_period && dashboardData.selected_period !== selectedPeriod) {
-        setSelectedPeriod(dashboardData.selected_period)
-      }
-    } finally {
-      setLoading(false)
+    if (nextPeriod && nextPeriod !== selectedPeriod) {
+      setSelectedPeriod(nextPeriod)
     }
+    await mutate()
   }
 
   async function handleBudgetSave() {
@@ -186,7 +168,7 @@ export default function FinancialsPage() {
     setShowReserveModal(true)
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">

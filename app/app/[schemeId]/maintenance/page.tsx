@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
+import { useApiData } from '@/lib/use-api-data'
 import {
   assignMaintenanceRequest,
   createMaintenanceRequest,
-  getMaintenanceDashboard,
   resolveMaintenanceRequest,
 } from '@/lib/maintenance-api'
 import type { MaintenanceDashboard, MaintenanceRequestInfo } from '@/lib/maintenance'
@@ -46,8 +46,6 @@ export default function MaintenancePage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<MaintenanceDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [jobForm, setJobForm] = useState(EMPTY_JOB_FORM)
   const [assignJobId, setAssignJobId] = useState<string | null>(null)
@@ -66,26 +64,16 @@ export default function MaintenancePage() {
     [schemeId, user?.scheme_memberships],
   )
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true)
-        setDashboard(await getMaintenanceDashboard(schemeId))
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load maintenance requests',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
+  const { data: dashboard, error, isLoading, mutate } = useApiData<MaintenanceDashboard>(
+    schemeId ? `/api/v1/maintenance/${schemeId}/dashboard` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
-
-    load()
-  }, [addToast, schemeId])
+  )
 
   async function refreshDashboard() {
-    setDashboard(await getMaintenanceDashboard(schemeId))
+    await mutate()
   }
 
   async function handleCreate() {
@@ -156,7 +144,7 @@ export default function MaintenancePage() {
 
   const requests = dashboard?.requests ?? []
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">

@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
-import { createDocument, deleteDocument, getDocumentsDashboard } from '@/lib/documents-api'
+import { useApiData } from '@/lib/use-api-data'
+import { createDocument, deleteDocument } from '@/lib/documents-api'
 import type { DocumentCategory, DocumentFileType, SchemeDocumentInfo } from '@/lib/documents'
 import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
@@ -52,8 +53,6 @@ export default function DocumentsPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [documents, setDocuments] = useState<SchemeDocumentInfo[]>([])
-  const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState<'all' | DocumentCategory>('all')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -63,24 +62,16 @@ export default function DocumentsPage() {
 
   const canUpload = user?.role === 'admin'
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true)
-        const dashboard = await getDocumentsDashboard(schemeId, categoryFilter)
-        setDocuments(dashboard.documents)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load documents',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
+  const query = categoryFilter === 'all' ? '' : `?category=${categoryFilter}`
+  const { data: documents, error, isLoading, mutate } = useApiData<{ documents: SchemeDocumentInfo[] }>(
+    schemeId ? `/api/v1/documents/${schemeId}${query}` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
+  )
 
-    load()
-  }, [addToast, categoryFilter, schemeId])
+  const documentList = documents?.documents ?? []
 
   async function handleUpload() {
     if (!selectedFile || !form.name.trim()) return
@@ -97,7 +88,7 @@ export default function DocumentsPage() {
         size_bytes: selectedFile.size,
       })
       if (categoryFilter === 'all' || categoryFilter === created.category) {
-        setDocuments(current => [created, ...current])
+        await mutate()
       }
       setShowModal(false)
       setForm(EMPTY_FORM)
@@ -117,7 +108,7 @@ export default function DocumentsPage() {
     setDeletingId(document.id)
     try {
       await deleteDocument(schemeId, document.id)
-      setDocuments(current => current.filter(item => item.id !== document.id))
+      await mutate()
       addToast(`"${document.name}" deleted`, 'success')
     } catch (error) {
       addToast(
@@ -129,9 +120,9 @@ export default function DocumentsPage() {
     }
   }
 
-  const grouped = useMemo(() => groupByCategory(documents), [documents])
+  const grouped = useMemo(() => groupByCategory(documentList), [documentList])
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
@@ -148,7 +139,7 @@ export default function DocumentsPage() {
       <p className="text-[14px] text-muted mb-8">Scheme rules, minutes, insurance certificates, and shared files.</p>
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <span className="text-[13px] text-muted">{documents.length} documents</span>
+        <span className="text-[13px] text-muted">{documentList.length} documents</span>
         {canUpload && (
           <button
             onClick={() => setShowModal(true)}

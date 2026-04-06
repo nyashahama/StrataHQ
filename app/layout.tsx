@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Lora, DM_Sans } from "next/font/google";
+import { SWRConfig } from "swr";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -55,9 +56,11 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="bg-page text-ink font-sans antialiased leading-relaxed">
-        <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </ThemeProvider>
+        <SWRConfig value={{ revalidateOnFocus: false, dedupingInterval: 30000 }}>
+          <ThemeProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </ThemeProvider>
+        </SWRConfig>
       </body>
     </html>
   );

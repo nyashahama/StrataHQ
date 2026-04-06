@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth'
-import { getScheme, type SchemeDetail } from '@/lib/scheme-api'
+import { useApiData } from '@/lib/use-api-data'
+import { type SchemeDetail } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
 
 const HEALTH_STYLES = {
@@ -27,32 +27,21 @@ export default function SchemeOverviewPage() {
   const { addToast } = useToast()
   const params = useParams()
   const schemeId = params.schemeId as string
-  const [scheme, setScheme] = useState<SchemeDetail | null>(null)
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setScheme(await getScheme(schemeId))
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load scheme',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
+  const { data: scheme, error, isLoading } = useApiData<SchemeDetail>(
+    schemeId ? `/api/v1/schemes/${schemeId}` : null,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
-
-    load()
-  }, [addToast, schemeId])
+  )
 
   const isResident = user?.role === 'resident'
   const unitLabel = scheme?.unit_identifier
     ? `Unit ${scheme.unit_identifier}`
     : 'No unit linked yet'
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">

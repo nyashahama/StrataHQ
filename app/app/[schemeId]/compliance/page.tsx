@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth'
-import { getComplianceDashboard } from '@/lib/compliance-api'
+import { useApiData } from '@/lib/use-api-data'
 import {
   COMPLIANCE_CATEGORIES,
   type ComplianceCategory,
@@ -164,31 +164,15 @@ export default function CompliancePage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<ComplianceDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
+  const isResident = user?.role === 'resident'
 
-  useEffect(() => {
-    if (user?.role === 'resident') {
-      setLoading(false)
-      return
+  const { data: dashboard, error, isLoading } = useApiData<ComplianceDashboard>(
+    isResident || !schemeId ? null : `/api/v1/compliance/${schemeId}/dashboard`,
+    {
+      onError: (err) => addToast(err.message, 'error'),
+      revalidateOnMount: false,
     }
-
-    async function load() {
-      try {
-        setLoading(true)
-        setDashboard(await getComplianceDashboard(schemeId))
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load compliance dashboard',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, schemeId, user?.role])
+  )
 
   const groupedItems = useMemo(() => {
     if (!dashboard) return new Map<ComplianceCategory, ComplianceItem[]>()
@@ -212,7 +196,7 @@ export default function CompliancePage() {
     )
   }
 
-  if (loading || !dashboard) {
+  if (isLoading || !dashboard) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">

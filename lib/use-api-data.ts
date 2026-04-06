@@ -18,9 +18,9 @@ export function useApiData<T>(
   config?: SWRConfiguration<T>,
 ) {
   return useSWR<T>(path, (path) => fetcher<T>(path), {
-    revalidateOnFocus: false,
+    revalidateOnFocus: true,
     revalidateOnReconnect: true,
-    dedupingInterval: 30000,
+    dedupingInterval: 0,
     ...config,
   });
 }

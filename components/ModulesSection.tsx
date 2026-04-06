@@ -73,29 +73,28 @@ const modules = [
 
 export default function ModulesSection() {
   return (
-    <section id="modules" className="padding-section bg-surface">
-      <div className="max-w-container mx-auto px-container">
-        <p className="reveal eyebrow text-[12px] font-semibold tracking-[0.1em] uppercase text-muted mb-3">
-          Platform modules
-        </p>
-        <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.15] tracking-[-0.02em] text-ink mb-4 max-w-[620px]">
-          Everything your scheme needs.
-        </h2>
-        <p className="reveal text-clamp-p text-ink-2 max-w-[520px] leading-[1.7]">
-          Start with your biggest pain point. Add more when you&apos;re ready.
-        </p>
+    <section id="modules" className="padding-section bg-surface border-t border-border">
+      <div className="max-w-[1080px] mx-auto px-container">
+        <div className="text-center max-w-[600px] mx-auto mb-[clamp(40px,6vw,56px)]">
+          <p className="reveal eyebrow text-[11px] font-semibold tracking-[0.14em] uppercase text-muted mb-3">
+            Platform modules
+          </p>
+          <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.12] tracking-[-0.02em] text-ink mb-4">
+            Everything your scheme needs.
+          </h2>
+          <p className="reveal text-clamp-p text-ink-2 leading-[1.7]">
+            Start with your biggest pain point. Add more when you&apos;re ready.
+          </p>
+        </div>
 
         {/* Grid */}
-        <div
-          className="stagger mt-[clamp(32px,5vw,48px)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[1px]
-            bg-border border border-border rounded-lg overflow-hidden"
-        >
+        <div className="stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {modules.map(({ iconKey, name, desc }) => (
             <div
               key={name}
-              className="bg-surface p-[clamp(20px,3vw,28px)] hover:bg-page transition-colors duration-150 cursor-default"
+              className="group bg-page border border-border rounded-xl p-[clamp(22px,3vw,28px)] card-lift glow-border cursor-default"
             >
-              <div className="w-9 h-9 rounded-lg border border-border bg-page grid place-items-center text-ink-2 mb-[14px] shadow-sm">
+              <div className="w-10 h-10 rounded-xl border border-border bg-surface grid place-items-center text-ink-2 mb-4 shadow-sm group-hover:text-accent group-hover:border-accent/20 transition-colors duration-200">
                 {icons[iconKey]}
               </div>
               <div className="text-[15px] font-semibold text-ink mb-[6px] tracking-[-0.01em]">

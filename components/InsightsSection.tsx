@@ -97,18 +97,21 @@ export default function InsightsSection() {
   const [activeAlert, setActiveAlert] = useState(0)
 
   return (
-    <section className="padding-section border-t border-border bg-surface">
-      <div className="max-w-container mx-auto px-container">
+    <section className="relative padding-section border-t border-border overflow-hidden">
+      {/* Subtle background accent */}
+      <div className="absolute inset-0 bg-premium-surface pointer-events-none" />
+
+      <div className="relative max-w-[1080px] mx-auto px-container">
 
         {/* Header */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end mb-[clamp(36px,5vw,52px)]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end mb-[clamp(40px,5vw,56px)]">
           <div>
-            <p className="reveal eyebrow text-[12px] font-semibold tracking-[0.1em] uppercase text-muted mb-3">
+            <p className="reveal eyebrow text-[11px] font-semibold tracking-[0.14em] uppercase text-muted mb-3">
               StrataHQ Intelligence
             </p>
-            <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.15] tracking-[-0.02em] text-ink max-w-[560px]">
+            <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.12] tracking-[-0.02em] text-ink max-w-[560px]">
               Doesn&apos;t just store your data.{' '}
-              <em className="not-italic text-muted">Reads it for you.</em>
+              <span className="text-muted">Reads it for you.</span>
             </h2>
           </div>
           <p className="reveal text-[15px] text-ink-2 leading-[1.7] max-w-[420px]">
@@ -122,7 +125,7 @@ export default function InsightsSection() {
         <div className="stagger grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
 
           {/* Panel 1: Portfolio Health Score */}
-          <div className="bg-page border border-border rounded-lg p-5">
+          <div className="bg-surface border border-border rounded-xl p-5 card-lift">
             <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-muted mb-4">
               Portfolio Health Score
             </p>
@@ -156,62 +159,67 @@ export default function InsightsSection() {
           </div>
 
           {/* Panel 2: Predictive Alerts (always-dark navy panel) */}
-          <div className="bg-sidebar-header rounded-lg p-5 lg:col-span-1">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-white/50">
-                Predictive Alerts
-              </p>
-              <span className="text-[10px] font-semibold px-2 py-[3px] rounded-full bg-red-bg text-red">
-                3 active
-              </span>
-            </div>
+          <div className="relative overflow-hidden rounded-xl p-5 lg:col-span-1 card-lift" style={{ background: 'linear-gradient(180deg, #1B2C41 0%, #162336 100%)' }}>
+            {/* Subtle glow */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-hero-accent)] rounded-full filter blur-[60px] opacity-10" />
 
-            {/* Alert tabs */}
-            <div className="flex gap-1 mb-4">
-              {alerts.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveAlert(i)}
-                  className="flex-1 py-[10px] border-none bg-transparent cursor-pointer"
-                  aria-label={`Alert ${i + 1}`}
-                >
-                  <span className={`block h-[3px] w-full rounded-full transition-colors duration-150 ${
-                    activeAlert === i ? 'bg-white/80' : 'bg-white/20'
-                  }`} />
-                </button>
-              ))}
-            </div>
-
-            {/* Active alert */}
-            {alerts.map((a, i) => (
-              <div
-                key={i}
-                className={`transition-opacity duration-200 ${activeAlert === i ? 'block' : 'hidden'}`}
-              >
-                <div className={`inline-flex items-center gap-2 rounded px-2 py-[3px] border mb-3 ${a.color}`}>
-                  <span className="text-[12px]">{a.icon}</span>
-                  <span className={`text-[10px] font-bold tracking-[0.07em] ${a.labelColor}`}>{a.label}</span>
-                </div>
-                <div className="text-[14px] font-semibold text-white leading-[1.3] mb-2">{a.title}</div>
-                <div className="text-[12px] text-white/60 leading-[1.6] mb-4">{a.body}</div>
-                <button
-                  className={`text-[12px] font-medium px-3 py-[6px] rounded border transition-colors duration-150 cursor-pointer ${a.actionColor}`}
-                  onClick={() => {}}
-                >
-                  {a.action}
-                </button>
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-white/45">
+                  Predictive Alerts
+                </p>
+                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-red-bg text-red">
+                  3 active
+                </span>
               </div>
-            ))}
 
-            <div className="mt-5 pt-4 border-t border-white/10">
-              <div className="text-[12px] text-white/40 leading-[1.55]">
-                Alerts are generated from live scheme data — not static rules. StrataHQ learns from payment patterns, SLA history, and fund trajectories.
+              {/* Alert tabs */}
+              <div className="flex gap-1 mb-4">
+                {alerts.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveAlert(i)}
+                    className="flex-1 py-[10px] border-none bg-transparent cursor-pointer"
+                    aria-label={`Alert ${i + 1}`}
+                  >
+                    <span className={`block h-[3px] w-full rounded-full transition-all duration-300 ${
+                      activeAlert === i ? 'bg-white/80' : 'bg-white/15 hover:bg-white/25'
+                    }`} />
+                  </button>
+                ))}
+              </div>
+
+              {/* Active alert */}
+              {alerts.map((a, i) => (
+                <div
+                  key={i}
+                  className={`transition-all duration-300 ${activeAlert === i ? 'block' : 'hidden'}`}
+                >
+                  <div className={`inline-flex items-center gap-2 rounded-lg px-2.5 py-1 border mb-3 ${a.color}`}>
+                    <span className="text-[12px]">{a.icon}</span>
+                    <span className={`text-[10px] font-bold tracking-[0.07em] ${a.labelColor}`}>{a.label}</span>
+                  </div>
+                  <div className="text-[14px] font-semibold text-white leading-[1.3] mb-2">{a.title}</div>
+                  <div className="text-[12px] text-white/55 leading-[1.6] mb-4">{a.body}</div>
+                  <button
+                    className={`text-[12px] font-medium px-3.5 py-[7px] rounded-lg border transition-colors duration-200 cursor-pointer ${a.actionColor}`}
+                    onClick={() => {}}
+                  >
+                    {a.action}
+                  </button>
+                </div>
+              ))}
+
+              <div className="mt-5 pt-4 border-t border-white/[0.06]">
+                <div className="text-[12px] text-white/35 leading-[1.6]">
+                  Alerts are generated from live scheme data — not static rules. StrataHQ learns from payment patterns, SLA history, and fund trajectories.
+                </div>
               </div>
             </div>
           </div>
 
           {/* Panel 3: Portfolio Analytics preview */}
-          <div className="bg-page border border-border rounded-lg p-5">
+          <div className="bg-surface border border-border rounded-xl p-5 card-lift">
             <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-muted mb-4">
               Portfolio Analytics
             </p>
@@ -223,7 +231,7 @@ export default function InsightsSection() {
                 { label: 'SLA On-Time', val: '91%', delta: 'Across all schemes', up: false },
                 { label: 'AGMs This Yr', val: '11/12', delta: '1 pending', up: false },
               ].map(({ label, val, delta, up }) => (
-                <div key={label} className="bg-surface border border-border rounded p-3">
+                <div key={label} className="bg-page border border-border rounded-lg p-3">
                   <div className="text-[10px] font-semibold text-muted uppercase tracking-[0.06em] mb-1">{label}</div>
                   <div className="font-serif text-[18px] font-bold text-ink leading-none mb-1">{val}</div>
                   <div className={`text-[11px] ${up ? 'text-green' : 'text-muted'}`}>{delta}</div>
@@ -231,7 +239,7 @@ export default function InsightsSection() {
               ))}
             </div>
 
-            <div className="bg-surface border border-border rounded p-3">
+            <div className="bg-page border border-border rounded-lg p-3">
               <div className="text-[11px] font-semibold text-ink mb-3">Monthly levy collection rate</div>
               <div className="flex items-end gap-[5px] h-[48px]">
                 {[87, 89, 88, 91, 92, 94].map((v, i) => {

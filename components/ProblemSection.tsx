@@ -36,24 +36,25 @@ const timeline = [
 export default function ProblemSection() {
   return (
     <section id="features" className="padding-section">
-      <div className="max-w-container mx-auto px-container">
-
-        <div className="grid grid-cols-1 md:grid-cols-[360px_1fr] gap-[clamp(40px,6vw,80px)] items-start">
+      <div className="max-w-[1080px] mx-auto px-container">
+        <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-[clamp(40px,6vw,80px)] items-start">
 
           {/* Left */}
           <div>
-            <p className="eyebrow reveal text-[12px] font-semibold tracking-[0.1em] uppercase text-muted mb-3">
+            <p className="reveal eyebrow text-[11px] font-semibold tracking-[0.14em] uppercase text-muted mb-3">
               The problem
             </p>
-            <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.15] tracking-[-0.02em] text-ink mb-4 max-w-[560px]">
-              A typical week without StrataHQ.
+            <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.12] tracking-[-0.02em] text-ink mb-5 max-w-[560px]">
+              A typical week <br className="hidden sm:block" />without StrataHQ.
             </h2>
-            <p className="reveal text-clamp-p text-ink-2 leading-[1.7] mb-6">
+            <p className="reveal text-clamp-p text-ink-2 leading-[1.7] mb-8">
               Not a worst-case scenario. Just Tuesday.
             </p>
-            <div className="reveal hidden md:block">
-              <div className="bg-page border border-border rounded-lg p-4 mt-2">
-                <div className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-3">
+
+            {/* Hours lost panel */}
+            <div className="reveal hidden lg:block">
+              <div className="bg-surface border border-border rounded-xl p-5 card-lift">
+                <div className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-4">
                   Hours lost per month (avg)
                 </div>
                 {[
@@ -62,20 +63,20 @@ export default function ProblemSection() {
                   { label: 'AGM admin', hours: 6, max: 20 },
                   { label: 'Trustee reporting', hours: 7, max: 20 },
                 ].map(({ label, hours, max }) => (
-                  <div key={label} className="mb-3 last:mb-0">
-                    <div className="flex justify-between text-[12px] text-ink-2 mb-[5px]">
+                  <div key={label} className="mb-3.5 last:mb-0">
+                    <div className="flex justify-between text-[12px] text-ink-2 mb-[6px]">
                       <span>{label}</span>
                       <span className="font-semibold text-ink">{hours}h</span>
                     </div>
-                    <div className="h-[5px] bg-border rounded-full overflow-hidden">
+                    <div className="h-[5px] bg-page rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-ink"
+                        className="h-full rounded-full bg-gradient-to-r from-accent to-[var(--color-hero-accent)]"
                         style={{ width: `${(hours / max) * 100}%` }}
                       />
                     </div>
                   </div>
                 ))}
-                <div className="mt-4 pt-3 border-t border-border text-[12px] text-muted">
+                <div className="mt-5 pt-4 border-t border-border text-[12px] text-muted">
                   <span className="font-semibold text-ink">35 hours/month</span> of recoverable admin — per managing agent.
                 </div>
               </div>
@@ -85,29 +86,29 @@ export default function ProblemSection() {
           {/* Timeline */}
           <div className="stagger relative">
             {/* Vertical line */}
-            <div className="absolute left-[19px] top-6 bottom-6 w-[1px] bg-border hidden sm:block" />
+            <div className="absolute left-[19px] top-6 bottom-6 w-[1px] bg-gradient-to-b from-border via-accent/20 to-border hidden sm:block" />
 
-            <div className="flex flex-col gap-[2px]">
+            <div className="flex flex-col gap-1">
               {timeline.map(({ time, icon, color, dotColor, event, detail }) => (
                 <div
                   key={time}
-                  className="flex gap-4 px-[18px] py-4 rounded-lg hover:bg-hover-subtle transition-colors duration-150 cursor-default"
+                  className="group flex gap-4 px-[18px] py-4 rounded-xl hover:bg-surface hover:shadow-sm transition-all duration-200 cursor-default"
                 >
                   {/* Dot */}
                   <div className="relative flex-shrink-0 pt-[3px] hidden sm:block">
-                    <div className={`w-[9px] h-[9px] rounded-full ${dotColor} mt-[5px]`} />
+                    <div className={`w-[9px] h-[9px] rounded-full ${dotColor} mt-[5px] ring-4 ring-page group-hover:ring-surface transition-all duration-200`} />
                   </div>
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <span className={`inline-flex items-center gap-[6px] text-[11px] font-semibold px-2 py-[3px] rounded border ${color}`}>
+                      <span className={`inline-flex items-center gap-[6px] text-[11px] font-semibold px-2.5 py-1 rounded-lg border ${color}`}>
                         <span>{icon}</span>
                         <span className="font-mono tracking-[0.02em]">{time}</span>
                       </span>
                     </div>
                     <div className="text-[14px] font-semibold text-ink mb-[4px]">{event}</div>
-                    <div className="text-[13px] text-muted leading-[1.55]">{detail}</div>
+                    <div className="text-[13px] text-muted leading-[1.6]">{detail}</div>
                   </div>
                 </div>
               ))}
@@ -115,7 +116,7 @@ export default function ProblemSection() {
               {/* Footer note */}
               <div className="flex gap-4 px-[18px] py-4">
                 <div className="flex-shrink-0 hidden sm:block w-[9px]" />
-                <div className="text-[13px] text-muted italic border-t border-border pt-4 w-full">
+                <div className="text-[13px] text-muted italic border-t border-border pt-5 w-full">
                   This is the job right now. StrataHQ doesn&apos;t change what you manage —
                   it changes how much of it needs you.
                 </div>

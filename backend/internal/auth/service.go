@@ -190,7 +190,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (*AuthRespo
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshResponse, error) {
-	rt, err := s.db.Q.GetRefreshToken(ctx, refreshToken)
+	rt, err := s.db.Q.GetRefreshToken(ctx, HashRefreshToken(refreshToken))
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
@@ -212,11 +212,11 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 	}
 
 	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
-		if txErr := q.RevokeRefreshToken(ctx, refreshToken); txErr != nil {
+		if txErr := q.RevokeRefreshToken(ctx, HashRefreshToken(refreshToken)); txErr != nil {
 			return txErr
 		}
 		_, txErr := q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
-			Token:     newRefreshToken,
+			Token:     HashRefreshToken(newRefreshToken),
 			UserID:    user.ID,
 			ExpiresAt: time.Now().Add(s.refreshExpiry),
 		})
@@ -239,7 +239,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
-	return s.db.Q.RevokeRefreshToken(ctx, refreshToken)
+	return s.db.Q.RevokeRefreshToken(ctx, HashRefreshToken(refreshToken))
 }
 
 func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, error) {
@@ -540,7 +540,7 @@ func (s *Service) issueTokens(ctx context.Context, user dbgen.User, orgID, role 
 	}
 
 	_, err = s.db.Q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
-		Token:     refreshToken,
+		Token:     HashRefreshToken(refreshToken),
 		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(s.refreshExpiry),
 	})

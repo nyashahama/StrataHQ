@@ -12,10 +12,10 @@ import (
 )
 
 type Client struct {
+	httpClient *http.Client
 	accountSID string
 	authToken  string
 	fromNumber string
-	httpClient *http.Client
 }
 
 func NewClient(accountSID, authToken, fromNumber string) *Client {

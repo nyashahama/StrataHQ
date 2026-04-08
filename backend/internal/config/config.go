@@ -30,10 +30,10 @@ type ConfigStrings struct {
 	EmailFrom            string
 	AdminEmail           string
 	AdminSecret          string
-	AllowedOrigins       []string
 	TwilioAccountSID     string
 	TwilioAuthToken      string
 	TwilioWhatsAppNumber string
+	AllowedOrigins       []string
 }
 
 type ConfigDurations struct {

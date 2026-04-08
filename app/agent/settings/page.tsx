@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 
 import Modal from '@/components/Modal'
 import { changePassword, updateOrgSettings } from '@/lib/account-api'
-import { setSessionCookie, useAuth } from '@/lib/auth'
+import { useAuth } from '@/lib/auth'
 import { createCheckoutSession, createPortalSession, getSubscription } from '@/lib/billing-api'
 import type { BillingSubscription } from '@/lib/billing'
 import { useToast } from '@/lib/toast'
@@ -68,7 +68,7 @@ export default function AgentSettingsPage() {
       })
       const nextUser = { ...user, org }
       setUser(nextUser)
-      setSessionCookie(nextUser)
+      await fetch('/api/session/refresh', { method: 'POST' })
       setOrgForm({
         name: org.name,
         contact_email: org.contact_email ?? '',

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 
 import Modal from '@/components/Modal'
 import { changePassword, updateProfile } from '@/lib/account-api'
-import { setSessionCookie, useAuth } from '@/lib/auth'
+import { useAuth } from '@/lib/auth'
 import { useToast } from '@/lib/toast'
 
 export default function ResidentProfilePage() {
@@ -44,7 +44,7 @@ export default function ResidentProfilePage() {
         phone: profileForm.phone.trim(),
       })
       setUser(updated)
-      setSessionCookie(updated)
+      await fetch('/api/session/refresh', { method: 'POST' })
       setProfileForm({
         full_name: updated.full_name,
         email: updated.email,

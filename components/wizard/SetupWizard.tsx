@@ -2,7 +2,6 @@
 import { useState } from "react";
 import LogoIcon from "@/components/LogoIcon";
 import { setupAction } from "@/lib/auth-actions";
-import { setSessionCookie } from "@/lib/auth";
 
 type Step = 1 | 2 | 3;
 
@@ -40,7 +39,6 @@ export default function SetupWizard() {
       return;
     }
 
-    setSessionCookie(result.user);
     setStep(3);
   }
 

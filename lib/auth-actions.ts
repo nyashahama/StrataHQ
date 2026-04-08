@@ -8,7 +8,7 @@ import { APP_ROLES } from "./session";
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
 
 const ACCESS_OPTS = {
-  httpOnly: false,
+  httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",
@@ -24,7 +24,7 @@ const REFRESH_OPTS = {
 };
 
 const SESSION_OPTS = {
-  httpOnly: false,
+  httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
   path: "/",

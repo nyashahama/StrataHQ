@@ -61,5 +61,8 @@ export function postLoginPath(user: SessionUser): string {
   }
 
   const schemeId = primarySchemeId(user);
-  return schemeId ? `/app/${schemeId}` : "/auth/login";
+  if (schemeId && /^[0-9a-f-]{36}$/i.test(schemeId)) {
+    return `/app/${schemeId}`;
+  }
+  return "/auth/login";
 }

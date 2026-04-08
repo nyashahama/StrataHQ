@@ -65,7 +65,7 @@ func (h *Handler) GetSubscription(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
-	payload, err := io.ReadAll(r.Body)
+	payload, err := io.ReadAll(io.LimitReader(r.Body, 1<<20)) // 1 MiB max
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid webhook body")
 		return

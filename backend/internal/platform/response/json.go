@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -43,4 +44,11 @@ func Error(w http.ResponseWriter, status int, code string, message string) {
 	_ = json.NewEncoder(w).Encode(ErrorResponse{
 		Err: ErrorBody{Code: code, Message: message},
 	})
+}
+
+// DecodeJSON decodes a JSON request body into dst, rejecting unknown fields.
+func DecodeJSON(r io.Reader, dst any) error {
+	dec := json.NewDecoder(r)
+	dec.DisallowUnknownFields()
+	return dec.Decode(dst)
 }

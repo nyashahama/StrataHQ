@@ -1,7 +1,6 @@
 package agm
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -64,7 +63,7 @@ func (h *Handler) ScheduleMeeting(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req scheduleMeetingRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
@@ -104,7 +103,7 @@ func (h *Handler) CastVote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req castVoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
@@ -128,7 +127,7 @@ func (h *Handler) AssignProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req assignProxyRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}

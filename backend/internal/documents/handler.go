@@ -1,7 +1,6 @@
 package documents
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -51,7 +50,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req createDocumentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}

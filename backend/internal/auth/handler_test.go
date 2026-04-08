@@ -104,6 +104,16 @@ func body(t *testing.T, m map[string]string) *bytes.Reader {
 	return bytes.NewReader(b)
 }
 
+func TestRegister_UnknownFields(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBufferString(`{"email":"a@b.com","password":"Pass_1234","full_name":"A B","extra":"field"}`))
+	w := httptest.NewRecorder()
+	h.Register(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 for unknown fields", w.Code)
+	}
+}
+
 // --- Register ---
 
 func TestRegister_BadJSON(t *testing.T) {
@@ -133,7 +143,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
-		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B", "org_name": "Org",
+		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B",
 	}))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Register(w, req)
@@ -152,7 +162,7 @@ func TestRegister_Success(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
-		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B", "org_name": "Org",
+		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B",
 	}))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Register(w, req)

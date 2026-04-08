@@ -1,7 +1,6 @@
 package levy
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -63,7 +62,7 @@ func (h *Handler) CreatePeriod(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req createPeriodRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
@@ -95,7 +94,7 @@ func (h *Handler) Reconcile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req reconcileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}

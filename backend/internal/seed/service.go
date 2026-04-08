@@ -291,7 +291,7 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 	threads := []threadSeed{
 		{
 			unitIdentifier: "2B",
-			phoneNumber:    "+27825550202",
+			phoneNumber:    "+27697852182",
 			connected:      true,
 			unreadCount:    2,
 			lastActiveAt:   base,

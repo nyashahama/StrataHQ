@@ -133,7 +133,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
-		"email": "a@b.com", "password": "pass", "full_name": "A B", "org_name": "Org",
+		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B", "org_name": "Org",
 	}))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Register(w, req)
@@ -152,7 +152,7 @@ func TestRegister_Success(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
-		"email": "a@b.com", "password": "pass", "full_name": "A B", "org_name": "Org",
+		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B", "org_name": "Org",
 	}))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Register(w, req)
@@ -377,8 +377,8 @@ func TestChangePassword_WrongPassword(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/change-password", body(t, map[string]string{
-		"current_password": "wrong",
-		"new_password":     "new-secret",
+		"current_password": "Wrong_123",
+		"new_password":     "NewSecret_1",
 	}))
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
@@ -386,5 +386,42 @@ func TestChangePassword_WrongPassword(t *testing.T) {
 	NewHandler(svc).ChangePassword(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestRegister_WeakPassword(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
+		"email": "a@b.com", "password": "short", "full_name": "A B",
+	}))
+	w := httptest.NewRecorder()
+	h.Register(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestResetPassword_WeakPassword(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/reset-password", body(t, map[string]string{
+		"token": "tok", "password": "short",
+	}))
+	w := httptest.NewRecorder()
+	h.ResetPassword(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestChangePassword_WeakNewPassword(t *testing.T) {
+	h := NewHandler(&mockService{})
+	req := httptest.NewRequest(http.MethodPost, "/change-password", body(t, map[string]string{
+		"current_password": "OldPass_1", "new_password": "short",
+	}))
+	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
+	w := httptest.NewRecorder()
+	h.ChangePassword(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", w.Code)
 	}
 }

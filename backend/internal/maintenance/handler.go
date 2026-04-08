@@ -1,7 +1,6 @@
 package maintenance
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -55,7 +54,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req createRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
@@ -81,7 +80,7 @@ func (h *Handler) Assign(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req assignRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}

@@ -2,7 +2,6 @@
 package earlyaccess
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -27,7 +26,7 @@ func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 		SchemeName string `json:"scheme_name"`
 		UnitCount  int32  `json:"unit_count"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}

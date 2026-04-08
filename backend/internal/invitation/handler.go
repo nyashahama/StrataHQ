@@ -2,7 +2,6 @@
 package invitation
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -37,7 +36,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		SchemeID string `json:"scheme_id"`
 		UnitID   string `json:"unit_id"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
@@ -157,7 +156,7 @@ func (h *Handler) Accept(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Password string `json:"password"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Password == "" {
+	if err := response.DecodeJSON(r.Body, &req); err != nil || req.Password == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "password is required")
 		return
 	}

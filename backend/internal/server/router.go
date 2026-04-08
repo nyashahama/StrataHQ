@@ -55,6 +55,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 	r.Use(middleware.Logger(logger))
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
 	r.Use(middleware.RateLimit(rdb, 100, 1*time.Minute))
+	r.Use(middleware.MaxBodyHandler())
 
 	// Health & metrics (outside /api/v1, no auth)
 	r.Get("/healthz", h.Health.Healthz)
@@ -65,7 +66,11 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public routes
 		r.Group(func(r chi.Router) {
-			r.Mount("/auth", h.Auth.Routes())
+			// Auth endpoints with stricter per-IP rate limiting
+			r.Route("/auth", func(r chi.Router) {
+				r.Use(middleware.PerEndpointRateLimit(rdb, "auth", 5, 1*time.Minute))
+				r.Mount("/", h.Auth.Routes())
+			})
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
 			r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
 			r.Mount("/invitations/verify", h.Invitation.PublicRoutes())

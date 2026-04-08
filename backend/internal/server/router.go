@@ -74,7 +74,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
 			r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
 			r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
-			r.Mount("/early-access", h.EarlyAccess.PublicRoutes())
+			r.Route("/early-access", func(r chi.Router) {
+				r.Use(middleware.PerEndpointRateLimit(rdb, "earlyaccess", 3, 1*time.Minute))
+				r.Mount("/", h.EarlyAccess.PublicRoutes())
+			})
 		})
 
 		// Protected routes

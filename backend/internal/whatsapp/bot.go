@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -30,11 +29,23 @@ func (b *Bot) Respond(ctx context.Context, schemeID, unitID uuid.UUID, incomingT
 	case text == "menu", text == "hi", text == "hello", text == "hey", text == "start":
 		return helpMenu(), nil
 	case text == "1", text == "balance", strings.HasPrefix(text, "balance"):
-		return b.levyBalance(ctx, schemeID, unitID)
+		msg, err := b.levyBalance(ctx, schemeID, unitID)
+		if err != nil {
+			return "Could not retrieve levy information at this time. Please try again later.", nil
+		}
+		return msg, nil
 	case text == "2", text == "request", strings.HasPrefix(text, "request"):
-		return b.logMaintenanceRequest(ctx, schemeID, unitID, incomingText)
+		msg, err := b.logMaintenanceRequest(ctx, schemeID, unitID, incomingText)
+		if err != nil {
+			return "Could not log your maintenance request. Please try again later.", nil
+		}
+		return msg, nil
 	case text == "3", text == "notices", strings.HasPrefix(text, "notices"):
-		return b.recentNotices(ctx, schemeID)
+		msg, err := b.recentNotices(ctx, schemeID)
+		if err != nil {
+			return "Could not retrieve notices at this time.", nil
+		}
+		return msg, nil
 	default:
 		return helpMenu(), nil
 	}
@@ -47,7 +58,7 @@ func helpMenu() string {
 func (b *Bot) levyBalance(ctx context.Context, schemeID, unitID uuid.UUID) (string, error) {
 	period, err := b.db.Q.GetLatestLevyPeriodByScheme(ctx, schemeID)
 	if err != nil {
-		return "Could not retrieve levy information at this time. Please try again later.", nil
+		return "", fmt.Errorf("get latest levy period: %w", err)
 	}
 
 	account, err := b.db.Q.GetLevyAccountByUnitAndPeriod(ctx, dbgen.GetLevyAccountByUnitAndPeriodParams{
@@ -55,7 +66,7 @@ func (b *Bot) levyBalance(ctx context.Context, schemeID, unitID uuid.UUID) (stri
 		PeriodID: period.ID,
 	})
 	if err != nil {
-		return "Could not retrieve your levy account. Please contact your managing agent.", nil
+		return "", fmt.Errorf("get levy account for unit: %w", err)
 	}
 
 	outstanding := account.AmountCents - account.PaidCents
@@ -88,7 +99,7 @@ func (b *Bot) logMaintenanceRequest(ctx context.Context, schemeID, unitID uuid.U
 		SubmittedByUnit: pgtype.Text{},
 	})
 	if err != nil {
-		return "Could not log your maintenance request. Please try again later.", nil
+		return "", fmt.Errorf("create maintenance request: %w", err)
 	}
 
 	return fmt.Sprintf("Thanks. I've logged a maintenance request on your behalf.\n\nRef: %s\nStatus: Open\n\nWe'll keep you posted.", mr.ID.String()[:8]), nil
@@ -97,7 +108,7 @@ func (b *Bot) logMaintenanceRequest(ctx context.Context, schemeID, unitID uuid.U
 func (b *Bot) recentNotices(ctx context.Context, schemeID uuid.UUID) (string, error) {
 	notices, err := b.db.Q.ListNoticesByScheme(ctx, schemeID)
 	if err != nil {
-		return "Could not retrieve notices at this time.", nil
+		return "", fmt.Errorf("list notices: %w", err)
 	}
 
 	if len(notices) == 0 {
@@ -121,25 +132,7 @@ func (b *Bot) recentNotices(ctx context.Context, schemeID uuid.UUID) (string, er
 	return sb.String(), nil
 }
 
-func (b *Bot) WelcomeMessage(schemeName string) string {
-	return fmt.Sprintf("Hi! Welcome to %s on WhatsApp.\n\nReply with:\n1 Balance - check your levy account\n2 Request - log a maintenance request\n3 Notices - see recent scheme notices", schemeName)
-}
-
-func (b *Bot) AcknowledgePayment(unitIdentifier string) string {
-	return fmt.Sprintf("Payment confirmed for Unit %s. Thank you!", unitIdentifier)
-}
-
 func centsToRands(cents int64) string {
 	rands := float64(cents) / 100.0
 	return fmt.Sprintf("%.2f", rands)
-}
-
-func FormatReference(unitIdentifier, periodLabel string) string {
-	cleanUnit := strings.ReplaceAll(strings.ToUpper(unitIdentifier), " ", "")
-	cleanPeriod := strings.ReplaceAll(strings.ToUpper(periodLabel), " ", "")
-	return fmt.Sprintf("SH-%s-%s", cleanUnit, cleanPeriod)
-}
-
-func TimeNowFunc() time.Time {
-	return time.Now().UTC()
 }

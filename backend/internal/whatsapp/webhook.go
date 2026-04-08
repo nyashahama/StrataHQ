@@ -46,7 +46,7 @@ func (h *WebhookHandler) Verify(w http.ResponseWriter, r *http.Request) {
 
 	if mode == "subscribe" && token == h.authToken && challenge != "" {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(challenge))
+		_, _ = w.Write([]byte(challenge))
 		return
 	}
 
@@ -84,9 +84,9 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string) {
 	ctx := context.Background()
 
-	threads, err := h.db.Q.GetConnectedWhatsAppThreadByPhone(ctx, pgtype.Text{String: phoneNumber, Valid: true})
-	if err != nil {
-		h.logger.Error("failed to lookup thread by phone", "phone", phoneNumber, "error", err)
+	threads, lookupErr := h.db.Q.GetConnectedWhatsAppThreadByPhone(ctx, pgtype.Text{String: phoneNumber, Valid: true})
+	if lookupErr != nil {
+		h.logger.Error("failed to lookup thread by phone", "phone", phoneNumber, "error", lookupErr)
 		return
 	}
 
@@ -96,40 +96,40 @@ func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string) {
 		return
 	}
 
-	if _, err := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
+	if _, saveErr := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
 		ThreadID:             thread.ID,
 		Sender:               dbgen.WhatsappMessageSenderResident,
 		Body:                 body,
 		MaintenanceRequestID: pgtype.UUID{},
 		NoticeID:             pgtype.UUID{},
-	}); err != nil {
-		h.logger.Error("failed to save incoming message", "error", err)
+	}); saveErr != nil {
+		h.logger.Error("failed to save incoming message", "error", saveErr)
 		return
 	}
 
-	if err := h.db.Q.IncrementWhatsAppThreadUnread(ctx, thread.ID); err != nil {
-		h.logger.Error("failed to increment unread count", "error", err)
+	if incrErr := h.db.Q.IncrementWhatsAppThreadUnread(ctx, thread.ID); incrErr != nil {
+		h.logger.Error("failed to increment unread count", "error", incrErr)
 	}
 
-	reply, err := h.bot.Respond(ctx, thread.SchemeID, thread.UnitID, body)
-	if err != nil {
-		h.logger.Error("failed to generate bot response", "error", err)
+	reply, botErr := h.bot.Respond(ctx, thread.SchemeID, thread.UnitID, body)
+	if botErr != nil {
+		h.logger.Error("failed to generate bot response", "error", botErr)
 		return
 	}
 
-	if _, err := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
+	if _, replyErr := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
 		ThreadID:             thread.ID,
 		Sender:               dbgen.WhatsappMessageSenderBot,
 		Body:                 reply,
 		MaintenanceRequestID: pgtype.UUID{},
 		NoticeID:             pgtype.UUID{},
-	}); err != nil {
-		h.logger.Error("failed to save bot response", "error", err)
+	}); replyErr != nil {
+		h.logger.Error("failed to save bot response", "error", replyErr)
 		return
 	}
 
-	if err := h.sender.SendWhatsAppMessage(phoneNumber, reply); err != nil {
-		h.logger.Error("failed to send WhatsApp reply", "phone", phoneNumber, "error", err)
+	if sendErr := h.sender.SendWhatsAppMessage(phoneNumber, reply); sendErr != nil {
+		h.logger.Error("failed to send WhatsApp reply", "phone", phoneNumber, "error", sendErr)
 	}
 }
 

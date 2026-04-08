@@ -19,8 +19,5 @@ func ValidateEmail(email string) bool {
 		return false
 	}
 	local := strings.SplitN(email, "@", 2)[0]
-	if local == "" {
-		return false
-	}
-	return true
+	return local != ""
 }

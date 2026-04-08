@@ -13,24 +13,27 @@ type Config struct {
 }
 
 type ConfigStrings struct {
-	Port                string
-	Env                 string
-	DatabaseURL         string
-	RedisURL            string
-	JWTSecret           string
-	StripeSecretKey     string
-	StripeWebhookSecret string
-	StripePriceID       string
-	ResendAPIKey        string
-	AIBaseURL           string
-	AIAPIKey            string
-	AIModel             string
-	AppBaseURL          string
-	BackendBaseURL      string
-	EmailFrom           string
-	AdminEmail          string
-	AdminSecret         string
-	AllowedOrigins      []string
+	Port                 string
+	Env                  string
+	DatabaseURL          string
+	RedisURL             string
+	JWTSecret            string
+	StripeSecretKey      string
+	StripeWebhookSecret  string
+	StripePriceID        string
+	ResendAPIKey         string
+	AIBaseURL            string
+	AIAPIKey             string
+	AIModel              string
+	AppBaseURL           string
+	BackendBaseURL       string
+	EmailFrom            string
+	AdminEmail           string
+	AdminSecret          string
+	AllowedOrigins       []string
+	TwilioAccountSID     string
+	TwilioAuthToken      string
+	TwilioWhatsAppNumber string
 }
 
 type ConfigDurations struct {
@@ -41,23 +44,26 @@ type ConfigDurations struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		ConfigStrings: ConfigStrings{
-			Port:                getEnv("PORT", "8080"),
-			Env:                 getEnv("ENV", "development"),
-			DatabaseURL:         os.Getenv("DATABASE_URL"),
-			RedisURL:            os.Getenv("REDIS_URL"),
-			JWTSecret:           os.Getenv("JWT_SECRET"),
-			StripeSecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
-			StripeWebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
-			StripePriceID:       os.Getenv("STRIPE_PRICE_ID"),
-			ResendAPIKey:        os.Getenv("RESEND_API_KEY"),
-			AIBaseURL:           os.Getenv("AI_BASE_URL"),
-			AIAPIKey:            os.Getenv("AI_API_KEY"),
-			AIModel:             os.Getenv("AI_MODEL"),
-			AppBaseURL:          os.Getenv("APP_BASE_URL"),
-			BackendBaseURL:      getEnv("BACKEND_BASE_URL", os.Getenv("APP_BASE_URL")),
-			EmailFrom:           getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
-			AdminEmail:          os.Getenv("ADMIN_EMAIL"),
-			AdminSecret:         os.Getenv("ADMIN_SECRET"),
+			Port:                 getEnv("PORT", "8080"),
+			Env:                  getEnv("ENV", "development"),
+			DatabaseURL:          os.Getenv("DATABASE_URL"),
+			RedisURL:             os.Getenv("REDIS_URL"),
+			JWTSecret:            os.Getenv("JWT_SECRET"),
+			StripeSecretKey:      os.Getenv("STRIPE_SECRET_KEY"),
+			StripeWebhookSecret:  os.Getenv("STRIPE_WEBHOOK_SECRET"),
+			StripePriceID:        os.Getenv("STRIPE_PRICE_ID"),
+			ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
+			AIBaseURL:            os.Getenv("AI_BASE_URL"),
+			AIAPIKey:             os.Getenv("AI_API_KEY"),
+			AIModel:              os.Getenv("AI_MODEL"),
+			AppBaseURL:           os.Getenv("APP_BASE_URL"),
+			BackendBaseURL:       getEnv("BACKEND_BASE_URL", os.Getenv("APP_BASE_URL")),
+			EmailFrom:            getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
+			AdminEmail:           os.Getenv("ADMIN_EMAIL"),
+			AdminSecret:          os.Getenv("ADMIN_SECRET"),
+			TwilioAccountSID:     os.Getenv("TWILIO_ACCOUNT_SID"),
+			TwilioAuthToken:      os.Getenv("TWILIO_AUTH_TOKEN"),
+			TwilioWhatsAppNumber: os.Getenv("TWILIO_WHATSAPP_NUMBER"),
 		},
 	}
 

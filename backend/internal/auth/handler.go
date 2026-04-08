@@ -62,6 +62,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email, password, and full_name are required")
 		return
 	}
+	if err := ValidatePassword(req.Password); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
+		return
+	}
 	res, err := h.service.Register(r.Context(), req.Email, req.Password, req.FullName)
 	if err != nil {
 		if err == ErrEmailExists {
@@ -133,6 +137,10 @@ func (h *Handler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Token == "" || req.Password == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "token and password are required")
+		return
+	}
+	if err := ValidatePassword(req.Password); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
 		return
 	}
 	if err := h.service.ResetPassword(r.Context(), req.Token, req.Password); err != nil {
@@ -310,6 +318,10 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.CurrentPassword == "" || req.NewPassword == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "current_password and new_password are required")
+		return
+	}
+	if err := ValidatePassword(req.NewPassword); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
 		return
 	}
 

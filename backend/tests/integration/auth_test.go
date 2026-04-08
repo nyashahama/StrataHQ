@@ -133,7 +133,7 @@ func TestAuth_WrongPassword(t *testing.T) {
 	email := uniqueEmail(t)
 
 	regBody, _ := json.Marshal(map[string]string{
-		"email": email, "password": "correct",
+		"email": email, "password": "C0rrect_Pass!",
 		"full_name": "User",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(regBody))

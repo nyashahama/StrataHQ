@@ -1,34 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import LogoIcon from "@/components/LogoIcon";
 import { loginAction } from "@/lib/auth-actions";
-import { setSessionCookie } from "@/lib/auth";
 import { postLoginPath } from "@/lib/session";
-import { API_BASE } from "@/lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [slowLogin, setSlowLogin] = useState(false);
-
-  useEffect(() => {
-    // Silently wake up the Render dyno before the user submits
-    void fetch(`${API_BASE}/api/v1/health`).catch(() => {}) // ignore errors — this is just a warm-up
-  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setSlowLogin(false);
     setLoading(true);
-    const slowTimer = setTimeout(() => setSlowLogin(true), 4000);
     const result = await loginAction(email, password);
-    clearTimeout(slowTimer);
-    setSlowLogin(false);
     setLoading(false);
 
     if ("error" in result) {
@@ -37,7 +25,6 @@ export default function LoginPage() {
     }
 
     const { user } = result;
-    setSessionCookie(user);
     window.location.replace(postLoginPath(user));
   }
 
@@ -111,11 +98,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded bg-accent text-white py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60"
           >
-            {loading
-              ? slowLogin
-                ? "Server is warming up, please wait…"
-                : "Logging in…"
-              : "Log in"}
+            {loading ? "Logging in…" : "Log in"}
           </button>
         </form>
 

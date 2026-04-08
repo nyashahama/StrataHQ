@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import LogoIcon from '@/components/LogoIcon'
 import { acceptInviteAction } from '@/lib/auth-actions'
-import { setSessionCookie } from '@/lib/auth'
+import { apiFetch } from '@/lib/api'
 import { readApiData, readApiError } from '@/lib/api-contract'
 import { postLoginPath } from '@/lib/session'
 
@@ -26,8 +26,7 @@ export default function AcceptInvitePage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8080'
-    fetch(`${apiUrl}/api/v1/invitations/verify/${token}`)
+    apiFetch(`/api/v1/invitations/verify/${token}`)
       .then(async res => {
         if (!res.ok) {
           setFetchError(await readApiError(res, 'This invite link is invalid or has expired.'))
@@ -51,7 +50,6 @@ export default function AcceptInvitePage() {
       return
     }
 
-    setSessionCookie(result.user)
     window.location.replace(postLoginPath(result.user))
   }
 

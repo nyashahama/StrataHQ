@@ -26,6 +26,7 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidToken       = errors.New("invalid or expired token")
 	ErrWrongPassword      = errors.New("current password is incorrect")
+	ErrWeakPassword       = errors.New("password does not meet requirements")
 )
 
 // Response types returned by the service.

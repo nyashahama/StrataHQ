@@ -161,6 +161,10 @@ func (h *Handler) Accept(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "password is required")
 		return
 	}
+	if err := auth.ValidatePassword(req.Password); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
+		return
+	}
 	authResp, err := h.service.Accept(r.Context(), token, req.Password)
 	if err != nil {
 		switch err {

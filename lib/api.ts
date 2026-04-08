@@ -1,50 +1,36 @@
-import { refreshTokens, clearAuth } from "./auth-actions";
-
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-
-function getAccessToken(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(/(?:^|;\s*)sh_access=([^;]+)/);
-  return match ? match[1] : null;
-}
-
-function buildHeaders(token: string | null, extra?: HeadersInit): HeadersInit {
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(extra ?? {}),
-  };
-}
+import { refreshTokens } from "./auth-actions";
 
 export async function apiFetch(
   path: string,
   options: RequestInit = {},
 ): Promise<Response> {
-  const token = getAccessToken();
+  const proxyPath = `/api/proxy${path}`;
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(proxyPath, {
     ...options,
-    headers: buildHeaders(token, options.headers),
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
   });
 
   if (res.status !== 401) return res;
 
-  // Token expired — attempt refresh via server action
   const newToken = await refreshTokens();
   if (!newToken) {
-    await clearAuth();
     window.location.replace("/auth/login");
     return res;
   }
 
-  // Retry once with new token
-  const retry = await fetch(`${API_BASE}${path}`, {
+  const retry = await fetch(proxyPath, {
     ...options,
-    headers: buildHeaders(newToken, options.headers),
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
   });
 
   if (retry.status === 401) {
-    await clearAuth();
     window.location.replace("/auth/login");
   }
 

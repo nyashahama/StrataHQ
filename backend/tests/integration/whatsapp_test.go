@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,7 +20,8 @@ import (
 
 func newWhatsAppHandler(t *testing.T) *whatsapp.Handler {
 	t.Helper()
-	return whatsapp.NewHandler(whatsapp.NewService(testPool))
+	service := whatsapp.NewService(testPool, whatsapp.NewNoOpSender(), slog.Default())
+	return whatsapp.NewHandler(service)
 }
 
 func TestWhatsAppDashboardAndBroadcast(t *testing.T) {

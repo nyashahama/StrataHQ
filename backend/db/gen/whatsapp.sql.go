@@ -13,6 +13,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const connectWhatsAppThread = `-- name: ConnectWhatsAppThread :exec
+UPDATE whatsapp_threads
+SET connected = TRUE,
+    consented_at = NOW(),
+    phone_number = $2,
+    last_active_at = NOW()
+WHERE id = $1
+`
+
+type ConnectWhatsAppThreadParams struct {
+	ID          uuid.UUID   `json:"id"`
+	PhoneNumber pgtype.Text `json:"phone_number"`
+}
+
+func (q *Queries) ConnectWhatsAppThread(ctx context.Context, arg ConnectWhatsAppThreadParams) error {
+	_, err := q.db.Exec(ctx, connectWhatsAppThread, arg.ID, arg.PhoneNumber)
+	return err
+}
+
 const countConnectedWhatsAppThreadsByScheme = `-- name: CountConnectedWhatsAppThreadsByScheme :one
 SELECT COUNT(*)
 FROM whatsapp_threads
@@ -149,6 +168,45 @@ func (q *Queries) CreateWhatsAppThread(ctx context.Context, arg CreateWhatsAppTh
 	return i, err
 }
 
+const getConnectedWhatsAppThreadByPhone = `-- name: GetConnectedWhatsAppThreadByPhone :many
+SELECT id, scheme_id, unit_id, resident_user_id, phone_number, connected, consented_at, unread_count, last_active_at, created_at, updated_at FROM whatsapp_threads
+WHERE phone_number = $1
+  AND connected = TRUE
+ORDER BY last_active_at DESC
+`
+
+func (q *Queries) GetConnectedWhatsAppThreadByPhone(ctx context.Context, phoneNumber pgtype.Text) ([]WhatsappThread, error) {
+	rows, err := q.db.Query(ctx, getConnectedWhatsAppThreadByPhone, phoneNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WhatsappThread{}
+	for rows.Next() {
+		var i WhatsappThread
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.UnitID,
+			&i.ResidentUserID,
+			&i.PhoneNumber,
+			&i.Connected,
+			&i.ConsentedAt,
+			&i.UnreadCount,
+			&i.LastActiveAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getWhatsAppThreadBySchemeAndUnit = `-- name: GetWhatsAppThreadBySchemeAndUnit :one
 SELECT id, scheme_id, unit_id, resident_user_id, phone_number, connected, consented_at, unread_count, last_active_at, created_at, updated_at FROM whatsapp_threads
 WHERE scheme_id = $1 AND unit_id = $2
@@ -177,6 +235,18 @@ func (q *Queries) GetWhatsAppThreadBySchemeAndUnit(ctx context.Context, arg GetW
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const incrementWhatsAppThreadUnread = `-- name: IncrementWhatsAppThreadUnread :exec
+UPDATE whatsapp_threads
+SET unread_count = unread_count + 1,
+    last_active_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) IncrementWhatsAppThreadUnread(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, incrementWhatsAppThreadUnread, id)
+	return err
 }
 
 const listWhatsAppBroadcastsDetailedByScheme = `-- name: ListWhatsAppBroadcastsDetailedByScheme :many

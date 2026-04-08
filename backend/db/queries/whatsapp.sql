@@ -56,3 +56,23 @@ FROM whatsapp_broadcasts wb
 LEFT JOIN users u ON u.id = wb.sent_by_user_id
 WHERE wb.scheme_id = $1
 ORDER BY wb.sent_at DESC;
+
+-- name: GetConnectedWhatsAppThreadByPhone :many
+SELECT * FROM whatsapp_threads
+WHERE phone_number = $1
+  AND connected = TRUE
+ORDER BY last_active_at DESC;
+
+-- name: IncrementWhatsAppThreadUnread :exec
+UPDATE whatsapp_threads
+SET unread_count = unread_count + 1,
+    last_active_at = NOW()
+WHERE id = $1;
+
+-- name: ConnectWhatsAppThread :exec
+UPDATE whatsapp_threads
+SET connected = TRUE,
+    consented_at = NOW(),
+    phone_number = $2,
+    last_active_at = NOW()
+WHERE id = $1;

@@ -62,6 +62,10 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email, password, and full_name are required")
 		return
 	}
+	if !ValidateEmail(req.Email) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
+		return
+	}
 	if err := ValidatePassword(req.Password); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
 		return
@@ -103,6 +107,10 @@ func (h *Handler) Setup(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.OrgName == "" || req.ContactEmail == "" || req.SchemeName == "" || req.SchemeAddress == "" || req.UnitCount <= 0 {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "org_name, contact_email, scheme_name, scheme_address, and unit_count are required")
+		return
+	}
+	if !ValidateEmail(req.ContactEmail) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid contact_email format")
 		return
 	}
 	res, err := h.service.Setup(r.Context(), identity.OrgID, req.OrgName, req.ContactEmail, req.SchemeName, req.SchemeAddress, req.UnitCount)
@@ -251,6 +259,10 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	fullName := strings.TrimSpace(req.FullName)
 	if email == "" || fullName == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email and full_name are required")
+		return
+	}
+	if !ValidateEmail(email) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
 		return
 	}
 

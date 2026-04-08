@@ -15,11 +15,12 @@ import (
 )
 
 type WebhookHandler struct {
-	db        *database.Pool
-	sender    MessageSender
-	bot       *Bot
-	logger    *slog.Logger
-	authToken string
+	db            *database.Pool
+	sender        MessageSender
+	bot           *Bot
+	logger        *slog.Logger
+	authToken     string
+	skipSigVerify bool
 }
 
 func NewWebhookHandler(db *database.Pool, sender MessageSender, bot *Bot, logger *slog.Logger, authToken string) *WebhookHandler {
@@ -59,10 +60,35 @@ func (h *WebhookHandler) Verify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		h.logger.Error("failed to parse webhook form", "error", err)
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid form data")
-		return
+	if !h.skipSigVerify {
+		sig := r.Header.Get("X-Twilio-Signature")
+		if sig == "" {
+			h.logger.Warn("missing X-Twilio-Signature header")
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "missing signature")
+			return
+		}
+
+		if err := r.ParseForm(); err != nil {
+			h.logger.Error("failed to parse webhook form", "error", err)
+			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid form data")
+			return
+		}
+
+		if !verifyTwilioSignature(h.authToken, r.URL.Path, r.Form, sig) {
+			originalURL := r.Header.Get("X-Original-URL")
+			if originalURL != "" && verifyTwilioSignatureOriginalURL(h.authToken, originalURL, r.Form, sig) {
+			} else {
+				h.logger.Warn("invalid Twilio signature", "path", r.URL.Path)
+				response.Error(w, http.StatusForbidden, response.CodeForbidden, "invalid signature")
+				return
+			}
+		}
+	} else {
+		if err := r.ParseForm(); err != nil {
+			h.logger.Error("failed to parse webhook form", "error", err)
+			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid form data")
+			return
+		}
 	}
 
 	from := r.FormValue("From")

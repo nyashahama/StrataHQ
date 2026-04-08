@@ -28,21 +28,22 @@ import (
 )
 
 type Handlers struct {
-	Health         *health.Handler
-	Auth           *auth.Handler
-	Agm            *agm.Handler
-	AI             *ai.Handler
-	Scheme         *scheme.Handler
-	Compliance     *compliance.Handler
-	Communications *communications.Handler
-	Documents      *documents.Handler
-	Financials     *financials.Handler
-	Levy           *levy.Handler
-	Maintenance    *maintenance.Handler
-	WhatsApp       *whatsapp.Handler
-	Billing        *billing.Handler
-	Invitation     *invitation.Handler
-	EarlyAccess    *earlyaccess.Handler
+	Health          *health.Handler
+	Auth            *auth.Handler
+	Agm             *agm.Handler
+	AI              *ai.Handler
+	Scheme          *scheme.Handler
+	Compliance      *compliance.Handler
+	Communications  *communications.Handler
+	Documents       *documents.Handler
+	Financials      *financials.Handler
+	Levy            *levy.Handler
+	Maintenance     *maintenance.Handler
+	WhatsApp        *whatsapp.Handler
+	WhatsAppWebhook *whatsapp.WebhookHandler
+	Billing         *billing.Handler
+	Invitation      *invitation.Handler
+	EarlyAccess     *earlyaccess.Handler
 }
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Handlers) *chi.Mux {
@@ -66,6 +67,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 		r.Group(func(r chi.Router) {
 			r.Mount("/auth", h.Auth.Routes())
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
+			r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
 			r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
 			r.Mount("/early-access", h.EarlyAccess.PublicRoutes())
 		})

@@ -3,6 +3,7 @@ package whatsapp
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 	"github.com/stratahq/backend/internal/platform/database"
 )
 
-const schemeWhatsAppNumber = "+27 82 787 2848"
+const schemeWhatsAppNumber = "+27 69 785 2182"
 
 var (
 	ErrForbidden    = errors.New("forbidden")
@@ -80,11 +81,13 @@ type accessInfo struct {
 }
 
 type Service struct {
-	db *database.Pool
+	db     *database.Pool
+	sender MessageSender
+	logger *slog.Logger
 }
 
-func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+func NewService(db *database.Pool, sender MessageSender, logger *slog.Logger) *Service {
+	return &Service{db: db, sender: sender, logger: logger}
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -214,6 +217,12 @@ func (s *Service) CreateBroadcast(ctx context.Context, identity auth.Identity, s
 			LastActiveAt: now,
 		}); err != nil {
 			return nil, err
+		}
+
+		if row.PhoneNumber.Valid && row.PhoneNumber.String != "" {
+			if err := s.sender.SendWhatsAppMessage(row.PhoneNumber.String, message); err != nil {
+				s.logger.Error("failed to send WhatsApp broadcast", "phone", row.PhoneNumber.String, "error", err)
+			}
 		}
 	}
 

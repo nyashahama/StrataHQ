@@ -27,6 +27,7 @@ import (
 	"github.com/stratahq/backend/internal/platform/health"
 	"github.com/stratahq/backend/internal/scheme"
 	"github.com/stratahq/backend/internal/server"
+	"github.com/stratahq/backend/internal/twilio"
 	"github.com/stratahq/backend/internal/whatsapp"
 )
 
@@ -90,7 +91,18 @@ func main() {
 	financialsService := financials.NewService(db)
 	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
-	whatsAppService := whatsapp.NewService(db)
+	var sender whatsapp.MessageSender
+	if cfg.TwilioAccountSID != "" && cfg.TwilioAuthToken != "" && cfg.TwilioWhatsAppNumber != "" {
+		sender = twilio.NewClient(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioWhatsAppNumber)
+		logger.Info("twilio whatsapp enabled", "number", cfg.TwilioWhatsAppNumber)
+	} else {
+		sender = whatsapp.NewNoOpSender()
+		logger.Info("twilio whatsapp disabled, using no-op sender")
+	}
+
+	whatsAppService := whatsapp.NewService(db, sender, logger)
+	whatsAppBot := whatsapp.NewBot(db)
+	whatsAppWebhook := whatsapp.NewWebhookHandler(db, sender, whatsAppBot, logger, cfg.TwilioAuthToken)
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
@@ -98,21 +110,22 @@ func main() {
 
 	// Handlers
 	handlers := server.Handlers{
-		Health:         health.New(db, &redisChecker{rdb}),
-		Auth:           auth.NewHandler(authService),
-		Agm:            agm.NewHandler(agmService),
-		AI:             ai.NewHandler(aiService),
-		Scheme:         scheme.NewHandler(schemeService),
-		Compliance:     compliance.NewHandler(complianceService),
-		Communications: communications.NewHandler(communicationsService),
-		Documents:      documents.NewHandler(documentsService),
-		Financials:     financials.NewHandler(financialsService),
-		Levy:           levy.NewHandler(levyService),
-		Maintenance:    maintenance.NewHandler(maintenanceService),
-		WhatsApp:       whatsapp.NewHandler(whatsAppService),
-		Billing:        billing.NewHandler(billingService),
-		Invitation:     invitation.NewHandler(invitationService, cfg.AppBaseURL),
-		EarlyAccess:    earlyaccess.NewHandler(earlyAccessService),
+		Health:          health.New(db, &redisChecker{rdb}),
+		Auth:            auth.NewHandler(authService),
+		Agm:             agm.NewHandler(agmService),
+		AI:              ai.NewHandler(aiService),
+		Scheme:          scheme.NewHandler(schemeService),
+		Compliance:      compliance.NewHandler(complianceService),
+		Communications:  communications.NewHandler(communicationsService),
+		Documents:       documents.NewHandler(documentsService),
+		Financials:      financials.NewHandler(financialsService),
+		Levy:            levy.NewHandler(levyService),
+		Maintenance:     maintenance.NewHandler(maintenanceService),
+		WhatsApp:        whatsapp.NewHandler(whatsAppService),
+		WhatsAppWebhook: whatsAppWebhook,
+		Billing:         billing.NewHandler(billingService),
+		Invitation:      invitation.NewHandler(invitationService, cfg.AppBaseURL),
+		EarlyAccess:     earlyaccess.NewHandler(earlyAccessService),
 	}
 
 	// Router & Server

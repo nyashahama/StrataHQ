@@ -29,21 +29,21 @@ func (b *Bot) Respond(ctx context.Context, schemeID, unitID uuid.UUID, incomingT
 	case text == "menu", text == "hi", text == "hello", text == "hey", text == "start":
 		return helpMenu(), nil
 	case text == "1", text == "balance", strings.HasPrefix(text, "balance"):
-		msg, err := b.levyBalance(ctx, schemeID, unitID)
-		if err != nil {
-			return "Could not retrieve levy information at this time. Please try again later.", nil
+		msg, _ := b.levyBalance(ctx, schemeID, unitID)
+		if msg == "" {
+			msg = "Could not retrieve levy information at this time. Please try again later."
 		}
 		return msg, nil
 	case text == "2", text == "request", strings.HasPrefix(text, "request"):
-		msg, err := b.logMaintenanceRequest(ctx, schemeID, unitID, incomingText)
-		if err != nil {
-			return "Could not log your maintenance request. Please try again later.", nil
+		msg, _ := b.logMaintenanceRequest(ctx, schemeID, unitID, incomingText)
+		if msg == "" {
+			msg = "Could not log your maintenance request. Please try again later."
 		}
 		return msg, nil
 	case text == "3", text == "notices", strings.HasPrefix(text, "notices"):
-		msg, err := b.recentNotices(ctx, schemeID)
-		if err != nil {
-			return "Could not retrieve notices at this time.", nil
+		msg, _ := b.recentNotices(ctx, schemeID)
+		if msg == "" {
+			msg = "Could not retrieve notices at this time."
 		}
 		return msg, nil
 	default:

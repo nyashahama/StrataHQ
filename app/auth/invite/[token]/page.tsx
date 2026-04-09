@@ -26,7 +26,7 @@ export default function AcceptInvitePage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    apiFetch(`/api/v1/invitations/verify/${token}`)
+    apiFetch(`/api/v1/invitations/verify/${token}`, { auth: false })
       .then(async res => {
         if (!res.ok) {
           setFetchError(await readApiError(res, 'This invite link is invalid or has expired.'))

@@ -28,21 +28,20 @@ export default function Copilot() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const schemeId = pathname.startsWith('/app/') ? pathname.split('/')[2] ?? null : null
+  const isVisible = Boolean(user) && !isResidentRole(user?.role)
 
-  // Only available for agents and trustees
-  if (!user || isResidentRole(user.role)) return null
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [open])
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
+
+  // Only available for agents and trustees
+  if (!isVisible) return null
 
   async function sendMessage(text: string) {
     if (!text.trim() || streaming) return

@@ -13,7 +13,7 @@ const PUBLIC_PATHS = [
 ];
 
 function isPublicPath(pathname: string): boolean {
-  if (pathname === "/" || pathname === "/auth" || pathname.startsWith("/api/")) {
+  if (pathname === "/" || pathname === "/auth") {
     return true;
   }
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
@@ -42,7 +42,8 @@ export function middleware(request: NextRequest) {
   // ─── Auth Route Protection ──────────────────────────────────────────────
   if (!isPublicPath(pathname)) {
     const sessionCookie = request.cookies.get("sh_session");
-    if (!sessionCookie) {
+    const accessCookie = request.cookies.get("sh_access");
+    if (!sessionCookie || !accessCookie) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);

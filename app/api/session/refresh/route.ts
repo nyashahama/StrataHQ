@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { readApiData } from "@/lib/api-contract";
+
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
 
 export async function POST() {
@@ -17,7 +19,16 @@ export async function POST() {
     return NextResponse.json(null, { status: res.status });
   }
 
-  const me = await res.json();
+  const me = await readApiData<{
+    id: string;
+    email: string;
+    full_name: string;
+    phone?: string | null;
+    role: string;
+    wizard_complete: boolean;
+    scheme_memberships?: unknown[];
+    org?: unknown;
+  }>(res);
   const session = {
     id: me.id,
     email: me.email,

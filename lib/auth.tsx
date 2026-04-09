@@ -18,11 +18,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/session")
-      .then((res) => res.json())
-      .then((data) => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    async function loadSession() {
+      try {
+        const sessionResponse = await fetch("/api/session");
+        const session = (await sessionResponse.json()) as SessionUser | null;
+
+        if (session) {
+          setUser(session);
+          return;
+        }
+
+        const refreshResponse = await fetch("/api/session/refresh", {
+          method: "POST",
+        });
+        if (!refreshResponse.ok) {
+          setUser(null);
+          return;
+        }
+
+        const refreshed = (await refreshResponse.json()) as SessionUser | null;
+        setUser(refreshed);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadSession();
   }, []);
 
   function clearUser() {

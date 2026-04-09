@@ -15,16 +15,20 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/bin/server ./cmd/
 # Stage 2: Runtime
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget
 
 WORKDIR /app
 
 COPY --from=builder /app/bin/server .
 COPY --from=builder /app/db/migrations ./db/migrations
+COPY scripts/entrypoint.sh /app/entrypoint
+
+RUN chmod +x /app/entrypoint
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD wget -qO- http://localhost:${PORT:-8080}/healthz || exit 1
 
-ENTRYPOINT ["./server"]
+ENTRYPOINT ["/app/entrypoint"]
+CMD ["serve"]

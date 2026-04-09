@@ -12,8 +12,6 @@ import (
 )
 
 type Event struct {
-	OccurredAt   time.Time
-	StatusCode   int
 	ActorUserID  string
 	OrgID        string
 	ActorRole    string
@@ -22,6 +20,8 @@ type Event struct {
 	RoutePattern string
 	IPAddress    string
 	UserAgent    string
+	OccurredAtNS int64
+	StatusCode   int
 }
 
 type Recorder interface {
@@ -60,8 +60,8 @@ func (s *Service) Record(ctx context.Context, event Event) error {
 		return nil
 	}
 
-	occurredAt := event.OccurredAt.UTC()
-	if occurredAt.IsZero() {
+	occurredAt := time.Unix(0, event.OccurredAtNS).UTC()
+	if event.OccurredAtNS == 0 {
 		occurredAt = time.Now().UTC()
 	}
 

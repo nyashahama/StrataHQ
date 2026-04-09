@@ -32,13 +32,13 @@ func AuditEvents(recorder audit.Recorder, logger *slog.Logger) func(http.Handler
 			next.ServeHTTP(wrapped, r)
 
 			event := audit.Event{
-				OccurredAt:   time.Now().UTC(),
-				StatusCode:   wrapped.statusCode,
 				Method:       r.Method,
 				Path:         r.URL.Path,
 				RoutePattern: routePattern(r),
 				IPAddress:    clientIP(r),
 				UserAgent:    r.UserAgent(),
+				OccurredAtNS: time.Now().UTC().UnixNano(),
+				StatusCode:   wrapped.statusCode,
 			}
 
 			if identity, ok := auth.IdentityFromRequest(r); ok {

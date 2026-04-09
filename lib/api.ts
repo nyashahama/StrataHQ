@@ -1,20 +1,25 @@
 import { refreshTokens } from "./auth-actions";
 
+type ApiFetchOptions = RequestInit & {
+  auth?: boolean;
+};
+
 export async function apiFetch(
   path: string,
-  options: RequestInit = {},
+  options: ApiFetchOptions = {},
 ): Promise<Response> {
   const proxyPath = `/api/proxy${path}`;
+  const { auth = true, ...requestOptions } = options;
 
   const res = await fetch(proxyPath, {
-    ...options,
+    ...requestOptions,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers ?? {}),
+      ...(requestOptions.headers ?? {}),
     },
   });
 
-  if (res.status !== 401) return res;
+  if (!auth || res.status !== 401) return res;
 
   const newToken = await refreshTokens();
   if (!newToken) {
@@ -23,10 +28,10 @@ export async function apiFetch(
   }
 
   const retry = await fetch(proxyPath, {
-    ...options,
+    ...requestOptions,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers ?? {}),
+      ...(requestOptions.headers ?? {}),
     },
   });
 

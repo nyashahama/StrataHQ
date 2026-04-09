@@ -32,6 +32,63 @@ export interface SessionUser {
   org?: SessionOrg;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isNullableString(value: unknown): value is string | null | undefined {
+  return typeof value === "string" || value === null || value === undefined;
+}
+
+function isSchemeMembership(value: unknown): value is SchemeMembership {
+  return (
+    isRecord(value) &&
+    typeof value.scheme_id === "string" &&
+    typeof value.scheme_name === "string" &&
+    isNullableString(value.unit_id) &&
+    isNullableString(value.unit_identifier) &&
+    typeof value.role === "string"
+  );
+}
+
+function isSessionOrg(value: unknown): value is SessionOrg {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    isNullableString(value.contact_email) &&
+    isNullableString(value.contact_phone)
+  );
+}
+
+export function isSessionUser(value: unknown): value is SessionUser {
+  return (
+    isRecord(value) &&
+    typeof value.id === "string" &&
+    typeof value.email === "string" &&
+    typeof value.full_name === "string" &&
+    isNullableString(value.phone) &&
+    (value.role === APP_ROLES.admin ||
+      value.role === APP_ROLES.trustee ||
+      value.role === APP_ROLES.resident) &&
+    typeof value.wizard_complete === "boolean" &&
+    Array.isArray(value.scheme_memberships) &&
+    value.scheme_memberships.every(isSchemeMembership) &&
+    (value.org === undefined || isSessionOrg(value.org))
+  );
+}
+
+export function parseSessionCookie(raw?: string | null): SessionUser | null {
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw));
+    return isSessionUser(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isAdminRole(role?: string | null): role is "admin" {
   return role === APP_ROLES.admin;
 }

@@ -62,6 +62,17 @@ curl http://localhost:8080/healthz
 # {"data":{"status":"ok"}}
 ```
 
+## Render Deployment
+
+On Render, run the backend container in its default container mode or with `serve` as the start command.
+
+Use `/app/entrypoint migrate` as the pre-deploy command so production migrations run before the new release starts. This replaces manually opening a terminal after deploy to run production migrations.
+
+Example Render settings:
+
+- Pre-Deploy Command: `/app/entrypoint migrate`
+- Start Command: `/app/entrypoint serve`
+
 ## Project Structure
 
 ```

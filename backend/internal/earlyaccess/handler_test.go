@@ -10,10 +10,10 @@ import (
 )
 
 type stubService struct {
-	approveByTokenCalls int
-	rejectByTokenCalls  int
 	approveByTokenFn    func(id, sig string, exp int64) (*RequestResponse, error)
 	rejectByTokenFn     func(id, sig string, exp int64) (*RequestResponse, error)
+	approveByTokenCalls int
+	rejectByTokenCalls  int
 }
 
 func (s *stubService) Submit(_ context.Context, _ SubmitParams) (*RequestResponse, error) {

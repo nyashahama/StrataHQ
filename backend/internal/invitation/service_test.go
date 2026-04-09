@@ -16,20 +16,17 @@ import (
 )
 
 type fakeInvitationStore struct {
-	scheme dbgen.Scheme
-	unit   dbgen.Unit
-
-	schemeErr error
-	unitErr   error
-
-	invitationByToken    dbgen.Invitation
-	invitationByTokenErr error
-	getUserByEmailErr    error
-
+	scheme                *dbgen.Scheme
+	unit                  *dbgen.Unit
+	invitationByToken     *dbgen.Invitation
+	createdUser           *dbgen.User
 	createdInvitation     *dbgen.CreateInvitationParams
 	createdRefreshToken   *dbgen.CreateRefreshTokenParams
 	updatedInviteStatus   *dbgen.UpdateInvitationStatusParams
-	createdUser           dbgen.User
+	schemeErr             error
+	unitErr               error
+	invitationByTokenErr  error
+	getUserByEmailErr     error
 	createUserErr         error
 	createRefreshTokenErr error
 }
@@ -71,7 +68,10 @@ func (f *fakeInvitationStore) GetInvitationByToken(context.Context, string) (dbg
 	if f.invitationByTokenErr != nil {
 		return dbgen.Invitation{}, f.invitationByTokenErr
 	}
-	return f.invitationByToken, nil
+	if f.invitationByToken == nil {
+		return dbgen.Invitation{}, nil
+	}
+	return *f.invitationByToken, nil
 }
 
 func (f *fakeInvitationStore) GetUserByEmail(context.Context, string) (dbgen.User, error) {
@@ -93,28 +93,34 @@ func (f *fakeInvitationStore) GetScheme(context.Context, uuid.UUID) (dbgen.Schem
 	if f.schemeErr != nil {
 		return dbgen.Scheme{}, f.schemeErr
 	}
-	return f.scheme, nil
+	if f.scheme == nil {
+		return dbgen.Scheme{}, nil
+	}
+	return *f.scheme, nil
 }
 
 func (f *fakeInvitationStore) GetUnit(context.Context, uuid.UUID) (dbgen.Unit, error) {
 	if f.unitErr != nil {
 		return dbgen.Unit{}, f.unitErr
 	}
-	return f.unit, nil
+	if f.unit == nil {
+		return dbgen.Unit{}, nil
+	}
+	return *f.unit, nil
 }
 
 func (f *fakeInvitationStore) CreateUser(_ context.Context, arg dbgen.CreateUserParams) (dbgen.User, error) {
 	if f.createUserErr != nil {
 		return dbgen.User{}, f.createUserErr
 	}
-	if f.createdUser.ID == uuid.Nil {
-		f.createdUser = dbgen.User{
+	if f.createdUser == nil || f.createdUser.ID == uuid.Nil {
+		f.createdUser = &dbgen.User{
 			ID:       uuid.New(),
 			Email:    arg.Email,
 			FullName: arg.FullName,
 		}
 	}
-	return f.createdUser, nil
+	return *f.createdUser, nil
 }
 
 func (f *fakeInvitationStore) CreateOrgMembership(context.Context, dbgen.CreateOrgMembershipParams) (dbgen.OrgMembership, error) {
@@ -139,7 +145,7 @@ func newTestService(store *fakeInvitationStore) *Service {
 func TestServiceCreateRejectsForeignScheme(t *testing.T) {
 	orgID := uuid.New()
 	store := &fakeInvitationStore{
-		scheme: dbgen.Scheme{
+		scheme: &dbgen.Scheme{
 			ID:    uuid.New(),
 			OrgID: uuid.New(),
 		},
@@ -164,11 +170,11 @@ func TestServiceCreateRejectsUnitOutsideScheme(t *testing.T) {
 	orgID := uuid.New()
 	schemeID := uuid.New()
 	store := &fakeInvitationStore{
-		scheme: dbgen.Scheme{
+		scheme: &dbgen.Scheme{
 			ID:    schemeID,
 			OrgID: orgID,
 		},
-		unit: dbgen.Unit{
+		unit: &dbgen.Unit{
 			ID:       uuid.New(),
 			SchemeID: uuid.New(),
 		},
@@ -194,7 +200,7 @@ func TestServiceAcceptStoresHashedRefreshToken(t *testing.T) {
 	orgID := uuid.New()
 	schemeID := uuid.New()
 	store := &fakeInvitationStore{
-		invitationByToken: dbgen.Invitation{
+		invitationByToken: &dbgen.Invitation{
 			ID:        uuid.New(),
 			OrgID:     orgID,
 			SchemeID:  schemeID,
@@ -207,7 +213,7 @@ func TestServiceAcceptStoresHashedRefreshToken(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour),
 		},
 		getUserByEmailErr: pgx.ErrNoRows,
-		createdUser: dbgen.User{
+		createdUser: &dbgen.User{
 			ID:       uuid.New(),
 			Email:    "trustee@example.com",
 			FullName: "Trustee User",

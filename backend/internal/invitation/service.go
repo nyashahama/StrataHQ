@@ -127,8 +127,8 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 	if err != nil {
 		return nil, err
 	}
-	if err := s.validateInvitationScope(ctx, oid, sid, unitID); err != nil {
-		return nil, err
+	if validationErr := s.validateInvitationScope(ctx, oid, sid, unitID); validationErr != nil {
+		return nil, validationErr
 	}
 
 	token, err := generateToken()

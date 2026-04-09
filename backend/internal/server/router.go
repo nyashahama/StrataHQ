@@ -10,6 +10,7 @@ import (
 
 	"github.com/stratahq/backend/internal/agm"
 	"github.com/stratahq/backend/internal/ai"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
@@ -46,13 +47,14 @@ type Handlers struct {
 	EarlyAccess     *earlyaccess.Handler
 }
 
-func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Handlers) *chi.Mux {
+func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, auditRecorder audit.Recorder, h Handlers) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware stack
 	r.Use(middleware.Recover)
 	r.Use(middleware.Metrics)
 	r.Use(middleware.Logger(logger))
+	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.CORS(cfg.AllowedOrigins))
 	r.Use(middleware.RateLimit(rdb, 100, 1*time.Minute))
 	r.Use(middleware.MaxBodyHandler())
@@ -69,13 +71,18 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 			// Auth endpoints with stricter per-IP rate limiting
 			r.Route("/auth", func(r chi.Router) {
 				r.Use(middleware.PerEndpointRateLimit(rdb, "auth", 5, 1*time.Minute))
+				r.Use(middleware.AuditEvents(auditRecorder, logger))
 				r.Mount("/", h.Auth.Routes())
 			})
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
 			r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
-			r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.AuditEvents(auditRecorder, logger))
+				r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
+			})
 			r.Route("/early-access", func(r chi.Router) {
 				r.Use(middleware.PerEndpointRateLimit(rdb, "earlyaccess", 3, 1*time.Minute))
+				r.Use(middleware.AuditEvents(auditRecorder, logger))
 				r.Mount("/", h.EarlyAccess.PublicRoutes())
 			})
 		})
@@ -83,6 +90,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, h Han
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret))
+			r.Use(middleware.AuditEvents(auditRecorder, logger))
 			r.Get("/auth/me", h.Auth.Me)
 			r.Patch("/auth/profile", h.Auth.UpdateProfile)
 			r.Patch("/auth/org", h.Auth.UpdateOrg)

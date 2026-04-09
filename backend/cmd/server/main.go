@@ -10,6 +10,7 @@ import (
 
 	"github.com/stratahq/backend/internal/agm"
 	"github.com/stratahq/backend/internal/ai"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
@@ -107,6 +108,7 @@ func main() {
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
+	auditService := audit.NewService(db)
 
 	// Handlers
 	handlers := server.Handlers{
@@ -129,7 +131,7 @@ func main() {
 	}
 
 	// Router & Server
-	router := server.NewRouter(cfg, logger, rdb, handlers)
+	router := server.NewRouter(cfg, logger, rdb, auditService, handlers)
 	srv := server.New(router, cfg.Port, logger)
 
 	logger.Info("starting server", "port", cfg.Port, "env", cfg.Env)

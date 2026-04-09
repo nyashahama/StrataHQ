@@ -68,7 +68,7 @@ make run                     # start Go server
 ```
 
 Backend runs at `http://localhost:8080`. See [`backend/README.md`](backend/README.md) for full docs.
-Production migrations are intended to run via Render pre-deploy with `/app/entrypoint migrate`, not by manually opening a terminal after deploy.
+Production migrations are intended to run via Render pre-deploy with `/app/entrypoint migrate`, while normal runtime startup comes from the image default `ENTRYPOINT`/`CMD` in serve mode. Render pre-deploy commands are only available on supported paid service types/plans, so if your plan does not include that feature you must upgrade or continue running migrations separately.
 
 ## Environment Variables
 

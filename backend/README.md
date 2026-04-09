@@ -64,12 +64,13 @@ curl http://localhost:8080/healthz
 
 ## Render Deployment
 
-On Render, set the following fields explicitly:
+On Render, leave the runtime startup to the image default `ENTRYPOINT`/`CMD` so the service comes up in serve mode normally. Set the pre-deploy migration hook explicitly:
 
 - Pre-Deploy Command: `/app/entrypoint migrate`
-- Start Command: `/app/entrypoint serve`
 
-Use those commands so production migrations run before the new release starts. This replaces manually opening a terminal after deploy to run production migrations.
+Render pre-deploy commands are only available on supported paid service types/plans. If your plan does not include that feature, either upgrade or continue running migrations separately before deploying the new release.
+
+Use the pre-deploy hook so production migrations run before the new release starts. This replaces manually opening a terminal after deploy to run production migrations.
 
 ## Project Structure
 

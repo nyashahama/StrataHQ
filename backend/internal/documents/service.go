@@ -3,6 +3,7 @@ package documents
 import (
 	"context"
 	"errors"
+	"net/url"
 	"strings"
 	"time"
 
@@ -116,6 +117,10 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 	if strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.StorageKey) == "" || input.SizeBytes < 0 || !validFileType(input.FileType) || !validCategory(input.Category) {
 		return nil, ErrInvalidInput
 	}
+	storageKey, err := normalizeStorageKey(input.StorageKey, input.FileType)
+	if err != nil {
+		return nil, err
+	}
 
 	var uploadedBy pgtype.UUID
 	if access.userID != "" {
@@ -129,7 +134,7 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 	created, err := s.db.Q.CreateSchemeDocument(ctx, dbgen.CreateSchemeDocumentParams{
 		SchemeID:         access.scheme.ID,
 		Name:             strings.TrimSpace(input.Name),
-		StorageKey:       strings.TrimSpace(input.StorageKey),
+		StorageKey:       storageKey,
 		FileType:         dbgen.DocumentFileType(input.FileType),
 		Category:         dbgen.DocumentCategory(input.Category),
 		SizeBytes:        input.SizeBytes,
@@ -152,7 +157,7 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		ID:             created.ID.String(),
 		SchemeID:       created.SchemeID.String(),
 		Name:           created.Name,
-		StorageKey:     created.StorageKey,
+		StorageKey:     safeListedStorageKey(created.StorageKey, string(created.FileType)),
 		FileType:       string(created.FileType),
 		Category:       string(created.Category),
 		SizeBytes:      created.SizeBytes,
@@ -236,7 +241,7 @@ func mapDocumentRow(row dbgen.ListSchemeDocumentsDetailedRow) DocumentInfo {
 		ID:             row.ID.String(),
 		SchemeID:       row.SchemeID.String(),
 		Name:           row.Name,
-		StorageKey:     row.StorageKey,
+		StorageKey:     safeListedStorageKey(row.StorageKey, string(row.FileType)),
 		FileType:       string(row.FileType),
 		Category:       string(row.Category),
 		SizeBytes:      row.SizeBytes,
@@ -250,12 +255,64 @@ func mapDocumentCategoryRow(row dbgen.ListSchemeDocumentsDetailedByCategoryRow) 
 		ID:             row.ID.String(),
 		SchemeID:       row.SchemeID.String(),
 		Name:           row.Name,
-		StorageKey:     row.StorageKey,
+		StorageKey:     safeListedStorageKey(row.StorageKey, string(row.FileType)),
 		FileType:       string(row.FileType),
 		Category:       string(row.Category),
 		SizeBytes:      row.SizeBytes,
 		CreatedAt:      row.CreatedAt,
 	}
+}
+
+var allowedDataURLPrefixes = map[string][]string{
+	"pdf": {
+		"data:application/pdf;base64,",
+	},
+	"docx": {
+		"data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,",
+	},
+	"xlsx": {
+		"data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,",
+	},
+	"jpg": {
+		"data:image/jpeg;base64,",
+		"data:image/jpg;base64,",
+	},
+	"png": {
+		"data:image/png;base64,",
+	},
+}
+
+func normalizeStorageKey(raw, fileType string) (string, error) {
+	storageKey := strings.TrimSpace(raw)
+	if storageKey == "" {
+		return "", ErrInvalidInput
+	}
+
+	normalized := strings.ToLower(storageKey)
+	for _, prefix := range allowedDataURLPrefixes[fileType] {
+		if strings.HasPrefix(normalized, prefix) {
+			return storageKey, nil
+		}
+	}
+
+	if !strings.HasPrefix(storageKey, "/") || strings.HasPrefix(storageKey, "//") || strings.ContainsAny(storageKey, "\r\n\t\\") {
+		return "", ErrInvalidInput
+	}
+
+	parsed, err := url.Parse(storageKey)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" {
+		return "", ErrInvalidInput
+	}
+
+	return storageKey, nil
+}
+
+func safeListedStorageKey(raw, fileType string) string {
+	storageKey, err := normalizeStorageKey(raw, fileType)
+	if err != nil {
+		return ""
+	}
+	return storageKey
 }
 
 func textPointer(value pgtype.Text) *string {

@@ -71,6 +71,14 @@ WHERE token = $1
   AND expires_at > NOW()
 LIMIT 1;
 
+-- name: ConsumeRefreshToken :one
+UPDATE refresh_tokens
+SET revoked = TRUE
+WHERE token = $1
+  AND revoked = FALSE
+  AND expires_at > NOW()
+RETURNING *;
+
 -- name: RevokeRefreshToken :exec
 UPDATE refresh_tokens
 SET revoked = TRUE

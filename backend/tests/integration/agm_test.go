@@ -69,23 +69,6 @@ func TestAgm_ScheduleVoteAndAssignProxy(t *testing.T) {
 		t.Fatalf("unexpected dashboard response: %+v", dashboard)
 	}
 
-	voteBody, _ := json.Marshal(map[string]any{"choice": "for"})
-	req = httptest.NewRequest(http.MethodPost, "/agm/"+schemeID+"/resolutions/"+dashboard.Upcoming.Resolutions[0].ID+"/vote", bytes.NewReader(voteBody))
-	req = withRouteParams(req, map[string]string{
-		"schemeId":     schemeID,
-		"resolutionId": dashboard.Upcoming.Resolutions[0].ID,
-	})
-	req = req.WithContext(auth.ContextWithIdentity(req.Context(), residentUserID, orgID, string(auth.RoleResident)))
-	w = httptest.NewRecorder()
-	h.CastVote(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("cast vote: status=%d body=%s", w.Code, w.Body)
-	}
-	votedResolution := decodeSuccess[agm.ResolutionInfo](t, w)
-	if votedResolution.UserVote == nil || *votedResolution.UserVote != "for" || votedResolution.VotesFor != 1 {
-		t.Fatalf("unexpected vote response: %+v", votedResolution)
-	}
-
 	proxyBody, _ := json.Marshal(map[string]any{"grantee_user_id": trusteeUserID})
 	req = httptest.NewRequest(http.MethodPost, "/agm/"+schemeID+"/meetings/"+dashboard.Upcoming.ID+"/proxy", bytes.NewReader(proxyBody))
 	req = withRouteParams(req, map[string]string{
@@ -97,6 +80,35 @@ func TestAgm_ScheduleVoteAndAssignProxy(t *testing.T) {
 	h.AssignProxy(w, req)
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("assign proxy: status=%d body=%s", w.Code, w.Body)
+	}
+
+	voteBody, _ := json.Marshal(map[string]any{"choice": "for"})
+	req = httptest.NewRequest(http.MethodPost, "/agm/"+schemeID+"/resolutions/"+dashboard.Upcoming.Resolutions[0].ID+"/vote", bytes.NewReader(voteBody))
+	req = withRouteParams(req, map[string]string{
+		"schemeId":     schemeID,
+		"resolutionId": dashboard.Upcoming.Resolutions[0].ID,
+	})
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), residentUserID, orgID, string(auth.RoleResident)))
+	w = httptest.NewRecorder()
+	h.CastVote(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("delegating resident should not vote directly: status=%d body=%s", w.Code, w.Body)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/agm/"+schemeID+"/resolutions/"+dashboard.Upcoming.Resolutions[0].ID+"/vote", bytes.NewReader(voteBody))
+	req = withRouteParams(req, map[string]string{
+		"schemeId":     schemeID,
+		"resolutionId": dashboard.Upcoming.Resolutions[0].ID,
+	})
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), trusteeUserID, orgID, string(auth.RoleTrustee)))
+	w = httptest.NewRecorder()
+	h.CastVote(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("proxy holder cast vote: status=%d body=%s", w.Code, w.Body)
+	}
+	votedResolution := decodeSuccess[agm.ResolutionInfo](t, w)
+	if votedResolution.UserVote == nil || *votedResolution.UserVote != "for" || votedResolution.VotesFor != 2 {
+		t.Fatalf("unexpected weighted vote response: %+v", votedResolution)
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/agm/"+schemeID, nil)
@@ -111,7 +123,7 @@ func TestAgm_ScheduleVoteAndAssignProxy(t *testing.T) {
 	if updatedDashboard.Upcoming == nil || updatedDashboard.Upcoming.UserProxyGranteeID == nil || *updatedDashboard.Upcoming.UserProxyGranteeID != trusteeUserID {
 		t.Fatalf("expected proxy assignment in dashboard, got %+v", updatedDashboard)
 	}
-	if updatedDashboard.Upcoming.Resolutions[0].UserVote == nil || *updatedDashboard.Upcoming.Resolutions[0].UserVote != "for" {
-		t.Fatalf("expected vote in dashboard, got %+v", updatedDashboard.Upcoming.Resolutions[0])
+	if updatedDashboard.Upcoming.Resolutions[0].UserVote != nil {
+		t.Fatalf("delegating member should not see a direct vote recorded, got %+v", updatedDashboard.Upcoming.Resolutions[0])
 	}
 }

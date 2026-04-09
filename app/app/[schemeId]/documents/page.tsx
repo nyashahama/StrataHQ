@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { createDocument, deleteDocument, getDocumentsDashboard } from '@/lib/documents-api'
+import { getSafeDocumentDownloadHref } from '@/lib/document-download'
 import type { DocumentCategory, DocumentFileType, SchemeDocumentInfo } from '@/lib/documents'
 import { useAuth } from '@/lib/auth'
 import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
@@ -209,7 +210,14 @@ export default function DocumentsPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => triggerDownload(doc)}
+                    onClick={() => {
+                      const href = getSafeDocumentDownloadHref(doc)
+                      if (!href) {
+                        addToast('This document has an invalid download reference and cannot be opened.', 'error')
+                        return
+                      }
+                      triggerDownload(doc, href)
+                    }}
                     className="text-[12px] text-accent font-medium hover:underline flex-shrink-0"
                   >
                     Download
@@ -322,9 +330,9 @@ function fileTypeFor(fileName: string): DocumentFileType {
   }
 }
 
-function triggerDownload(document: SchemeDocumentInfo) {
+function triggerDownload(document: SchemeDocumentInfo, href: string) {
   const link = window.document.createElement('a')
-  link.href = document.storage_key
+  link.href = href
   link.download = `${document.name}.${document.file_type}`
   link.click()
 }

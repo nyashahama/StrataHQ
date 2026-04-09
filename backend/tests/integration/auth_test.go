@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -125,6 +126,57 @@ func TestAuth_RegisterLoginRefreshLogout(t *testing.T) {
 	h.Refresh(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("post-logout refresh: status=%d, want 401", w.Code)
+	}
+}
+
+func TestAuth_ConcurrentRefreshOnlyOneSucceeds(t *testing.T) {
+	h := newAuthHandler(t)
+	email := uniqueEmail(t)
+
+	regBody, _ := json.Marshal(map[string]string{
+		"email": email, "password": testPassword, "full_name": "Concurrent Refresh User",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewReader(regBody))
+	w := httptest.NewRecorder()
+	h.Register(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("register: status=%d body=%s", w.Code, w.Body)
+	}
+
+	var regResp struct {
+		Data auth.AuthResponse `json:"data"`
+	}
+	json.NewDecoder(w.Body).Decode(&regResp)
+
+	refreshBody, _ := json.Marshal(map[string]string{"refresh_token": regResp.Data.RefreshToken})
+	statuses := make([]int, 2)
+
+	var wg sync.WaitGroup
+	for i := range statuses {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			req := httptest.NewRequest(http.MethodPost, "/refresh", bytes.NewReader(refreshBody))
+			recorder := httptest.NewRecorder()
+			h.Refresh(recorder, req)
+			statuses[index] = recorder.Code
+		}(i)
+	}
+	wg.Wait()
+
+	var successCount int
+	var unauthorizedCount int
+	for _, status := range statuses {
+		switch status {
+		case http.StatusOK:
+			successCount++
+		case http.StatusUnauthorized:
+			unauthorizedCount++
+		}
+	}
+
+	if successCount != 1 || unauthorizedCount != 1 {
+		t.Fatalf("concurrent refresh statuses = %v, want one 200 and one 401", statuses)
 	}
 }
 

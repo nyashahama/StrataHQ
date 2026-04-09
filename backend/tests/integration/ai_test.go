@@ -115,6 +115,11 @@ func TestAI_CopilotUsesRealSchemeContext(t *testing.T) {
 			t.Fatalf("expected %q in AI context, got %s", expected, completer.lastSystem)
 		}
 	}
+	for _, forbidden := range []string{residentEmail, trusteeEmail, "Resident Owner", "Trustee Member"} {
+		if strings.Contains(completer.lastSystem, forbidden) {
+			t.Fatalf("expected %q to be redacted from AI context, got %s", forbidden, completer.lastSystem)
+		}
+	}
 
 	req = httptest.NewRequest(http.MethodPost, "/ai/copilot", bytes.NewReader(body))
 	req = req.WithContext(auth.ContextWithIdentity(req.Context(), residentUserID, orgID, string(auth.RoleResident)))

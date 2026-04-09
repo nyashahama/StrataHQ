@@ -388,7 +388,6 @@ func topOverdueAccounts(accounts []dbgen.ListLevyAccountsByPeriodRow, limit int)
 		}
 		items = append(items, map[string]any{
 			"unit_identifier":   account.UnitIdentifier,
-			"owner_name":        account.OwnerName,
 			"status":            status,
 			"amount_cents":      account.AmountCents,
 			"paid_cents":        account.PaidCents,
@@ -410,7 +409,6 @@ func mapUnits(units []dbgen.Unit, limit int) []map[string]any {
 		}
 		items = append(items, map[string]any{
 			"identifier":        unit.Identifier,
-			"owner_name":        unit.OwnerName,
 			"floor":             unit.Floor,
 			"section_value_bps": unit.SectionValueBps,
 		})
@@ -425,12 +423,7 @@ func mapMembers(members []dbgen.ListSchemeMembersBySchemeRow, limit int) []map[s
 			break
 		}
 		entry := map[string]any{
-			"full_name": member.FullName,
-			"email":     member.Email,
-			"role":      member.Role,
-		}
-		if member.UnitID.Valid {
-			entry["unit_id"] = uuid.UUID(member.UnitID.Bytes).String()
+			"role": member.Role,
 		}
 		if member.UnitIdentifier.Valid {
 			entry["unit_identifier"] = member.UnitIdentifier.String
@@ -451,7 +444,6 @@ func mapMaintenance(requests []dbgen.MaintenanceRequest, limit int) []map[string
 			"category":          string(request.Category),
 			"status":            string(request.Status),
 			"submitted_by_unit": textPointer(request.SubmittedByUnit),
-			"contractor_name":   textPointer(request.ContractorName),
 			"sla_hours":         request.SlaHours,
 			"created_at":        request.CreatedAt.Format(time.RFC3339),
 		})

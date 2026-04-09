@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
+import { buildAllowedBackendProxyPath } from "@/lib/backend-proxy";
+
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
 
 const PROXY_HEADERS = [
@@ -53,9 +55,12 @@ async function proxyRequest(
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("sh_access")?.value;
 
-  const backendPath = "/" + pathSegments.join("/");
   const url = new URL(request.url);
-  const backendUrl = `${BACKEND()}${backendPath}${url.search}`;
+  const backendPath = buildAllowedBackendProxyPath(pathSegments, url.search);
+  if (!backendPath) {
+    return new Response(null, { status: 404 });
+  }
+  const backendUrl = `${BACKEND()}${backendPath}`;
 
   const headers: Record<string, string> = {};
   if (accessToken) {

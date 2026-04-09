@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stratahq/backend/internal/auth"
@@ -55,6 +56,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	results, err := h.service.List(r.Context())
 	if err != nil {
+		if err == ErrForbidden {
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "admin only")
+			return
+		}
 		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to list requests")
 		return
 	}
@@ -70,6 +75,10 @@ func (h *Handler) Approve(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	result, err := h.service.Approve(r.Context(), id)
 	if err != nil {
+		if err == ErrForbidden {
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "admin only")
+			return
+		}
 		if err == ErrNotFound {
 			response.Error(w, http.StatusNotFound, response.CodeNotFound, "request not found")
 			return
@@ -89,6 +98,10 @@ func (h *Handler) Reject(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	result, err := h.service.Reject(r.Context(), id)
 	if err != nil {
+		if err == ErrForbidden {
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "admin only")
+			return
+		}
 		if err == ErrNotFound {
 			response.Error(w, http.StatusNotFound, response.CodeNotFound, "request not found")
 			return
@@ -105,6 +118,18 @@ func writeHTML(w http.ResponseWriter, status int, body string) {
 	if _, err := w.Write([]byte(body)); err != nil {
 		slog.Error("failed to write html response", "status", status, "error", err)
 	}
+}
+
+func (h *Handler) ApproveWithTokenPage(w http.ResponseWriter, r *http.Request) {
+	sig := r.URL.Query().Get("sig")
+	expStr := r.URL.Query().Get("exp")
+	if _, err := strconv.ParseInt(expStr, 10, 64); err != nil || sig == "" {
+		writeHTML(w, http.StatusBadRequest, `<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`)
+		return
+	}
+
+	actionURL := htmlEscapeAttribute(r.URL.RequestURI())
+	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2>Approve request</h2><p>Confirm that you want to approve this early access request.</p><form method="POST" action="`+actionURL+`"><button type="submit" style="background:#16a34a;color:white;border:0;border-radius:8px;padding:12px 18px;font:inherit;cursor:pointer">Approve request</button></form></body></html>`)
 }
 
 func (h *Handler) ApproveWithToken(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +155,18 @@ func (h *Handler) ApproveWithToken(w http.ResponseWriter, r *http.Request) {
 	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2 style="color:#16a34a">Approved</h2><p>The early access request has been approved. The user will receive an email to set their password.</p></body></html>`)
 }
 
+func (h *Handler) RejectWithTokenPage(w http.ResponseWriter, r *http.Request) {
+	sig := r.URL.Query().Get("sig")
+	expStr := r.URL.Query().Get("exp")
+	if _, err := strconv.ParseInt(expStr, 10, 64); err != nil || sig == "" {
+		writeHTML(w, http.StatusBadRequest, `<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`)
+		return
+	}
+
+	actionURL := htmlEscapeAttribute(r.URL.RequestURI())
+	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2>Reject request</h2><p>Confirm that you want to reject this early access request.</p><form method="POST" action="`+actionURL+`"><button type="submit" style="background:#dc2626;color:white;border:0;border-radius:8px;padding:12px 18px;font:inherit;cursor:pointer">Reject request</button></form></body></html>`)
+}
+
 func (h *Handler) RejectWithToken(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	sig := r.URL.Query().Get("sig")
@@ -151,4 +188,15 @@ func (h *Handler) RejectWithToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2 style="color:#dc2626">Rejected</h2><p>The early access request has been rejected.</p></body></html>`)
+}
+
+func htmlEscapeAttribute(value string) string {
+	replacer := strings.NewReplacer(
+		`&`, "&amp;",
+		`"`, "&quot;",
+		`'`, "&#39;",
+		`<`, "&lt;",
+		`>`, "&gt;",
+	)
+	return replacer.Replace(value)
 }

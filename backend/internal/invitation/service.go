@@ -60,7 +60,29 @@ type Servicer interface {
 	Accept(ctx context.Context, token, password string) (*auth.AuthResponse, error)
 }
 
+type queryStore interface {
+	CreateInvitation(ctx context.Context, arg dbgen.CreateInvitationParams) (dbgen.Invitation, error)
+	ListInvitationsByOrg(ctx context.Context, orgID uuid.UUID) ([]dbgen.Invitation, error)
+	GetInvitationByID(ctx context.Context, id uuid.UUID) (dbgen.Invitation, error)
+	UpdateInvitationToken(ctx context.Context, arg dbgen.UpdateInvitationTokenParams) (dbgen.Invitation, error)
+	UpdateInvitationStatus(ctx context.Context, arg dbgen.UpdateInvitationStatusParams) error
+	GetInvitationByToken(ctx context.Context, token string) (dbgen.Invitation, error)
+	GetUserByEmail(ctx context.Context, email string) (dbgen.User, error)
+	CreateRefreshToken(ctx context.Context, arg dbgen.CreateRefreshTokenParams) (dbgen.RefreshToken, error)
+	GetScheme(ctx context.Context, id uuid.UUID) (dbgen.Scheme, error)
+	GetUnit(ctx context.Context, id uuid.UUID) (dbgen.Unit, error)
+}
+
+type txStore interface {
+	CreateUser(ctx context.Context, arg dbgen.CreateUserParams) (dbgen.User, error)
+	CreateOrgMembership(ctx context.Context, arg dbgen.CreateOrgMembershipParams) (dbgen.OrgMembership, error)
+	UpsertSchemeMembership(ctx context.Context, arg dbgen.UpsertSchemeMembershipParams) (dbgen.SchemeMembership, error)
+	UpdateInvitationStatus(ctx context.Context, arg dbgen.UpdateInvitationStatusParams) error
+}
+
 type Service struct {
+	q             queryStore
+	withTx        func(ctx context.Context, fn func(q txStore) error) error
 	db            *database.Pool
 	sender        notification.Sender
 	jwtSecret     string
@@ -70,6 +92,12 @@ type Service struct {
 
 func NewService(db *database.Pool, sender notification.Sender, jwtSecret string, jwtExpiry, refreshExpiry time.Duration) *Service {
 	return &Service{
+		q: db.Q,
+		withTx: func(ctx context.Context, fn func(q txStore) error) error {
+			return database.WithTxQueries(ctx, db, func(q *dbgen.Queries) error {
+				return fn(q)
+			})
+		},
 		db:            db,
 		sender:        sender,
 		jwtSecret:     jwtSecret,
@@ -95,6 +123,13 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 	if err != nil {
 		return nil, errors.New("invalid scheme_id")
 	}
+	unitID, err := unitIDFromString(p.UnitID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.validateInvitationScope(ctx, oid, sid, unitID); err != nil {
+		return nil, err
+	}
 
 	token, err := generateToken()
 	if err != nil {
@@ -102,16 +137,7 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 	}
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
 
-	var unitID pgtype.UUID
-	if p.UnitID != "" {
-		uid, parseErr := uuid.Parse(p.UnitID)
-		if parseErr != nil {
-			return nil, errors.New("invalid unit_id")
-		}
-		unitID = pgtype.UUID{Bytes: uid, Valid: true}
-	}
-
-	inv, err := s.db.Q.CreateInvitation(ctx, dbgen.CreateInvitationParams{
+	inv, err := s.q.CreateInvitation(ctx, dbgen.CreateInvitationParams{
 		OrgID:     oid,
 		SchemeID:  sid,
 		UnitID:    unitID,
@@ -138,7 +164,7 @@ func (s *Service) List(ctx context.Context, orgID string) ([]InvitationResponse,
 	if err != nil {
 		return nil, ErrForbidden
 	}
-	invs, err := s.db.Q.ListInvitationsByOrg(ctx, oid)
+	invs, err := s.q.ListInvitationsByOrg(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +185,7 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 		return nil, ErrNotFound
 	}
 
-	existing, err := s.db.Q.GetInvitationByID(ctx, iid)
+	existing, err := s.q.GetInvitationByID(ctx, iid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -179,7 +205,7 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 	}
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
 
-	inv, err := s.db.Q.UpdateInvitationToken(ctx, dbgen.UpdateInvitationTokenParams{
+	inv, err := s.q.UpdateInvitationToken(ctx, dbgen.UpdateInvitationTokenParams{
 		Token:     token,
 		ExpiresAt: expiresAt,
 		ID:        iid,
@@ -206,7 +232,7 @@ func (s *Service) Revoke(ctx context.Context, orgID, invitationID string) error 
 		return ErrNotFound
 	}
 
-	existing, err := s.db.Q.GetInvitationByID(ctx, iid)
+	existing, err := s.q.GetInvitationByID(ctx, iid)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrNotFound
@@ -217,14 +243,14 @@ func (s *Service) Revoke(ctx context.Context, orgID, invitationID string) error 
 		return ErrForbidden
 	}
 
-	return s.db.Q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
+	return s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
 		Status: "revoked",
 		ID:     iid,
 	})
 }
 
 func (s *Service) Verify(ctx context.Context, token string) (*VerifyResponse, error) {
-	inv, err := s.db.Q.GetInvitationByToken(ctx, token)
+	inv, err := s.q.GetInvitationByToken(ctx, token)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
@@ -240,7 +266,7 @@ func (s *Service) Verify(ctx context.Context, token string) (*VerifyResponse, er
 }
 
 func (s *Service) Accept(ctx context.Context, token, password string) (*auth.AuthResponse, error) {
-	inv, err := s.db.Q.GetInvitationByToken(ctx, token)
+	inv, err := s.q.GetInvitationByToken(ctx, token)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
@@ -248,7 +274,7 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 		return nil, ErrInvalidToken
 	}
 
-	_, err = s.db.Q.GetUserByEmail(ctx, inv.Email)
+	_, err = s.q.GetUserByEmail(ctx, inv.Email)
 	if err == nil {
 		return nil, ErrEmailExists
 	}
@@ -263,7 +289,7 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 
 	var user dbgen.User
 
-	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+	err = s.withTx(ctx, func(q txStore) error {
 		var txErr error
 		user, txErr = q.CreateUser(ctx, dbgen.CreateUserParams{
 			Email:        inv.Email,
@@ -307,11 +333,7 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.db.Q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
-		Token:     refreshToken,
-		UserID:    user.ID,
-		ExpiresAt: time.Now().Add(s.refreshExpiry),
-	})
+	err = s.storeRefreshToken(ctx, user.ID, refreshToken)
 	if err != nil {
 		return nil, err
 	}
@@ -338,4 +360,52 @@ func toResponse(inv dbgen.Invitation) *InvitationResponse {
 		Status:    inv.Status,
 		ExpiresAt: inv.ExpiresAt,
 	}
+}
+
+func (s *Service) validateInvitationScope(ctx context.Context, orgID, schemeID uuid.UUID, unitID pgtype.UUID) error {
+	scheme, err := s.q.GetScheme(ctx, schemeID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("invalid scheme_id")
+		}
+		return err
+	}
+	if scheme.OrgID != orgID {
+		return ErrForbidden
+	}
+	if !unitID.Valid {
+		return nil
+	}
+
+	unit, err := s.q.GetUnit(ctx, unitID.Bytes)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("invalid unit_id")
+		}
+		return err
+	}
+	if unit.SchemeID != schemeID {
+		return errors.New("invalid unit_id")
+	}
+	return nil
+}
+
+func (s *Service) storeRefreshToken(ctx context.Context, userID uuid.UUID, refreshToken string) error {
+	_, err := s.q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
+		Token:     auth.HashRefreshToken(refreshToken),
+		UserID:    userID,
+		ExpiresAt: time.Now().Add(s.refreshExpiry),
+	})
+	return err
+}
+
+func unitIDFromString(raw string) (pgtype.UUID, error) {
+	if raw == "" {
+		return pgtype.UUID{}, nil
+	}
+	uid, err := uuid.Parse(raw)
+	if err != nil {
+		return pgtype.UUID{}, errors.New("invalid unit_id")
+	}
+	return pgtype.UUID{Bytes: uid, Valid: true}, nil
 }

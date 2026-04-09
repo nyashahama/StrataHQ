@@ -69,6 +69,7 @@ export default function AgmVotingPage() {
   const canVote = user?.role === 'resident' || user?.role === 'trustee'
   const latestMeeting = dashboard?.latest ?? null
   const upcomingMeeting = dashboard?.upcoming ?? null
+  const hasAssignedProxy = Boolean(upcomingMeeting?.user_proxy_grantee_id)
 
   const selectedProxyLabel = useMemo(
     () => proxyCandidates.find(candidate => candidate.user_id === upcomingMeeting?.user_proxy_grantee_id)?.full_name ?? '',
@@ -304,7 +305,11 @@ export default function AgmVotingPage() {
           </div>
           {canVote && (
             <div className="px-5 py-3 border-b border-border bg-accent-bg/40">
-              <p className="text-[12px] text-accent font-medium">Voting is open on the resolutions below ahead of the AGM.</p>
+              <p className="text-[12px] text-accent font-medium">
+                {hasAssignedProxy
+                  ? 'Your proxy assignment is active for this AGM. Your proxy holder will cast your vote.'
+                  : 'Voting is open on the resolutions below ahead of the AGM.'}
+              </p>
             </div>
           )}
           {canVote && (
@@ -346,7 +351,7 @@ export default function AgmVotingPage() {
             </div>
           )}
           <MeetingResolutions
-            canVote={canVote}
+            canVote={canVote && !hasAssignedProxy}
             meeting={upcomingMeeting}
             votingResolutionId={votingResolutionId}
             onVote={handleVote}

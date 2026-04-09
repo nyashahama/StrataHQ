@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -78,18 +79,70 @@ func PerEndpointRateLimit(rdb *redis.Client, prefix string, limit int, window ti
 }
 
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if idx := strings.Index(xff, ","); idx != -1 {
-			return strings.TrimSpace(xff[:idx])
+	remoteHost := remoteHost(r.RemoteAddr)
+	if isTrustedProxy(remoteHost) {
+		if forwardedIP := forwardedHeaderIP(r.Header.Get("X-Forwarded-For")); forwardedIP != "" {
+			return forwardedIP
 		}
-		return strings.TrimSpace(xff)
+		if realIP := forwardedHeaderIP(r.Header.Get("X-Real-Ip")); realIP != "" {
+			return realIP
+		}
 	}
-	if xri := r.Header.Get("X-Real-Ip"); xri != "" {
-		return strings.TrimSpace(xri)
+
+	if remoteHost != "" {
+		return remoteHost
 	}
-	// Strip port from RemoteAddr
-	if idx := strings.LastIndex(r.RemoteAddr, ":"); idx != -1 {
-		return r.RemoteAddr[:idx]
+
+	return strings.TrimSpace(r.RemoteAddr)
+}
+
+func forwardedHeaderIP(value string) string {
+	if value == "" {
+		return ""
 	}
-	return r.RemoteAddr
+
+	first := strings.TrimSpace(strings.Split(value, ",")[0])
+	if first == "" {
+		return ""
+	}
+	if ip := net.ParseIP(first); ip != nil {
+		return ip.String()
+	}
+
+	host, _, err := net.SplitHostPort(first)
+	if err != nil {
+		return ""
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return ip.String()
+	}
+
+	return ""
+}
+
+func remoteHost(remoteAddr string) string {
+	trimmed := strings.TrimSpace(remoteAddr)
+	if trimmed == "" {
+		return ""
+	}
+
+	host, _, err := net.SplitHostPort(trimmed)
+	if err == nil {
+		return strings.Trim(host, "[]")
+	}
+	if ip := net.ParseIP(strings.Trim(trimmed, "[]")); ip != nil {
+		return ip.String()
+	}
+	return trimmed
+}
+
+func isTrustedProxy(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(strings.Trim(host, "[]"))
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }

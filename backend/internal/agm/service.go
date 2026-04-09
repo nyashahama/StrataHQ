@@ -230,6 +230,13 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 	if err != nil {
 		return nil, ErrInvalidInput
 	}
+	assignments, err := s.db.Q.ListProxyAssignmentsByMeeting(ctx, meeting.ID)
+	if err != nil {
+		return nil, err
+	}
+	if hasOutgoingProxyAssignment(assignments, userID) {
+		return nil, ErrForbidden
+	}
 	if _, voteErr := s.db.Q.GetAgmVote(ctx, dbgen.GetAgmVoteParams{ResolutionID: resolution.ID, VoterUserID: userID}); voteErr == nil {
 		return nil, ErrForbidden
 	} else if !errors.Is(voteErr, pgx.ErrNoRows) {
@@ -248,16 +255,7 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 	if err != nil {
 		return nil, err
 	}
-	var votesFor int32
-	var votesAgainst int32
-	for _, vote := range votes {
-		switch vote.Vote {
-		case dbgen.VoteChoiceFor:
-			votesFor++
-		case dbgen.VoteChoiceAgainst:
-			votesAgainst++
-		}
-	}
+	votesFor, votesAgainst := calculateVoteTotals(votes, assignments)
 
 	updated, err := s.db.Q.UpdateAgmResolutionVotes(ctx, dbgen.UpdateAgmResolutionVotesParams{
 		ID:           resolution.ID,
@@ -335,13 +333,28 @@ func (s *Service) AssignProxy(ctx context.Context, identity auth.Identity, schem
 		return ErrForbidden
 	}
 
-	if _, proxyErr := s.db.Q.GetProxyAssignment(ctx, dbgen.GetProxyAssignmentParams{
-		MeetingID:     meeting.ID,
-		GrantorUserID: grantorID,
-	}); proxyErr == nil {
+	assignments, err := s.db.Q.ListProxyAssignmentsByMeeting(ctx, meeting.ID)
+	if err != nil {
+		return err
+	}
+	if hasOutgoingProxyAssignment(assignments, grantorID) {
 		return ErrForbidden
-	} else if !errors.Is(proxyErr, pgx.ErrNoRows) {
-		return proxyErr
+	}
+	if hasIncomingProxyAssignment(assignments, grantorID) {
+		return ErrForbidden
+	}
+	if hasOutgoingProxyAssignment(assignments, granteeID) {
+		return ErrForbidden
+	}
+	if voted, voteErr := s.userHasMeetingVote(ctx, meeting.ID, grantorID); voteErr != nil {
+		return voteErr
+	} else if voted {
+		return ErrForbidden
+	}
+	if voted, voteErr := s.userHasMeetingVote(ctx, meeting.ID, granteeID); voteErr != nil {
+		return voteErr
+	} else if voted {
+		return ErrForbidden
 	}
 
 	_, err = s.db.Q.CreateProxyAssignment(ctx, dbgen.CreateProxyAssignmentParams{
@@ -479,4 +492,71 @@ func parseDate(value string) time.Time {
 
 func startOfDay(value time.Time) time.Time {
 	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
+}
+
+func hasOutgoingProxyAssignment(assignments []dbgen.ProxyAssignment, userID uuid.UUID) bool {
+	for _, assignment := range assignments {
+		if assignment.GrantorUserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func hasIncomingProxyAssignment(assignments []dbgen.ProxyAssignment, userID uuid.UUID) bool {
+	for _, assignment := range assignments {
+		if assignment.GranteeUserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func calculateVoteTotals(votes []dbgen.AgmVote, assignments []dbgen.ProxyAssignment) (int32, int32) {
+	directVotes := make(map[uuid.UUID]struct{}, len(votes))
+	for _, vote := range votes {
+		directVotes[vote.VoterUserID] = struct{}{}
+	}
+
+	incomingWeights := make(map[uuid.UUID]int32)
+	for _, assignment := range assignments {
+		if _, grantorVotedDirectly := directVotes[assignment.GrantorUserID]; grantorVotedDirectly {
+			continue
+		}
+		incomingWeights[assignment.GranteeUserID]++
+	}
+
+	var votesFor int32
+	var votesAgainst int32
+	for _, vote := range votes {
+		weight := int32(1) + incomingWeights[vote.VoterUserID]
+		switch vote.Vote {
+		case dbgen.VoteChoiceFor:
+			votesFor += weight
+		case dbgen.VoteChoiceAgainst:
+			votesAgainst += weight
+		}
+	}
+
+	return votesFor, votesAgainst
+}
+
+func (s *Service) userHasMeetingVote(ctx context.Context, meetingID, userID uuid.UUID) (bool, error) {
+	resolutions, err := s.db.Q.ListAgmResolutionsByMeeting(ctx, meetingID)
+	if err != nil {
+		return false, err
+	}
+	for _, resolution := range resolutions {
+		_, voteErr := s.db.Q.GetAgmVote(ctx, dbgen.GetAgmVoteParams{
+			ResolutionID: resolution.ID,
+			VoterUserID:  userID,
+		})
+		if voteErr == nil {
+			return true, nil
+		}
+		if !errors.Is(voteErr, pgx.ErrNoRows) {
+			return false, voteErr
+		}
+	}
+	return false, nil
 }

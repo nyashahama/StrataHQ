@@ -197,9 +197,13 @@ export async function refreshTokens(): Promise<string | null> {
 
   if (!res.ok) return null;
 
-  const { access_token } = await readApiData<{ access_token: string }>(res);
-  if (!access_token) return null;
+  const { access_token, refresh_token } = await readApiData<{
+    access_token: string;
+    refresh_token: string;
+  }>(res);
+  if (!access_token || !refresh_token) return null;
   cookieStore.set("sh_access", access_token, ACCESS_OPTS);
+  cookieStore.set("sh_refresh", refresh_token, REFRESH_OPTS);
   return access_token;
 }
 

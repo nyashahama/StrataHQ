@@ -190,32 +190,41 @@ func (s *Service) Login(ctx context.Context, email, password string) (*AuthRespo
 }
 
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshResponse, error) {
-	rt, err := s.db.Q.GetRefreshToken(ctx, HashRefreshToken(refreshToken))
-	if err != nil {
-		return nil, ErrInvalidToken
-	}
-
-	user, err := s.db.Q.GetUserByID(ctx, rt.UserID)
-	if err != nil {
-		return nil, ErrInvalidToken
-	}
-
-	memberships, err := s.db.Q.ListOrgMembershipsByUser(ctx, user.ID)
-	if err != nil || len(memberships) == 0 {
-		return nil, ErrInvalidToken
-	}
-	m := memberships[0]
-
 	newRefreshToken, err := GenerateRefreshToken()
 	if err != nil {
 		return nil, err
 	}
 
+	var user dbgen.User
+	var membership dbgen.ListOrgMembershipsByUserRow
+
 	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
-		if txErr := q.RevokeRefreshToken(ctx, HashRefreshToken(refreshToken)); txErr != nil {
+		rt, txErr := q.ConsumeRefreshToken(ctx, HashRefreshToken(refreshToken))
+		if txErr != nil {
+			if errors.Is(txErr, pgx.ErrNoRows) {
+				return ErrInvalidToken
+			}
 			return txErr
 		}
-		_, txErr := q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
+
+		user, txErr = q.GetUserByID(ctx, rt.UserID)
+		if txErr != nil {
+			if errors.Is(txErr, pgx.ErrNoRows) {
+				return ErrInvalidToken
+			}
+			return txErr
+		}
+
+		memberships, txErr := q.ListOrgMembershipsByUser(ctx, user.ID)
+		if txErr != nil {
+			return txErr
+		}
+		if len(memberships) == 0 {
+			return ErrInvalidToken
+		}
+		membership = memberships[0]
+
+		_, txErr = q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
 			Token:     HashRefreshToken(newRefreshToken),
 			UserID:    user.ID,
 			ExpiresAt: time.Now().Add(s.refreshExpiry),
@@ -226,7 +235,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 		return nil, err
 	}
 
-	accessToken, err := GenerateAccessToken(user.ID.String(), m.OrgID.String(), m.Role, s.jwtSecret, s.jwtExpiry)
+	accessToken, err := GenerateAccessToken(user.ID.String(), membership.OrgID.String(), membership.Role, s.jwtSecret, s.jwtExpiry)
 	if err != nil {
 		return nil, err
 	}

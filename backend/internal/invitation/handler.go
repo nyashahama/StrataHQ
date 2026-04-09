@@ -61,8 +61,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		UnitID:   req.UnitID,
 	}, h.appBaseURL)
 	if err != nil {
-		switch err.Error() {
-		case "invalid scheme_id", "invalid unit_id":
+		switch {
+		case err == ErrForbidden:
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "scheme belongs to a different org")
+		case err.Error() == "invalid scheme_id", err.Error() == "invalid unit_id":
 			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
 		default:
 			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to create invitation")

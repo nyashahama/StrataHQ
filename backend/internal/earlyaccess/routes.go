@@ -8,8 +8,10 @@ import (
 func (h *Handler) PublicRoutes() *chi.Mux {
 	r := chi.NewRouter()
 	r.Post("/", h.Submit)
-	r.Get("/{id}/approve", h.ApproveWithToken)
-	r.Get("/{id}/reject", h.RejectWithToken)
+	r.Get("/{id}/approve", h.ApproveWithTokenPage)
+	r.Post("/{id}/approve", h.ApproveWithToken)
+	r.Get("/{id}/reject", h.RejectWithTokenPage)
+	r.Post("/{id}/reject", h.RejectWithToken)
 	return r
 }
 

@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +20,10 @@ import (
 	"github.com/stratahq/backend/internal/notification"
 )
 
-var ErrNotFound = errors.New("early access request not found")
+var (
+	ErrNotFound  = errors.New("early access request not found")
+	ErrForbidden = errors.New("forbidden")
+)
 
 type SubmitParams struct {
 	FullName   string
@@ -69,6 +73,9 @@ func generateActionToken(secret, id, action string, exp int64) string {
 }
 
 func validateActionToken(secret, id, action, sig string, exp int64) bool {
+	if strings.TrimSpace(secret) == "" {
+		return false
+	}
 	if time.Now().Unix() > exp {
 		return false
 	}
@@ -101,6 +108,10 @@ func (s *Service) Submit(ctx context.Context, p SubmitParams) (*RequestResponse,
 }
 
 func (s *Service) List(ctx context.Context) ([]RequestResponse, error) {
+	if err := s.authorizeProtectedAdmin(ctx); err != nil {
+		return nil, err
+	}
+
 	rows, err := s.db.ListEarlyAccessRequests(ctx)
 	if err != nil {
 		return nil, err
@@ -113,6 +124,10 @@ func (s *Service) List(ctx context.Context) ([]RequestResponse, error) {
 }
 
 func (s *Service) Approve(ctx context.Context, id string) (*RequestResponse, error) {
+	if err := s.authorizeProtectedAdmin(ctx); err != nil {
+		return nil, err
+	}
+
 	uid, err := uuid.Parse(id)
 	if err != nil {
 		return nil, ErrNotFound
@@ -124,6 +139,9 @@ func (s *Service) Approve(ctx context.Context, id string) (*RequestResponse, err
 			return nil, ErrNotFound
 		}
 		return nil, err
+	}
+	if req.Status != dbgen.EarlyAccessStatusPending {
+		return nil, ErrInvalidToken
 	}
 
 	// Create account with random temp password (user will reset it)
@@ -157,10 +175,25 @@ func (s *Service) Approve(ctx context.Context, id string) (*RequestResponse, err
 }
 
 func (s *Service) Reject(ctx context.Context, id string) (*RequestResponse, error) {
+	if err := s.authorizeProtectedAdmin(ctx); err != nil {
+		return nil, err
+	}
+
 	uid, err := uuid.Parse(id)
 	if err != nil {
 		return nil, ErrNotFound
 	}
+	req, err := s.db.GetEarlyAccessRequest(ctx, uid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if req.Status != dbgen.EarlyAccessStatusPending {
+		return nil, ErrInvalidToken
+	}
+
 	updated, err := s.db.UpdateEarlyAccessStatus(ctx, dbgen.UpdateEarlyAccessStatusParams{
 		ID:     uid,
 		Status: dbgen.EarlyAccessStatusRejected,
@@ -180,14 +213,111 @@ func (s *Service) ApproveByToken(ctx context.Context, id, sig string, exp int64)
 	if !validateActionToken(s.adminSecret, id, "approve", sig, exp) {
 		return nil, ErrInvalidToken
 	}
-	return s.Approve(ctx, id)
+	return s.approveWithoutContextAuth(ctx, id)
 }
 
 func (s *Service) RejectByToken(ctx context.Context, id, sig string, exp int64) (*RequestResponse, error) {
 	if !validateActionToken(s.adminSecret, id, "reject", sig, exp) {
 		return nil, ErrInvalidToken
 	}
-	return s.Reject(ctx, id)
+	return s.rejectWithoutContextAuth(ctx, id)
+}
+
+func (s *Service) authorizeProtectedAdmin(ctx context.Context) error {
+	identity, ok := auth.IdentityFromContext(ctx)
+	if !ok || !auth.IsAdminRole(identity.Role) {
+		return ErrForbidden
+	}
+	if strings.TrimSpace(s.adminEmail) == "" {
+		return ErrForbidden
+	}
+
+	userID, err := uuid.Parse(identity.UserID)
+	if err != nil {
+		return ErrForbidden
+	}
+	user, err := s.db.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrForbidden
+		}
+		return err
+	}
+	if !strings.EqualFold(strings.TrimSpace(user.Email), strings.TrimSpace(s.adminEmail)) {
+		return ErrForbidden
+	}
+
+	return nil
+}
+
+func (s *Service) approveWithoutContextAuth(ctx context.Context, id string) (*RequestResponse, error) {
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	req, err := s.db.GetEarlyAccessRequest(ctx, uid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if req.Status != dbgen.EarlyAccessStatusPending {
+		return nil, ErrInvalidToken
+	}
+
+	tempPass := make([]byte, 16)
+	if _, readErr := rand.Read(tempPass); readErr != nil {
+		return nil, readErr
+	}
+	_, regErr := s.authService.Register(ctx, req.Email, hex.EncodeToString(tempPass), req.FullName)
+	if regErr != nil && !errors.Is(regErr, auth.ErrEmailExists) {
+		return nil, regErr
+	}
+
+	setPasswordURL, err := s.authService.IssuePasswordResetURL(ctx, req.Email, s.appBaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	_ = s.notifier.SendEarlyAccessApproval(ctx, req.Email, req.FullName, setPasswordURL)
+
+	updated, err := s.db.UpdateEarlyAccessStatus(ctx, dbgen.UpdateEarlyAccessStatusParams{
+		ID:     uid,
+		Status: dbgen.EarlyAccessStatusApproved,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toResponse(updated), nil
+}
+
+func (s *Service) rejectWithoutContextAuth(ctx context.Context, id string) (*RequestResponse, error) {
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	req, err := s.db.GetEarlyAccessRequest(ctx, uid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if req.Status != dbgen.EarlyAccessStatusPending {
+		return nil, ErrInvalidToken
+	}
+
+	updated, err := s.db.UpdateEarlyAccessStatus(ctx, dbgen.UpdateEarlyAccessStatusParams{
+		ID:     uid,
+		Status: dbgen.EarlyAccessStatusRejected,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return toResponse(updated), nil
 }
 
 func toResponse(r dbgen.EarlyAccessRequest) *RequestResponse {

@@ -13,11 +13,16 @@ import (
 	"github.com/google/uuid"
 	dbgen "github.com/stratahq/backend/db/gen"
 	"github.com/stratahq/backend/internal/levy"
+	"github.com/stratahq/backend/internal/notification"
+	"github.com/stratahq/backend/internal/whatsapp"
 )
 
 func newLevyHandler(t *testing.T) *levy.Handler {
 	t.Helper()
-	return levy.NewHandler(levy.NewService(testPool))
+	emailSender := &notification.NoopSender{}
+	whatsAppSender := &whatsapp.NoOpSender{}
+	svc := levy.NewService(testPool, emailSender, whatsAppSender)
+	return levy.NewHandler(svc)
 }
 
 func TestLevy_AdminDashboardCreateAndReconcile(t *testing.T) {

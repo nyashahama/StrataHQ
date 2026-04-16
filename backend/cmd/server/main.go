@@ -90,7 +90,6 @@ func main() {
 	communicationsService := communications.NewService(db)
 	documentsService := documents.NewService(db)
 	financialsService := financials.NewService(db)
-	levyService := levy.NewService(db)
 	maintenanceService := maintenance.NewService(db)
 	var sender whatsapp.MessageSender
 	if cfg.TwilioAccountSID != "" && cfg.TwilioAuthToken != "" && cfg.TwilioWhatsAppNumber != "" {
@@ -100,6 +99,7 @@ func main() {
 		sender = whatsapp.NewNoOpSender()
 		logger.Info("twilio whatsapp disabled, using no-op sender")
 	}
+	levyService := levy.NewService(db, emailClient, sender)
 
 	whatsAppService := whatsapp.NewService(db, sender, logger)
 	whatsAppBot := whatsapp.NewBot(db)

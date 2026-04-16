@@ -14,12 +14,16 @@ import (
 
 type fakeAttentionService struct {
 	err           error
+	draftCalled   bool
+	sendCalled    bool
 	eventsCalled  bool
 	queueCalled   bool
 	recordCalled  bool
 	queueResponse *AttentionQueueResponse
+	reminderDraft *ReminderDraftResponse
 	events        []CollectionEvent
 	recordInput   RecordCollectionEventInput
+	sendInput     SendReminderInput
 }
 
 func (f *fakeAttentionService) AttentionQueue(_ context.Context, _ auth.Identity, _ string) (*AttentionQueueResponse, error) {
@@ -48,6 +52,20 @@ func (f *fakeAttentionService) Dashboard(_ context.Context, _ auth.Identity, _ s
 
 func (f *fakeAttentionService) CreatePeriod(_ context.Context, _ auth.Identity, _ string, _ CreatePeriodInput) (*PeriodInfo, error) {
 	return &PeriodInfo{}, nil
+}
+
+func (f *fakeAttentionService) ReminderDraft(_ context.Context, _ auth.Identity, _, _ string) (*ReminderDraftResponse, error) {
+	f.draftCalled = true
+	if f.reminderDraft != nil {
+		return f.reminderDraft, f.err
+	}
+	return &ReminderDraftResponse{}, f.err
+}
+
+func (f *fakeAttentionService) SendReminder(_ context.Context, _ auth.Identity, _, _ string, input SendReminderInput) (*CollectionEvent, error) {
+	f.sendCalled = true
+	f.sendInput = input
+	return &CollectionEvent{EventType: "reminder_sent"}, f.err
 }
 
 func (f *fakeAttentionService) Reconcile(_ context.Context, _ auth.Identity, _ string, _ []ReconcilePaymentInput) (*ReconcileResult, error) {
@@ -88,5 +106,39 @@ func TestRecordCollectionEventRejectsMissingPromiseDate(t *testing.T) {
 	}
 	if svc.recordCalled {
 		t.Fatalf("service should not be called for invalid input")
+	}
+}
+
+func TestReminderDraftRequiresAuth(t *testing.T) {
+	svc := &fakeAttentionService{}
+	h := NewHandlerWithService(svc)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/levies/scheme-1/accounts/account-1/reminder-draft", nil)
+	w := httptest.NewRecorder()
+
+	h.ReminderDraft(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestSendReminderRejectsMissingChannels(t *testing.T) {
+	svc := &fakeAttentionService{}
+	h := NewHandlerWithService(svc)
+
+	body := []byte(`{"email":{"enabled":false},"whatsapp":{"enabled":false}}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/levies/scheme-1/accounts/account-1/reminders", bytes.NewReader(body))
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), "user-1", "org-1", "trustee"))
+
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("schemeId", "scheme-1")
+	rctx.URLParams.Add("accountId", "account-1")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
+	h.SendReminder(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 }

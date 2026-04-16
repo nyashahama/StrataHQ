@@ -27,3 +27,8 @@ func (n *NoopSender) SendEarlyAccessApproval(_ context.Context, to, _, _ string)
 func (n *NoopSender) SendNewEarlyAccessRequest(_ context.Context, _, _, _, _ string, _ int32, _, _ string) error {
 	return nil
 }
+
+func (n *NoopSender) SendCollectionReminder(_ context.Context, to, _, _ string) error {
+	n.InvitationsSent = append(n.InvitationsSent, to)
+	return nil
+}

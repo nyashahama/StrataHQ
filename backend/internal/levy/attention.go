@@ -104,11 +104,21 @@ func scoreAttentionItem(item attentionAccount, _ time.Time) AttentionItem {
 	}
 }
 
+type ReminderDelivery struct {
+	To      string
+	Subject string
+	Body    string
+	Status  string
+	Error   string
+}
+
 type RecordCollectionEventInput struct {
 	EventType          string
 	PromiseAmountCents *int64
 	PromiseDate        *time.Time
 	Note               *string
+	Email              ReminderDelivery
+	WhatsApp           ReminderDelivery
 }
 
 type CollectionEvent struct {

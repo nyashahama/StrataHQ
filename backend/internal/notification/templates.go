@@ -75,3 +75,15 @@ func NewEarlyAccessRequestEmail(requesterName, requesterEmail, schemeName string
 </body></html>`, requesterName, requesterEmail, schemeName, unitCount, approveURL, rejectURL)
 	return
 }
+
+func CollectionReminderEmail(ownerName, unitIdentifier, schemeName, amount, daysOverdue, plainBody string) (subject, htmlBody string) {
+	subject = fmt.Sprintf("Levy arrears reminder for %s", schemeName)
+	htmlBody = fmt.Sprintf(`<!DOCTYPE html>
+<html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+<h2>Hi %s,</h2>
+<p>This is a reminder that Unit %s at %s has an overdue levy balance of %s.</p>
+<p>The account is currently %s days overdue.</p>
+<pre style="white-space:pre-wrap;font-family:sans-serif;background:#f4f4f5;padding:16px;border-radius:8px">%s</pre>
+</body></html>`, ownerName, unitIdentifier, schemeName, amount, daysOverdue, plainBody)
+	return
+}

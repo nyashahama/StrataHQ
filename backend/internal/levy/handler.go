@@ -13,6 +13,8 @@ import (
 )
 
 type attentionService interface {
+	ReminderDraft(ctx context.Context, identity auth.Identity, schemeID, accountID string) (*ReminderDraftResponse, error)
+	SendReminder(ctx context.Context, identity auth.Identity, schemeID, accountID string, input SendReminderInput) (*CollectionEvent, error)
 	AttentionQueue(ctx context.Context, identity auth.Identity, schemeID string) (*AttentionQueueResponse, error)
 	CollectionEvents(ctx context.Context, identity auth.Identity, schemeID, accountID string) ([]CollectionEvent, error)
 	RecordCollectionEvent(ctx context.Context, identity auth.Identity, schemeID, accountID string, input RecordCollectionEventInput) (*CollectionEvent, error)
@@ -57,6 +59,17 @@ type reconcilePaymentRequest struct {
 
 type reconcileRequest struct {
 	Payments []reconcilePaymentRequest `json:"payments"`
+}
+
+type reminderChannelRequest struct {
+	Enabled bool   `json:"enabled"`
+	Subject string `json:"subject,omitempty"`
+	Body    string `json:"body"`
+}
+
+type sendReminderRequest struct {
+	Email    reminderChannelRequest `json:"email"`
+	WhatsApp reminderChannelRequest `json:"whatsapp"`
 }
 
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
@@ -233,6 +246,48 @@ func normalizeOptionalString(value *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func (h *Handler) ReminderDraft(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	draft, err := h.service.ReminderDraft(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"))
+	if err != nil {
+		writeLevyError(w, err, "failed to load reminder draft")
+		return
+	}
+	response.JSON(w, http.StatusOK, draft)
+}
+
+func (h *Handler) SendReminder(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	var req sendReminderRequest
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
+		return
+	}
+	if !req.Email.Enabled && !req.WhatsApp.Enabled {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "at least one channel must be enabled")
+		return
+	}
+
+	event, err := h.service.SendReminder(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"), SendReminderInput{
+		Email:    ReminderChannelInput{Enabled: req.Email.Enabled, Subject: strings.TrimSpace(req.Email.Subject), Body: strings.TrimSpace(req.Email.Body)},
+		WhatsApp: ReminderChannelInput{Enabled: req.WhatsApp.Enabled, Body: strings.TrimSpace(req.WhatsApp.Body)},
+	})
+	if err != nil {
+		writeLevyError(w, err, "failed to send reminder")
+		return
+	}
+	response.JSON(w, http.StatusCreated, event)
 }
 
 func writeLevyError(w http.ResponseWriter, err error, fallback string) {

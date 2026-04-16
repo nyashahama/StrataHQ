@@ -3,7 +3,9 @@ package levy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +14,7 @@ import (
 
 	dbgen "github.com/stratahq/backend/db/gen"
 	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/platform/database"
 )
 
@@ -20,6 +23,34 @@ var (
 	ErrNotFound     = errors.New("not found")
 	ErrInvalidInput = errors.New("invalid input")
 )
+
+type reminderEmailSender interface {
+	SendCollectionReminder(ctx context.Context, to, subject, htmlBody string) error
+}
+
+type reminderWhatsAppSender interface {
+	SendWhatsAppMessage(to, body string) error
+}
+
+type ReminderChannelInput struct {
+	Enabled bool
+	Subject string
+	Body    string
+}
+
+type SendReminderInput struct {
+	Email    ReminderChannelInput
+	WhatsApp ReminderChannelInput
+}
+
+func buildDeliveryRecord(input ReminderChannelInput, fallbackTo string) ReminderDelivery {
+	return ReminderDelivery{
+		To:      fallbackTo,
+		Subject: input.Subject,
+		Body:    input.Body,
+		Status:  "skipped",
+	}
+}
 
 //nolint:govet // Keep API response fields grouped by meaning rather than field packing.
 type PeriodInfo struct {
@@ -97,11 +128,17 @@ type ReconcileResult struct {
 }
 
 type Service struct {
-	db *database.Pool
+	db             *database.Pool
+	emailSender    reminderEmailSender
+	whatsAppSender reminderWhatsAppSender
 }
 
-func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+func NewService(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender) *Service {
+	return &Service{
+		db:             db,
+		emailSender:    emailSender,
+		whatsAppSender: whatsAppSender,
+	}
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -864,4 +901,108 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 	}
 
 	return result, nil
+}
+
+type reminderContext struct {
+	attention         attentionAccount
+	ownerEmail        string
+	whatsAppPhone     string
+	whatsAppConnected bool
+}
+
+func (s *Service) loadReminderContext(ctx context.Context, identity auth.Identity, schemeID, accountID string) (*reminderContext, error) {
+	accountUUID := uuid.MustParse(accountID)
+
+	rows, err := s.db.Q.ListAttentionAccountsByScheme(ctx, uuid.MustParse(schemeID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load accounts: %w", err)
+	}
+
+	for _, r := range rows {
+		if r.LevyAccountID == accountUUID {
+			var ownerEmail string
+			var whatsappPhone string
+			var whatsappConnected bool
+			err := s.db.QueryRow(ctx, `
+				SELECT email, whatsapp_phone, whatsapp_connected
+				FROM units
+				WHERE id = $1
+			`, r.UnitID).Scan(&ownerEmail, &whatsappPhone, &whatsappConnected)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load unit contact: %w", err)
+			}
+			daysOverdue := int(time.Since(r.DueDate.Time).Hours() / 24)
+			if daysOverdue < 0 {
+				daysOverdue = 0
+			}
+			outstanding := r.AmountCents - r.PaidCents
+			if outstanding < 0 {
+				outstanding = 0
+			}
+			return &reminderContext{
+				attention: attentionAccount{
+					LevyAccountID:    r.LevyAccountID.String(),
+					SchemeID:         r.SchemeID.String(),
+					SchemeName:       r.SchemeName,
+					UnitID:           r.UnitID.String(),
+					UnitIdentifier:   r.UnitIdentifier,
+					OwnerName:        r.OwnerName,
+					OutstandingCents: outstanding,
+					DaysOverdue:      daysOverdue,
+				},
+				ownerEmail:        ownerEmail,
+				whatsAppPhone:     whatsappPhone,
+				whatsAppConnected: whatsappConnected,
+			}, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
+func (s *Service) ReminderDraft(ctx context.Context, identity auth.Identity, schemeID, accountID string) (*ReminderDraftResponse, error) {
+	account, err := s.loadReminderContext(ctx, identity, schemeID, accountID)
+	if err != nil {
+		return nil, err
+	}
+	draft := buildReminderDraft(account.attention, account.ownerEmail, account.whatsAppPhone, account.whatsAppConnected)
+	return &draft, nil
+}
+
+func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, schemeID, accountID string, input SendReminderInput) (*CollectionEvent, error) {
+	if !input.Email.Enabled && !input.WhatsApp.Enabled {
+		return nil, ErrInvalidInput
+	}
+
+	account, err := s.loadReminderContext(ctx, identity, schemeID, accountID)
+	if err != nil {
+		return nil, err
+	}
+
+	eventInput := RecordCollectionEventInput{
+		EventType: "reminder_sent",
+		Email:     buildDeliveryRecord(input.Email, account.ownerEmail),
+		WhatsApp:  buildDeliveryRecord(input.WhatsApp, account.whatsAppPhone),
+	}
+
+	if input.Email.Enabled {
+		_, htmlBody := notification.CollectionReminderEmail(account.attention.OwnerName, account.attention.UnitIdentifier, account.attention.SchemeName, formatCurrency(account.attention.OutstandingCents), strconv.Itoa(account.attention.DaysOverdue), input.Email.Body)
+		if err := s.emailSender.SendCollectionReminder(ctx, account.ownerEmail, input.Email.Subject, htmlBody); err != nil {
+			eventInput.Email.Status = "failed"
+			eventInput.Email.Error = err.Error()
+		} else {
+			eventInput.Email.Status = "sent"
+		}
+	}
+
+	if input.WhatsApp.Enabled {
+		if err := s.whatsAppSender.SendWhatsAppMessage(account.whatsAppPhone, input.WhatsApp.Body); err != nil {
+			eventInput.WhatsApp.Status = "failed"
+			eventInput.WhatsApp.Error = err.Error()
+		} else {
+			eventInput.WhatsApp.Status = "sent"
+		}
+	}
+
+	return s.RecordCollectionEvent(ctx, identity, schemeID, accountID, eventInput)
 }

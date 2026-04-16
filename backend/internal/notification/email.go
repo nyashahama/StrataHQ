@@ -51,6 +51,10 @@ func (c *EmailClient) SendNewEarlyAccessRequest(ctx context.Context, adminEmail,
 	return c.send(ctx, adminEmail, subject, body)
 }
 
+func (c *EmailClient) SendCollectionReminder(ctx context.Context, to, subject, htmlBody string) error {
+	return c.send(ctx, to, subject, htmlBody)
+}
+
 func (c *EmailClient) send(ctx context.Context, to, subject, htmlBody string) error {
 	payload := map[string]any{
 		"from":    c.fromAddr,

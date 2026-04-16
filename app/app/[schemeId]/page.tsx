@@ -5,9 +5,13 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth'
+import { getSchemeAttentionQueue } from '@/lib/attention-api'
+import type { AttentionItem } from '@/lib/attention'
 import { getCached, setCached } from '@/lib/data-cache'
 import { getScheme, type SchemeDetail } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
+
+import AttentionQueue from '@/components/AttentionQueue'
 
 const HEALTH_STYLES = {
   good: 'bg-green-bg text-green',
@@ -30,6 +34,24 @@ export default function SchemeOverviewPage() {
   const schemeId = params.schemeId as string
   const [scheme, setScheme] = useState<SchemeDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([])
+  const [attentionLoading, setAttentionLoading] = useState(true)
+  const [attentionError, setAttentionError] = useState<string | null>(null)
+
+  async function loadAttentionQueue() {
+    try {
+      setAttentionLoading(true)
+      setAttentionError(null)
+      const result = await getSchemeAttentionQueue(schemeId)
+      setAttentionItems(result.items)
+    } catch (error) {
+      setAttentionError(
+        error instanceof Error ? error.message : 'Failed to load scheme queue',
+      )
+    } finally {
+      setAttentionLoading(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -58,6 +80,13 @@ export default function SchemeOverviewPage() {
   }, [addToast, schemeId])
 
   const isResident = user?.role === 'resident'
+
+  useEffect(() => {
+    if (schemeId && !isResident) {
+      loadAttentionQueue()
+    }
+  }, [schemeId, isResident])
+
   const unitLabel = scheme?.unit_identifier
     ? `Unit ${scheme.unit_identifier}`
     : 'No unit linked yet'
@@ -194,6 +223,26 @@ export default function SchemeOverviewPage() {
           </div>
         </div>
       </div>
+
+      {!isResident && (
+        <section className="mt-8">
+          <div className="mb-3">
+            <h2 className="text-[14px] font-semibold text-ink">
+              Collections attention queue
+            </h2>
+            <p className="text-[12px] text-muted">
+              Cases that need follow-up in this scheme.
+            </p>
+          </div>
+          <AttentionQueue
+            items={attentionItems}
+            scope="scheme"
+            loading={attentionLoading}
+            error={attentionError}
+            onRefresh={loadAttentionQueue}
+          />
+        </section>
+      )}
     </div>
   )
 }

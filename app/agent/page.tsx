@@ -4,9 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/lib/auth";
+import { getPortfolioAttentionQueue } from "@/lib/attention-api";
+import type { AttentionItem } from "@/lib/attention";
 import { getCached, setCached } from "@/lib/data-cache";
 import { listSchemes, type SchemeSummary } from "@/lib/scheme-api";
 import { useToast } from "@/lib/toast";
+
+import AttentionQueue from "@/components/AttentionQueue";
 
 const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
   good: "bg-green-bg text-green",
@@ -19,6 +23,9 @@ export default function AgentPortfolioPage() {
   const { addToast } = useToast();
   const [schemes, setSchemes] = useState<SchemeSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([]);
+  const [attentionLoading, setAttentionLoading] = useState(true);
+  const [attentionError, setAttentionError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -45,6 +52,25 @@ export default function AgentPortfolioPage() {
 
     load();
   }, [addToast]);
+
+  async function loadAttentionQueue() {
+    try {
+      setAttentionLoading(true);
+      setAttentionError(null);
+      const result = await getPortfolioAttentionQueue();
+      setAttentionItems(result.items);
+    } catch (error) {
+      setAttentionError(
+        error instanceof Error ? error.message : "Failed to load attention queue",
+      );
+    } finally {
+      setAttentionLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAttentionQueue();
+  }, []);
 
   const totalUnits = schemes.reduce((sum, scheme) => sum + scheme.unit_count, 0);
   const totalMaintenance = schemes.reduce(
@@ -156,6 +182,24 @@ export default function AgentPortfolioPage() {
           </div>
         </div>
       )}
+
+      <section className="mt-8">
+        <div className="mb-3">
+          <h2 className="text-[14px] font-semibold text-ink">
+            Collections attention queue
+          </h2>
+          <p className="text-[12px] text-muted">
+            Prioritized arrears cases across all schemes.
+          </p>
+        </div>
+        <AttentionQueue
+          items={attentionItems}
+          scope="portfolio"
+          loading={attentionLoading}
+          error={attentionError}
+          onRefresh={loadAttentionQueue}
+        />
+      </section>
     </div>
   );
 }

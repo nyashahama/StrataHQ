@@ -615,6 +615,20 @@ type AgmVote struct {
 	CreatedAt    time.Time  `json:"created_at"`
 }
 
+type AuditEvent struct {
+	ID           uuid.UUID   `json:"id"`
+	ActorUserID  pgtype.UUID `json:"actor_user_id"`
+	OrgID        pgtype.UUID `json:"org_id"`
+	ActorRole    pgtype.Text `json:"actor_role"`
+	Method       string      `json:"method"`
+	Path         string      `json:"path"`
+	RoutePattern string      `json:"route_pattern"`
+	StatusCode   int32       `json:"status_code"`
+	IpAddress    string      `json:"ip_address"`
+	UserAgent    string      `json:"user_agent"`
+	OccurredAt   time.Time   `json:"occurred_at"`
+}
+
 type BudgetLine struct {
 	ID            uuid.UUID `json:"id"`
 	SchemeID      uuid.UUID `json:"scheme_id"`
@@ -624,6 +638,19 @@ type BudgetLine struct {
 	ActualCents   int64     `json:"actual_cents"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type CollectionEvent struct {
+	ID                 uuid.UUID   `json:"id"`
+	SchemeID           uuid.UUID   `json:"scheme_id"`
+	LevyAccountID      uuid.UUID   `json:"levy_account_id"`
+	ActorUserID        pgtype.UUID `json:"actor_user_id"`
+	ActorRole          string      `json:"actor_role"`
+	EventType          string      `json:"event_type"`
+	Note               pgtype.Text `json:"note"`
+	PromiseAmountCents pgtype.Int8 `json:"promise_amount_cents"`
+	PromiseDate        pgtype.Date `json:"promise_date"`
+	CreatedAt          time.Time   `json:"created_at"`
 }
 
 type ComplianceItem struct {

@@ -2,7 +2,7 @@
 
 import { apiFetch } from "@/lib/api";
 import { readApiData, readApiError } from "@/lib/api-contract";
-import type { AttentionItem, CollectionEvent } from "@/lib/attention";
+import type { AttentionItem, CollectionEvent, ReminderDraft } from "@/lib/attention";
 
 async function parse<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
@@ -60,5 +60,32 @@ export async function createCollectionEvent(
       }
     ),
     "Failed to save collection action"
+  );
+}
+
+export async function getCollectionReminderDraft(
+  schemeId: string,
+  accountId: string,
+): Promise<ReminderDraft> {
+  return parse(
+    await apiFetch(`/api/v1/levies/${schemeId}/accounts/${accountId}/reminder-draft`),
+    "Failed to load reminder draft",
+  );
+}
+
+export async function sendCollectionReminder(
+  schemeId: string,
+  accountId: string,
+  input: {
+    email: { enabled: boolean; subject?: string; body: string };
+    whatsapp: { enabled: boolean; body: string };
+  },
+): Promise<CollectionEvent> {
+  return parse(
+    await apiFetch(`/api/v1/levies/${schemeId}/accounts/${accountId}/reminders`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+    "Failed to send reminder",
   );
 }

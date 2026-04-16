@@ -1,6 +1,7 @@
 package levy
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -91,5 +92,83 @@ func TestScoreAttentionItemSuppressesUrgencyWhenFreshFollowUpExists(t *testing.T
 	}
 	if scored.RiskScore >= 60 {
 		t.Fatalf("risk score = %d, want less than 60 after recent follow-up", scored.RiskScore)
+	}
+}
+
+func TestBuildReminderDraftMarksMissingChannels(t *testing.T) {
+	item := attentionAccount{
+		LevyAccountID:    "acc-1",
+		SchemeID:         "scheme-1",
+		SchemeName:       "Rosewood Estate",
+		UnitID:           "unit-1",
+		UnitIdentifier:   "5C",
+		OwnerName:        "Rose Example",
+		OutstandingCents: 930000,
+		DaysOverdue:      97,
+	}
+
+	draft := buildReminderDraft(item, "", "", false)
+
+	if draft.Email.Enabled {
+		t.Fatalf("email should be disabled when no email exists")
+	}
+	if draft.Email.DisabledReason != "No email on file" {
+		t.Fatalf("email disabled reason = %q", draft.Email.DisabledReason)
+	}
+	if draft.WhatsApp.Enabled {
+		t.Fatalf("whatsapp should be disabled when no connected number exists")
+	}
+	if draft.WhatsApp.DisabledReason != "No WhatsApp number or active thread" {
+		t.Fatalf("whatsapp disabled reason = %q", draft.WhatsApp.DisabledReason)
+	}
+}
+
+func TestBuildReminderDraftGeneratesDeterministicBodies(t *testing.T) {
+	item := attentionAccount{
+		LevyAccountID:    "acc-1",
+		SchemeID:         "scheme-1",
+		SchemeName:       "Rosewood Estate",
+		UnitID:           "unit-1",
+		UnitIdentifier:   "5C",
+		OwnerName:        "Rose Example",
+		OutstandingCents: 930000,
+		DaysOverdue:      97,
+	}
+
+	draft := buildReminderDraft(item, "rose@example.com", "+27715550101", true)
+
+	if !strings.Contains(draft.Email.Subject, "Rosewood Estate") {
+		t.Fatalf("email subject = %q, want scheme name included", draft.Email.Subject)
+	}
+	if !strings.Contains(draft.Email.Body, "R 9 300.00") {
+		t.Fatalf("email body = %q, want outstanding amount", draft.Email.Body)
+	}
+	if !strings.Contains(draft.WhatsApp.Body, "Unit 5C") {
+		t.Fatalf("whatsapp body = %q, want unit identifier", draft.WhatsApp.Body)
+	}
+}
+
+func TestScoreAttentionItemReducesUrgencyAfterFreshReminder(t *testing.T) {
+	now := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+	item := attentionAccount{
+		LevyAccountID:     "acc-1",
+		SchemeID:          "scheme-1",
+		SchemeName:        "Rosewood Estate",
+		UnitID:            "unit-1",
+		UnitIdentifier:    "5C",
+		OwnerName:         "Rose Example",
+		OutstandingCents:  930000,
+		DaysOverdue:       97,
+		LastActionType:    "reminder_sent",
+		LastActionDaysAgo: 1,
+	}
+
+	scored := scoreAttentionItem(item, now)
+
+	if scored.RiskScore >= 80 {
+		t.Fatalf("risk score = %d, want cooldown below 80 after fresh reminder", scored.RiskScore)
+	}
+	if scored.RecommendedAction != "follow_up_logged" {
+		t.Fatalf("recommended action = %q, want follow_up_logged", scored.RecommendedAction)
 	}
 }

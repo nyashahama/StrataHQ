@@ -1,6 +1,7 @@
 package levy
 
 import (
+	"fmt"
 	"sort"
 	"time"
 )
@@ -65,8 +66,15 @@ func scoreAttentionItem(item attentionAccount, _ time.Time) AttentionItem {
 		score -= 10
 	}
 
+	if item.LastActionType == "reminder_sent" && item.LastActionDaysAgo <= 2 {
+		score -= 20
+		drivers = append(drivers, "recent reminder already sent")
+	}
+
 	recommended := "reminder_sent"
-	if item.PromiseDateOverdue || item.DaysOverdue >= 90 {
+	if item.LastActionType == "reminder_sent" && item.LastActionDaysAgo <= 2 {
+		recommended = "follow_up_logged"
+	} else if item.PromiseDateOverdue || item.DaysOverdue >= 90 {
 		score += 20
 		drivers = append(drivers, "broken promise or legal threshold")
 		recommended = "legal_review_flagged"
@@ -144,4 +152,65 @@ func sortAttentionItems(items []AttentionItem) {
 		}
 		return items[i].RiskScore > items[j].RiskScore
 	})
+}
+
+type ReminderChannelDraft struct {
+	To             string `json:"to"`
+	Subject        string `json:"subject,omitempty"`
+	Body           string `json:"body"`
+	DisabledReason string `json:"disabled_reason,omitempty"`
+	Enabled        bool   `json:"enabled"`
+}
+
+type ReminderDraftResponse struct {
+	AccountID  string               `json:"account_id"`
+	SchemeID   string               `json:"scheme_id"`
+	SchemeName string               `json:"scheme_name"`
+	UnitLabel  string               `json:"unit_label"`
+	OwnerName  string               `json:"owner_name"`
+	Email      ReminderChannelDraft `json:"email"`
+	WhatsApp   ReminderChannelDraft `json:"whatsapp"`
+}
+
+func formatCurrency(cents int64) string {
+	rands := cents / 100
+	return fmt.Sprintf("R %d %02d.00", rands/1000, rands%1000)
+}
+
+func buildReminderDraft(item attentionAccount, email, whatsappPhone string, whatsappConnected bool) ReminderDraftResponse {
+	emailDraft := ReminderChannelDraft{
+		To:      email,
+		Subject: fmt.Sprintf("Levy arrears reminder for %s", item.SchemeName),
+		Body: fmt.Sprintf(
+			"Hi %s,\n\nOur records show that Unit %s at %s has an outstanding levy balance of %s that is now %d days overdue.\n\nPlease arrange payment or contact the scheme team to discuss the next step.\n",
+			item.OwnerName,
+			item.UnitIdentifier,
+			item.SchemeName,
+			formatCurrency(item.OutstandingCents),
+			item.DaysOverdue,
+		),
+		Enabled: email != "",
+	}
+	if !emailDraft.Enabled {
+		emailDraft.DisabledReason = "No email on file"
+	}
+
+	whatsAppDraft := ReminderChannelDraft{
+		To:      whatsappPhone,
+		Body:    fmt.Sprintf("Hi %s, this is a reminder that Unit %s at %s has an overdue levy balance of %s. Please reply if you need to discuss the next step.", item.OwnerName, item.UnitIdentifier, item.SchemeName, formatCurrency(item.OutstandingCents)),
+		Enabled: whatsappConnected && whatsappPhone != "",
+	}
+	if !whatsAppDraft.Enabled {
+		whatsAppDraft.DisabledReason = "No WhatsApp number or active thread"
+	}
+
+	return ReminderDraftResponse{
+		AccountID:  item.LevyAccountID,
+		SchemeID:   item.SchemeID,
+		SchemeName: item.SchemeName,
+		UnitLabel:  "Unit " + item.UnitIdentifier,
+		OwnerName:  item.OwnerName,
+		Email:      emailDraft,
+		WhatsApp:   whatsAppDraft,
+	}
 }

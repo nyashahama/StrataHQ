@@ -7,6 +7,7 @@ package dbgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,9 +22,22 @@ INSERT INTO collection_events (
     event_type,
     note,
     promise_amount_cents,
-    promise_date
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, scheme_id, levy_account_id, actor_user_id, actor_role, event_type, note, promise_amount_cents, promise_date, created_at
+    promise_date,
+    email_to,
+    email_subject,
+    email_body,
+    email_status,
+    email_error,
+    whatsapp_to,
+    whatsapp_body,
+    whatsapp_status,
+    whatsapp_error
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12, $13,
+    $14, $15, $16, $17
+)
+RETURNING id, scheme_id, levy_account_id, actor_user_id, actor_role, event_type, note, promise_amount_cents, promise_date, created_at, email_to, email_subject, email_body, email_status, email_error, whatsapp_to, whatsapp_body, whatsapp_status, whatsapp_error
 `
 
 type CreateCollectionEventParams struct {
@@ -35,6 +49,15 @@ type CreateCollectionEventParams struct {
 	Note               pgtype.Text `json:"note"`
 	PromiseAmountCents pgtype.Int8 `json:"promise_amount_cents"`
 	PromiseDate        pgtype.Date `json:"promise_date"`
+	EmailTo            pgtype.Text `json:"email_to"`
+	EmailSubject       pgtype.Text `json:"email_subject"`
+	EmailBody          pgtype.Text `json:"email_body"`
+	EmailStatus        pgtype.Text `json:"email_status"`
+	EmailError         pgtype.Text `json:"email_error"`
+	WhatsappTo         pgtype.Text `json:"whatsapp_to"`
+	WhatsappBody       pgtype.Text `json:"whatsapp_body"`
+	WhatsappStatus     pgtype.Text `json:"whatsapp_status"`
+	WhatsappError      pgtype.Text `json:"whatsapp_error"`
 }
 
 func (q *Queries) CreateCollectionEvent(ctx context.Context, arg CreateCollectionEventParams) (CollectionEvent, error) {
@@ -47,6 +70,15 @@ func (q *Queries) CreateCollectionEvent(ctx context.Context, arg CreateCollectio
 		arg.Note,
 		arg.PromiseAmountCents,
 		arg.PromiseDate,
+		arg.EmailTo,
+		arg.EmailSubject,
+		arg.EmailBody,
+		arg.EmailStatus,
+		arg.EmailError,
+		arg.WhatsappTo,
+		arg.WhatsappBody,
+		arg.WhatsappStatus,
+		arg.WhatsappError,
 	)
 	var i CollectionEvent
 	err := row.Scan(
@@ -60,6 +92,15 @@ func (q *Queries) CreateCollectionEvent(ctx context.Context, arg CreateCollectio
 		&i.PromiseAmountCents,
 		&i.PromiseDate,
 		&i.CreatedAt,
+		&i.EmailTo,
+		&i.EmailSubject,
+		&i.EmailBody,
+		&i.EmailStatus,
+		&i.EmailError,
+		&i.WhatsappTo,
+		&i.WhatsappBody,
+		&i.WhatsappStatus,
+		&i.WhatsappError,
 	)
 	return i, err
 }
@@ -207,21 +248,52 @@ SELECT
     note,
     promise_amount_cents,
     promise_date,
+    email_to,
+    email_subject,
+    email_body,
+    email_status,
+    email_error,
+    whatsapp_to,
+    whatsapp_body,
+    whatsapp_status,
+    whatsapp_error,
     created_at
 FROM collection_events
 WHERE levy_account_id = ANY($1::uuid[])
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListCollectionEventsByAccountIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]CollectionEvent, error) {
+type ListCollectionEventsByAccountIDsRow struct {
+	ID                 uuid.UUID   `json:"id"`
+	SchemeID           uuid.UUID   `json:"scheme_id"`
+	LevyAccountID      uuid.UUID   `json:"levy_account_id"`
+	ActorUserID        pgtype.UUID `json:"actor_user_id"`
+	ActorRole          string      `json:"actor_role"`
+	EventType          string      `json:"event_type"`
+	Note               pgtype.Text `json:"note"`
+	PromiseAmountCents pgtype.Int8 `json:"promise_amount_cents"`
+	PromiseDate        pgtype.Date `json:"promise_date"`
+	EmailTo            pgtype.Text `json:"email_to"`
+	EmailSubject       pgtype.Text `json:"email_subject"`
+	EmailBody          pgtype.Text `json:"email_body"`
+	EmailStatus        pgtype.Text `json:"email_status"`
+	EmailError         pgtype.Text `json:"email_error"`
+	WhatsappTo         pgtype.Text `json:"whatsapp_to"`
+	WhatsappBody       pgtype.Text `json:"whatsapp_body"`
+	WhatsappStatus     pgtype.Text `json:"whatsapp_status"`
+	WhatsappError      pgtype.Text `json:"whatsapp_error"`
+	CreatedAt          time.Time   `json:"created_at"`
+}
+
+func (q *Queries) ListCollectionEventsByAccountIDs(ctx context.Context, dollar_1 []uuid.UUID) ([]ListCollectionEventsByAccountIDsRow, error) {
 	rows, err := q.db.Query(ctx, listCollectionEventsByAccountIDs, dollar_1)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []CollectionEvent{}
+	items := []ListCollectionEventsByAccountIDsRow{}
 	for rows.Next() {
-		var i CollectionEvent
+		var i ListCollectionEventsByAccountIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.SchemeID,
@@ -232,6 +304,15 @@ func (q *Queries) ListCollectionEventsByAccountIDs(ctx context.Context, dollar_1
 			&i.Note,
 			&i.PromiseAmountCents,
 			&i.PromiseDate,
+			&i.EmailTo,
+			&i.EmailSubject,
+			&i.EmailBody,
+			&i.EmailStatus,
+			&i.EmailError,
+			&i.WhatsappTo,
+			&i.WhatsappBody,
+			&i.WhatsappStatus,
+			&i.WhatsappError,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

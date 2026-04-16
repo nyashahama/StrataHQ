@@ -651,6 +651,15 @@ type CollectionEvent struct {
 	PromiseAmountCents pgtype.Int8 `json:"promise_amount_cents"`
 	PromiseDate        pgtype.Date `json:"promise_date"`
 	CreatedAt          time.Time   `json:"created_at"`
+	EmailTo            pgtype.Text `json:"email_to"`
+	EmailSubject       pgtype.Text `json:"email_subject"`
+	EmailBody          pgtype.Text `json:"email_body"`
+	EmailStatus        pgtype.Text `json:"email_status"`
+	EmailError         pgtype.Text `json:"email_error"`
+	WhatsappTo         pgtype.Text `json:"whatsapp_to"`
+	WhatsappBody       pgtype.Text `json:"whatsapp_body"`
+	WhatsappStatus     pgtype.Text `json:"whatsapp_status"`
+	WhatsappError      pgtype.Text `json:"whatsapp_error"`
 }
 
 type ComplianceItem struct {

@@ -51,6 +51,15 @@ SELECT
     note,
     promise_amount_cents,
     promise_date,
+    email_to,
+    email_subject,
+    email_body,
+    email_status,
+    email_error,
+    whatsapp_to,
+    whatsapp_body,
+    whatsapp_status,
+    whatsapp_error,
     created_at
 FROM collection_events
 WHERE levy_account_id = ANY($1::uuid[])
@@ -65,6 +74,19 @@ INSERT INTO collection_events (
     event_type,
     note,
     promise_amount_cents,
-    promise_date
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    promise_date,
+    email_to,
+    email_subject,
+    email_body,
+    email_status,
+    email_error,
+    whatsapp_to,
+    whatsapp_body,
+    whatsapp_status,
+    whatsapp_error
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12, $13,
+    $14, $15, $16, $17
+)
 RETURNING *;

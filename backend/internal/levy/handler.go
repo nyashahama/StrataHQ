@@ -1,6 +1,7 @@
 package levy
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -11,12 +12,32 @@ import (
 	"github.com/stratahq/backend/internal/platform/response"
 )
 
+type attentionService interface {
+	AttentionQueue(ctx context.Context, identity auth.Identity, schemeID string) (*AttentionQueueResponse, error)
+	CollectionEvents(ctx context.Context, identity auth.Identity, schemeID, accountID string) ([]CollectionEvent, error)
+	RecordCollectionEvent(ctx context.Context, identity auth.Identity, schemeID, accountID string, input RecordCollectionEventInput) (*CollectionEvent, error)
+	Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error)
+	CreatePeriod(ctx context.Context, identity auth.Identity, schemeID string, input CreatePeriodInput) (*PeriodInfo, error)
+	Reconcile(ctx context.Context, identity auth.Identity, schemeID string, payments []ReconcilePaymentInput) (*ReconcileResult, error)
+}
+
 type Handler struct {
-	service *Service
+	service attentionService
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+func NewHandlerWithService(svc attentionService) *Handler {
+	return &Handler{service: svc}
+}
+
+type collectionEventRequest struct {
+	EventType          string  `json:"event_type"`
+	Note               *string `json:"note"`
+	PromiseAmountCents *int64  `json:"promise_amount_cents"`
+	PromiseDate        *string `json:"promise_date"`
 }
 
 type createPeriodRequest struct {
@@ -122,6 +143,85 @@ func (h *Handler) Reconcile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, result)
+}
+
+func (h *Handler) AttentionQueue(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	queue, err := h.service.AttentionQueue(r.Context(), identity, chi.URLParam(r, "schemeId"))
+	if err != nil {
+		writeLevyError(w, err, "failed to load attention queue")
+		return
+	}
+	response.JSON(w, http.StatusOK, queue)
+}
+
+func (h *Handler) PortfolioAttentionQueue(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	queue, err := h.service.AttentionQueue(r.Context(), identity, "")
+	if err != nil {
+		writeLevyError(w, err, "failed to load attention queue")
+		return
+	}
+	response.JSON(w, http.StatusOK, queue)
+}
+
+func (h *Handler) CollectionEvents(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	items, err := h.service.CollectionEvents(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"))
+	if err != nil {
+		writeLevyError(w, err, "failed to load collection events")
+		return
+	}
+	response.JSON(w, http.StatusOK, items)
+}
+
+func (h *Handler) RecordCollectionEvent(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+	var req collectionEventRequest
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
+		return
+	}
+	var promiseDate *time.Time
+	if req.PromiseDate != nil {
+		parsed, err := time.Parse("2006-01-02", strings.TrimSpace(*req.PromiseDate))
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "promise_date must be YYYY-MM-DD")
+			return
+		}
+		promiseDate = &parsed
+	}
+	if strings.TrimSpace(req.EventType) == "promise_to_pay" && (req.PromiseAmountCents == nil || promiseDate == nil) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "promise_to_pay requires amount and date")
+		return
+	}
+	created, err := h.service.RecordCollectionEvent(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"), RecordCollectionEventInput{
+		EventType:          strings.TrimSpace(req.EventType),
+		Note:               normalizeOptionalString(req.Note),
+		PromiseAmountCents: req.PromiseAmountCents,
+		PromiseDate:        promiseDate,
+	})
+	if err != nil {
+		writeLevyError(w, err, "failed to record collection event")
+		return
+	}
+	response.JSON(w, http.StatusCreated, created)
 }
 
 func normalizeOptionalString(value *string) *string {

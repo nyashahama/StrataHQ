@@ -561,3 +561,307 @@ func minInt64(a, b int64) int64 {
 func startOfDay(value time.Time) time.Time {
 	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
 }
+
+func (s *Service) AttentionQueue(ctx context.Context, identity auth.Identity, schemeID string) (*AttentionQueueResponse, error) {
+	if schemeID == "" {
+		if !auth.IsAdminRole(identity.Role) {
+			return nil, ErrForbidden
+		}
+		rows, err := s.db.Q.ListAttentionAccountsByOrg(ctx, uuid.MustParse(identity.OrgID))
+		if err != nil {
+			return nil, err
+		}
+		return s.buildAttentionQueueFromOrgRows(ctx, rows, "portfolio")
+	}
+
+	if _, role, _, err := s.resolveSchemeAccess(ctx, identity, schemeID); err != nil {
+		return nil, err
+	} else if role == string(auth.RoleResident) {
+		return nil, ErrForbidden
+	}
+
+	rows, err := s.db.Q.ListAttentionAccountsByScheme(ctx, uuid.MustParse(schemeID))
+	if err != nil {
+		return nil, err
+	}
+	return s.buildAttentionQueueFromSchemeRows(ctx, rows, "scheme")
+}
+
+func (s *Service) buildAttentionQueueFromOrgRows(ctx context.Context, rows []dbgen.ListAttentionAccountsByOrgRow, scope string) (*AttentionQueueResponse, error) {
+	if len(rows) == 0 {
+		return &AttentionQueueResponse{Items: []AttentionItem{}, Scope: scope}, nil
+	}
+
+	accountIDs := make([]uuid.UUID, len(rows))
+	data := make([]struct {
+		id         uuid.UUID
+		schemeID   uuid.UUID
+		schemeName string
+		unitID     uuid.UUID
+		unitIdent  string
+		ownerName  string
+		amount     int64
+		paid       int64
+		dueDate    time.Time
+		status     string
+	}, len(rows))
+
+	for i, r := range rows {
+		data[i] = struct {
+			id         uuid.UUID
+			schemeID   uuid.UUID
+			schemeName string
+			unitID     uuid.UUID
+			unitIdent  string
+			ownerName  string
+			amount     int64
+			paid       int64
+			dueDate    time.Time
+			status     string
+		}{
+			id:         r.LevyAccountID,
+			schemeID:   r.SchemeID,
+			schemeName: r.SchemeName,
+			unitID:     r.UnitID,
+			unitIdent:  r.UnitIdentifier,
+			ownerName:  r.OwnerName,
+			amount:     r.AmountCents,
+			paid:       r.PaidCents,
+			dueDate:    r.DueDate.Time,
+			status:     r.Status,
+		}
+		accountIDs[i] = r.LevyAccountID
+	}
+
+	return s.buildAttentionQueueFromData(ctx, data, accountIDs, scope)
+}
+
+func (s *Service) buildAttentionQueueFromSchemeRows(ctx context.Context, rows []dbgen.ListAttentionAccountsBySchemeRow, scope string) (*AttentionQueueResponse, error) {
+	if len(rows) == 0 {
+		return &AttentionQueueResponse{Items: []AttentionItem{}, Scope: scope}, nil
+	}
+
+	accountIDs := make([]uuid.UUID, len(rows))
+	data := make([]struct {
+		id         uuid.UUID
+		schemeID   uuid.UUID
+		schemeName string
+		unitID     uuid.UUID
+		unitIdent  string
+		ownerName  string
+		amount     int64
+		paid       int64
+		dueDate    time.Time
+		status     string
+	}, len(rows))
+
+	for i, r := range rows {
+		data[i] = struct {
+			id         uuid.UUID
+			schemeID   uuid.UUID
+			schemeName string
+			unitID     uuid.UUID
+			unitIdent  string
+			ownerName  string
+			amount     int64
+			paid       int64
+			dueDate    time.Time
+			status     string
+		}{
+			id:         r.LevyAccountID,
+			schemeID:   r.SchemeID,
+			schemeName: r.SchemeName,
+			unitID:     r.UnitID,
+			unitIdent:  r.UnitIdentifier,
+			ownerName:  r.OwnerName,
+			amount:     r.AmountCents,
+			paid:       r.PaidCents,
+			dueDate:    r.DueDate.Time,
+			status:     r.Status,
+		}
+		accountIDs[i] = r.LevyAccountID
+	}
+
+	return s.buildAttentionQueueFromData(ctx, data, accountIDs, scope)
+}
+
+func (s *Service) buildAttentionQueueFromData(ctx context.Context, data []struct {
+	id         uuid.UUID
+	schemeID   uuid.UUID
+	schemeName string
+	unitID     uuid.UUID
+	unitIdent  string
+	ownerName  string
+	amount     int64
+	paid       int64
+	dueDate    time.Time
+	status     string
+}, accountIDs []uuid.UUID, scope string) (*AttentionQueueResponse, error) {
+	events, err := s.db.Q.ListCollectionEventsByAccountIDs(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	lastActionByAccount := make(map[string]dbgen.CollectionEvent)
+	for _, ev := range events {
+		existing, ok := lastActionByAccount[ev.LevyAccountID.String()]
+		if !ok || ev.CreatedAt.After(existing.CreatedAt) {
+			lastActionByAccount[ev.LevyAccountID.String()] = ev
+		}
+	}
+
+	now := time.Now()
+	items := make([]AttentionItem, 0, len(data))
+	for _, rd := range data {
+		outstanding := rd.amount - rd.paid
+		if outstanding <= 0 {
+			continue
+		}
+
+		daysOverdue := int(now.Sub(rd.dueDate).Hours() / 24)
+		if daysOverdue < 0 {
+			daysOverdue = 0
+		}
+
+		var lastActionType string
+		var lastActionDaysAgo int
+		var promiseDateOverdue bool
+
+		if lastEv, ok := lastActionByAccount[rd.id.String()]; ok {
+			lastActionType = lastEv.EventType
+			lastActionDaysAgo = int(now.Sub(lastEv.CreatedAt).Hours() / 24)
+			if lastActionType == "promise_to_pay" && lastEv.PromiseDate.Valid {
+				promiseDateOverdue = lastEv.PromiseDate.Time.Before(now)
+			}
+		}
+
+		account := attentionAccount{
+			LevyAccountID:      rd.id.String(),
+			SchemeID:           rd.schemeID.String(),
+			SchemeName:         rd.schemeName,
+			UnitID:             rd.unitID.String(),
+			UnitIdentifier:     rd.unitIdent,
+			OwnerName:          rd.ownerName,
+			OutstandingCents:   outstanding,
+			DaysOverdue:        daysOverdue,
+			LastActionType:     lastActionType,
+			LastActionDaysAgo:  lastActionDaysAgo,
+			PromiseDateOverdue: promiseDateOverdue,
+		}
+
+		item := scoreAttentionItem(account, now)
+		items = append(items, item)
+	}
+
+	sortAttentionItems(items)
+
+	return &AttentionQueueResponse{Items: items, Scope: scope}, nil
+}
+
+func (s *Service) CollectionEvents(ctx context.Context, identity auth.Identity, schemeID, accountID string) ([]CollectionEvent, error) {
+	if _, role, _, err := s.resolveSchemeAccess(ctx, identity, schemeID); err != nil {
+		return nil, err
+	} else if role == string(auth.RoleResident) {
+		return nil, ErrForbidden
+	}
+
+	events, err := s.db.Q.ListCollectionEventsByAccountIDs(ctx, []uuid.UUID{uuid.MustParse(accountID)})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]CollectionEvent, len(events))
+	for i, ev := range events {
+		result[i] = CollectionEvent{
+			ID:            ev.ID.String(),
+			LevyAccountID: ev.LevyAccountID.String(),
+			SchemeID:      ev.SchemeID.String(),
+			ActorRole:     ev.ActorRole,
+			EventType:     ev.EventType,
+			CreatedAt:     ev.CreatedAt.Format(time.RFC3339),
+		}
+		if ev.Note.Valid {
+			result[i].Note = &ev.Note.String
+		}
+		if ev.PromiseAmountCents.Valid {
+			result[i].PromiseAmountCents = &ev.PromiseAmountCents.Int64
+		}
+		if ev.PromiseDate.Valid {
+			dateStr := ev.PromiseDate.Time.Format("2006-01-02")
+			result[i].PromiseDate = &dateStr
+		}
+	}
+
+	return result, nil
+}
+
+func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Identity, schemeID, accountID string, input RecordCollectionEventInput) (*CollectionEvent, error) {
+	if err := validateCollectionEventInput(input); err != nil {
+		return nil, err
+	}
+	if _, role, _, err := s.resolveSchemeAccess(ctx, identity, schemeID); err != nil {
+		return nil, err
+	} else if role == string(auth.RoleResident) {
+		return nil, ErrForbidden
+	}
+
+	accountUUID := uuid.MustParse(accountID)
+	schemeUUID := uuid.MustParse(schemeID)
+
+	var actorUserUUID pgtype.UUID
+	if identity.UserID != "" {
+		actorUserUUID = pgtype.UUID{Bytes: uuid.MustParse(identity.UserID), Valid: true}
+	}
+
+	var note pgtype.Text
+	if input.Note != nil {
+		note = pgtype.Text{String: *input.Note, Valid: true}
+	}
+
+	var promiseAmountCents pgtype.Int8
+	if input.PromiseAmountCents != nil {
+		promiseAmountCents = pgtype.Int8{Int64: *input.PromiseAmountCents, Valid: true}
+	}
+
+	var promiseDate pgtype.Date
+	if input.PromiseDate != nil {
+		promiseDate = pgtype.Date{Time: *input.PromiseDate, Valid: true}
+	}
+
+	params := dbgen.CreateCollectionEventParams{
+		SchemeID:           schemeUUID,
+		LevyAccountID:      accountUUID,
+		ActorUserID:        actorUserUUID,
+		ActorRole:          identity.Role,
+		EventType:          input.EventType,
+		Note:               note,
+		PromiseAmountCents: promiseAmountCents,
+		PromiseDate:        promiseDate,
+	}
+
+	created, err := s.db.Q.CreateCollectionEvent(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &CollectionEvent{
+		ID:            created.ID.String(),
+		LevyAccountID: created.LevyAccountID.String(),
+		SchemeID:      created.SchemeID.String(),
+		ActorRole:     created.ActorRole,
+		EventType:     created.EventType,
+		CreatedAt:     created.CreatedAt.Format(time.RFC3339),
+	}
+	if created.Note.Valid {
+		result.Note = &created.Note.String
+	}
+	if created.PromiseAmountCents.Valid {
+		result.PromiseAmountCents = &created.PromiseAmountCents.Int64
+	}
+	if created.PromiseDate.Valid {
+		dateStr := created.PromiseDate.Time.Format("2006-01-02")
+		result.PromiseDate = &dateStr
+	}
+
+	return result, nil
+}

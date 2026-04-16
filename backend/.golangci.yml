@@ -20,3 +20,7 @@ linters-settings:
 issues:
   exclude-dirs:
     - db/gen
+  exclude-rules:
+    - linters:
+        - govet
+      text: "fieldalignment"

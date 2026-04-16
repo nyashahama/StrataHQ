@@ -20,6 +20,8 @@ CREATE TABLE collection_events (
     created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE collection_events ENABLE ROW LEVEL SECURITY;
+
 CREATE INDEX idx_collection_events_account_created_at
     ON collection_events (levy_account_id, created_at DESC);
 CREATE INDEX idx_collection_events_scheme_created_at

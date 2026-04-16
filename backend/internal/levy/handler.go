@@ -35,9 +35,9 @@ func NewHandlerWithService(svc attentionService) *Handler {
 
 type collectionEventRequest struct {
 	EventType          string  `json:"event_type"`
-	Note               *string `json:"note"`
 	PromiseAmountCents *int64  `json:"promise_amount_cents"`
 	PromiseDate        *string `json:"promise_date"`
+	Note               *string `json:"note"`
 }
 
 type createPeriodRequest struct {

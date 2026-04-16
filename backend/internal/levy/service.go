@@ -594,29 +594,29 @@ func (s *Service) buildAttentionQueueFromOrgRows(ctx context.Context, rows []dbg
 
 	accountIDs := make([]uuid.UUID, len(rows))
 	data := make([]struct {
-		id         uuid.UUID
-		schemeID   uuid.UUID
-		schemeName string
-		unitID     uuid.UUID
-		unitIdent  string
-		ownerName  string
 		amount     int64
 		paid       int64
 		dueDate    time.Time
+		id         uuid.UUID
+		schemeID   uuid.UUID
+		unitID     uuid.UUID
+		schemeName string
+		unitIdent  string
+		ownerName  string
 		status     string
 	}, len(rows))
 
 	for i, r := range rows {
 		data[i] = struct {
-			id         uuid.UUID
-			schemeID   uuid.UUID
-			schemeName string
-			unitID     uuid.UUID
-			unitIdent  string
-			ownerName  string
 			amount     int64
 			paid       int64
 			dueDate    time.Time
+			id         uuid.UUID
+			schemeID   uuid.UUID
+			unitID     uuid.UUID
+			schemeName string
+			unitIdent  string
+			ownerName  string
 			status     string
 		}{
 			id:         r.LevyAccountID,
@@ -643,29 +643,29 @@ func (s *Service) buildAttentionQueueFromSchemeRows(ctx context.Context, rows []
 
 	accountIDs := make([]uuid.UUID, len(rows))
 	data := make([]struct {
-		id         uuid.UUID
-		schemeID   uuid.UUID
-		schemeName string
-		unitID     uuid.UUID
-		unitIdent  string
-		ownerName  string
 		amount     int64
 		paid       int64
 		dueDate    time.Time
+		id         uuid.UUID
+		schemeID   uuid.UUID
+		unitID     uuid.UUID
+		schemeName string
+		unitIdent  string
+		ownerName  string
 		status     string
 	}, len(rows))
 
 	for i, r := range rows {
 		data[i] = struct {
-			id         uuid.UUID
-			schemeID   uuid.UUID
-			schemeName string
-			unitID     uuid.UUID
-			unitIdent  string
-			ownerName  string
 			amount     int64
 			paid       int64
 			dueDate    time.Time
+			id         uuid.UUID
+			schemeID   uuid.UUID
+			unitID     uuid.UUID
+			schemeName string
+			unitIdent  string
+			ownerName  string
 			status     string
 		}{
 			id:         r.LevyAccountID,
@@ -686,15 +686,15 @@ func (s *Service) buildAttentionQueueFromSchemeRows(ctx context.Context, rows []
 }
 
 func (s *Service) buildAttentionQueueFromData(ctx context.Context, data []struct {
-	id         uuid.UUID
-	schemeID   uuid.UUID
-	schemeName string
-	unitID     uuid.UUID
-	unitIdent  string
-	ownerName  string
 	amount     int64
 	paid       int64
 	dueDate    time.Time
+	id         uuid.UUID
+	schemeID   uuid.UUID
+	unitID     uuid.UUID
+	schemeName string
+	unitIdent  string
+	ownerName  string
 	status     string
 }, accountIDs []uuid.UUID, scope string) (*AttentionQueueResponse, error) {
 	events, err := s.db.Q.ListCollectionEventsByAccountIDs(ctx, accountIDs)

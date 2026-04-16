@@ -6,29 +6,29 @@ import (
 )
 
 type attentionAccount struct {
+	PromiseDateOverdue bool
+	DaysOverdue        int
+	LastActionDaysAgo  int
+	OutstandingCents   int64
 	LevyAccountID      string
 	SchemeID           string
 	SchemeName         string
 	UnitID             string
 	UnitIdentifier     string
 	OwnerName          string
-	OutstandingCents   int64
-	DaysOverdue        int
 	LastActionType     string
-	LastActionDaysAgo  int
-	PromiseDateOverdue bool
 }
 
 type AttentionItem struct {
+	DaysOverdue       int      `json:"days_overdue"`
+	RiskScore         int      `json:"risk_score"`
+	OutstandingCents  int64    `json:"outstanding_cents"`
 	LevyAccountID     string   `json:"levy_account_id"`
 	SchemeID          string   `json:"scheme_id"`
 	SchemeName        string   `json:"scheme_name"`
 	UnitID            string   `json:"unit_id"`
 	UnitIdentifier    string   `json:"unit_identifier"`
 	OwnerName         string   `json:"owner_name"`
-	OutstandingCents  int64    `json:"outstanding_cents"`
-	DaysOverdue       int      `json:"days_overdue"`
-	RiskScore         int      `json:"risk_score"`
 	ScoreDrivers      []string `json:"score_drivers"`
 	RecommendedAction string   `json:"recommended_action"`
 }
@@ -98,21 +98,21 @@ func scoreAttentionItem(item attentionAccount, _ time.Time) AttentionItem {
 
 type RecordCollectionEventInput struct {
 	EventType          string
-	Note               *string
 	PromiseAmountCents *int64
 	PromiseDate        *time.Time
+	Note               *string
 }
 
 type CollectionEvent struct {
+	CreatedAt          string  `json:"created_at"`
+	EventType          string  `json:"event_type"`
+	ActorRole          string  `json:"actor_role"`
 	ID                 string  `json:"id"`
 	LevyAccountID      string  `json:"levy_account_id"`
 	SchemeID           string  `json:"scheme_id"`
-	ActorRole          string  `json:"actor_role"`
-	EventType          string  `json:"event_type"`
 	Note               *string `json:"note"`
 	PromiseAmountCents *int64  `json:"promise_amount_cents"`
 	PromiseDate        *string `json:"promise_date"`
-	CreatedAt          string  `json:"created_at"`
 }
 
 type AttentionQueueResponse struct {

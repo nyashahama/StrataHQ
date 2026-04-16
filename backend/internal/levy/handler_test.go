@@ -13,13 +13,13 @@ import (
 )
 
 type fakeAttentionService struct {
-	queueCalled   bool
+	err           error
 	eventsCalled  bool
+	queueCalled   bool
 	recordCalled  bool
-	recordInput   RecordCollectionEventInput
 	queueResponse *AttentionQueueResponse
 	events        []CollectionEvent
-	err           error
+	recordInput   RecordCollectionEventInput
 }
 
 func (f *fakeAttentionService) AttentionQueue(_ context.Context, _ auth.Identity, _ string) (*AttentionQueueResponse, error) {

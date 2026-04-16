@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AttentionItem } from "@/lib/attention";
+import { CollectionActionPanel } from "./CollectionActionPanel";
 
 export default function AttentionQueue({
   items,
@@ -79,7 +80,7 @@ export default function AttentionQueue({
             </button>
             {expanded ? (
               <div className="border-t border-border px-5 py-4">
-                <p className="text-xs text-muted">Action panel placeholder</p>
+                <CollectionActionPanel item={item} onRefresh={onRefresh} />
               </div>
             ) : null}
           </div>

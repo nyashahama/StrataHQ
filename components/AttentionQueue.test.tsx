@@ -79,4 +79,22 @@ describe("AttentionQueue", () => {
 
     expect(screen.getByText("Failed to load")).toBeInTheDocument();
   });
+
+  it("opens the reminder modal from the expanded action panel", async () => {
+    render(
+      <AttentionQueue
+        items={[makeItem({ recommended_action: "reminder_sent" })]}
+        scope="scheme"
+        loading={false}
+        error={null}
+        onRefresh={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Unit 5C/i }));
+    const buttons = await screen.findAllByRole("button", { name: /send reminder/i });
+    fireEvent.click(buttons[1]!);
+
+    expect(await screen.findByRole("heading", { name: /Send reminder/i })).toBeInTheDocument();
+  });
 });

@@ -739,7 +739,7 @@ func (s *Service) buildAttentionQueueFromData(ctx context.Context, data []struct
 		return nil, err
 	}
 
-	lastActionByAccount := make(map[string]dbgen.CollectionEvent)
+	lastActionByAccount := make(map[string]dbgen.ListCollectionEventsByAccountIDsRow)
 	for _, ev := range events {
 		existing, ok := lastActionByAccount[ev.LevyAccountID.String()]
 		if !ok || ev.CreatedAt.After(existing.CreatedAt) {

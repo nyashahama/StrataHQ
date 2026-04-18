@@ -34,7 +34,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .gstack/
+.worktrees/
 .superpowers/
 .claude/
 DEMO_TESTING.md
 APP_TESTING.md
+FRONTEND_INTERVIEW_PREP.md
+SECURITY_AUDIT.md
+docs/superpowers
+docs/superpowers/

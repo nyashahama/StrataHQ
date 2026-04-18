@@ -1,15 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const refreshTokens = vi.fn();
+const refreshAuthSession = vi.fn();
+const clearAuthCookies = vi.fn();
 
-vi.mock("@/lib/auth-actions", () => ({
-  refreshTokens,
+vi.mock("@/lib/server-auth", () => ({
+  refreshAuthSession,
+  clearAuthCookies,
 }));
+
+const mockAccessToken = { current: "expired-access-token" };
+let callCount = 0;
 
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: vi.fn((name: string) => {
-      if (name === "sh_access") return { value: "expired-access-token" };
+      if (name === "sh_access") {
+        return { value: mockAccessToken.current };
+      }
       if (name === "sh_refresh") return { value: "valid-refresh-token" };
       return undefined;
     }),
@@ -19,17 +26,26 @@ vi.mock("next/headers", () => ({
 
 describe("proxyRequest", () => {
   beforeEach(() => {
-    refreshTokens.mockReset();
+    mockAccessToken.current = "expired-access-token";
+    callCount = 0;
+    refreshAuthSession.mockReset();
+    clearAuthCookies.mockReset();
     vi.restoreAllMocks();
+
+    refreshAuthSession.mockImplementation(async () => {
+      mockAccessToken.current = "new-access-token";
+      return { id: "1", email: "test@test.com" };
+    });
   });
 
   it("refreshes once and retries the upstream request after a 401", async () => {
     const calls: { url: string; options: RequestInit }[] = [];
 
     const fetchMock = vi.fn(async (url: string, options: RequestInit) => {
+      callCount++;
       calls.push({ url, options: { ...options } });
 
-      if (calls.length === 1) {
+      if (callCount === 1) {
         return new Response(null, { status: 401 });
       }
 
@@ -40,8 +56,6 @@ describe("proxyRequest", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    refreshTokens.mockResolvedValue("new-access-token");
-
     const { GET } = await import("./route");
 
     const req = new Request("http://localhost/api/proxy/api/v1/some/endpoint");
@@ -50,8 +64,9 @@ describe("proxyRequest", () => {
     const response = await GET(req as unknown as import("next/server").NextRequest, { params });
 
     expect(response.status).toBe(200);
-    expect(refreshTokens).toHaveBeenCalledTimes(1);
+    expect(refreshAuthSession).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(clearAuthCookies).not.toHaveBeenCalled();
 
     const firstCall = calls[0];
     expect(firstCall.options.headers).toEqual(
@@ -74,7 +89,7 @@ describe("proxyRequest", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    refreshTokens.mockResolvedValue(null);
+    refreshAuthSession.mockResolvedValue(null);
 
     const { GET } = await import("./route");
 
@@ -84,7 +99,8 @@ describe("proxyRequest", () => {
     const response = await GET(req as unknown as import("next/server").NextRequest, { params });
 
     expect(response.status).toBe(401);
-    expect(refreshTokens).toHaveBeenCalledTimes(1);
+    expect(refreshAuthSession).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(clearAuthCookies).toHaveBeenCalledTimes(1);
   });
 });

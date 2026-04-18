@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 
 import { buildAllowedBackendProxyPath } from "@/lib/backend-proxy";
+import { clearAuthCookies, refreshAuthSession } from "@/lib/server-auth";
 
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
 
@@ -48,15 +49,36 @@ export async function DELETE(
   return proxyRequest(request, (await params).path);
 }
 
-async function proxyRequest(
+function unauthorizedResponse() {
+  return new Response(null, {
+    status: 401,
+    statusText: "Unauthorized",
+  });
+}
+
+function proxyResponse(response: Response) {
+  const responseHeaders = new Headers();
+  const contentType = response.headers.get("content-type");
+  if (contentType) responseHeaders.set("content-type", contentType);
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: responseHeaders,
+  });
+}
+
+async function forwardRequest(
   request: NextRequest,
-  pathSegments: string[],
+  url: URL,
+  accessToken: string | undefined,
 ) {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sh_access")?.value;
 
-  const url = new URL(request.url);
-  const backendPath = buildAllowedBackendProxyPath(pathSegments, url.search);
+  const backendPath = buildAllowedBackendProxyPath(
+    request.url.split("/api/proxy/")[1]?.split("/") ?? [],
+    url.search,
+  );
   if (!backendPath) {
     return new Response(null, { status: 404 });
   }
@@ -82,13 +104,37 @@ async function proxyRequest(
     body,
   });
 
-  const responseHeaders = new Headers();
-  const contentType = response.headers.get("content-type");
-  if (contentType) responseHeaders.set("content-type", contentType);
+  return response;
+}
 
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers: responseHeaders,
-  });
+async function proxyRequest(request: NextRequest, pathSegments: string[]) {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("sh_access")?.value;
+  const auth = request.headers.get("x-skip-auth") !== "true";
+
+  const url = new URL(request.url);
+  const backendPath = buildAllowedBackendProxyPath(pathSegments, url.search);
+  if (!backendPath) {
+    return new Response(null, { status: 404 });
+  }
+
+  const firstResponse = await forwardRequest(request, url, accessToken);
+  if (!auth || firstResponse.status !== 401) {
+    return proxyResponse(firstResponse);
+  }
+
+  const refreshed = await refreshAuthSession();
+  if (!refreshed) {
+    await clearAuthCookies();
+    return unauthorizedResponse();
+  }
+
+  const updatedAccessToken = cookieStore.get("sh_access")?.value;
+  const retryResponse = await forwardRequest(request, url, updatedAccessToken);
+
+  if (retryResponse.status === 401) {
+    await clearAuthCookies();
+  }
+
+  return proxyResponse(retryResponse);
 }

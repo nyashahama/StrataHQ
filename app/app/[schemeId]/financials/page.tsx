@@ -1,14 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
-import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
+import { invalidateCache } from '@/lib/data-cache'
 import { getFinancialDashboard, updateReserveFund, upsertBudgetLine } from '@/lib/financials-api'
 import type { BudgetLineInfo, FinancialDashboard } from '@/lib/financials'
 import { useToast } from '@/lib/toast'
+
+import { queryClient } from '@/lib/query-client'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 function formatRand(cents: number): string {
   return `R ${(cents / 100).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`
@@ -20,8 +23,6 @@ export default function FinancialsPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<FinancialDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [showBudgetModal, setShowBudgetModal] = useState(false)
   const [showReserveModal, setShowReserveModal] = useState(false)
@@ -40,35 +41,11 @@ export default function FinancialsPage() {
 
   const canManage = user?.role === 'admin' || user?.role === 'trustee'
 
-  useEffect(() => {
-    async function load() {
-      const key = `scheme:${schemeId}:financials:${selectedPeriod}`
-      const cached = getCached<FinancialDashboard>(key)
-      if (cached) {
-        setDashboard(cached)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const nextDashboard = await getFinancialDashboard(schemeId, selectedPeriod || undefined)
-        setCached(key, nextDashboard)
-        setDashboard(nextDashboard)
-        if (!selectedPeriod && nextDashboard.selected_period) {
-          setSelectedPeriod(nextDashboard.selected_period)
-        }
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load financial dashboard',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, schemeId, selectedPeriod])
+  const { data: dashboard, isLoading: loading } = useAuthenticatedQuery<FinancialDashboard>({
+    queryKey: [`scheme:${schemeId}:financials:${selectedPeriod}`],
+    queryFn: () => getFinancialDashboard(schemeId, selectedPeriod || undefined),
+    staleTime: 30_000,
+  })
 
   const budgetLines = dashboard?.budget_lines ?? []
   const reserveFund = dashboard?.reserve_fund ?? null
@@ -109,17 +86,10 @@ export default function FinancialsPage() {
 
   async function refreshDashboard(nextPeriod?: string) {
     invalidateCache(`scheme:${schemeId}:financials`)
-    setLoading(true)
-    try {
-      const dashboardData = await getFinancialDashboard(schemeId, nextPeriod || selectedPeriod || undefined)
-      const newPeriod = dashboardData.selected_period || nextPeriod || selectedPeriod || ''
-      setCached(`scheme:${schemeId}:financials:${newPeriod}`, dashboardData)
-      setDashboard(dashboardData)
-      if (dashboardData.selected_period && dashboardData.selected_period !== selectedPeriod) {
-        setSelectedPeriod(dashboardData.selected_period)
-      }
-    } finally {
-      setLoading(false)
+    const newPeriod = nextPeriod || selectedPeriod || ''
+    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:financials:${newPeriod}`] })
+    if (!nextPeriod && dashboard?.selected_period) {
+      setSelectedPeriod(dashboard.selected_period)
     }
   }
 

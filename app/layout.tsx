@@ -3,6 +3,7 @@ import { Lora, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { AppProviders } from "@/components/providers/AppProviders";
 
 const lora = Lora({
   subsets: ["latin"],
@@ -56,7 +57,9 @@ export default function RootLayout({
       </head>
       <body className="bg-page text-ink font-sans antialiased leading-relaxed">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AppProviders>
+            <AuthProvider>{children}</AuthProvider>
+          </AppProviders>
         </ThemeProvider>
       </body>
     </html>

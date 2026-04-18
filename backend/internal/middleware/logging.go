@@ -24,13 +24,20 @@ func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
 			wrapped := &wrappedWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			next.ServeHTTP(wrapped, r)
 
-			logger.Info("request",
+			attrs := []any{
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", wrapped.statusCode,
 				"duration_ms", time.Since(start).Milliseconds(),
 				"remote_addr", r.RemoteAddr,
-			)
+			}
+
+			requestID := r.Header.Get("X-Request-ID")
+			if requestID != "" {
+				attrs = append(attrs, "request_id", requestID)
+			}
+
+			logger.Info("request", attrs...)
 		})
 	}
 }

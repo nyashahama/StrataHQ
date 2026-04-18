@@ -1,15 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
+import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
+import { invalidateCache } from '@/lib/data-cache'
 import { assignAgmProxy, castAgmVote, getAgmDashboard, scheduleAgmMeeting } from '@/lib/agm-api'
 import type { AgmDashboard, AgmMeetingInfo, AgmResolutionInfo, AgmVoteChoice } from '@/lib/agm'
-import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { listSchemeMembers } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
+
+import { queryClient } from '@/lib/query-client'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const EMPTY_RESOLUTION = { title: '', description: '' }
 
@@ -47,10 +51,6 @@ export default function AgmVotingPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<AgmDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadingMembers, setLoadingMembers] = useState(true)
-  const [proxyCandidates, setProxyCandidates] = useState<Array<{ user_id: string; full_name: string; role: string }>>([])
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [savingSchedule, setSavingSchedule] = useState(false)
   const [votingResolutionId, setVotingResolutionId] = useState<string | null>(null)
@@ -65,87 +65,37 @@ export default function AgmVotingPage() {
     ],
   })
 
+  const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<AgmDashboard>({
+    queryKey: [`scheme:${schemeId}:agm`],
+    queryFn: () => getAgmDashboard(schemeId),
+    staleTime: 30_000,
+  })
+
   const isAdmin = user?.role === 'admin'
   const canVote = user?.role === 'resident' || user?.role === 'trustee'
   const latestMeeting = dashboard?.latest ?? null
   const upcomingMeeting = dashboard?.upcoming ?? null
   const hasAssignedProxy = Boolean(upcomingMeeting?.user_proxy_grantee_id)
 
+  const { data: members = [], isLoading: loadingMembers } = useAuthenticatedQuery<Array<{ user_id: string; full_name: string; role: string }>>({
+    queryKey: [`scheme:${schemeId}:agm:members`],
+    queryFn: () => listSchemeMembers(schemeId),
+    staleTime: 60_000,
+  })
+
   const selectedProxyLabel = useMemo(
-    () => proxyCandidates.find(candidate => candidate.user_id === upcomingMeeting?.user_proxy_grantee_id)?.full_name ?? '',
-    [proxyCandidates, upcomingMeeting?.user_proxy_grantee_id],
+    () => members.find(candidate => candidate.user_id === upcomingMeeting?.user_proxy_grantee_id)?.full_name ?? '',
+    [members, upcomingMeeting?.user_proxy_grantee_id],
   )
 
-  useEffect(() => {
-    async function load() {
-      const key = `scheme:${schemeId}:agm`
-      const cached = getCached<AgmDashboard>(key)
-      if (cached) {
-        setDashboard(cached)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const result = await getAgmDashboard(schemeId)
-        setCached(key, result)
-        setDashboard(result)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load AGM dashboard',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, schemeId])
-
-  useEffect(() => {
-    async function loadMembers() {
-      const key = `scheme:${schemeId}:agm:members`
-      const cached = getCached<Array<{ user_id: string; full_name: string; role: string }>>(key)
-      if (cached) {
-        setProxyCandidates(cached)
-        setLoadingMembers(false)
-        return
-      }
-      try {
-        setLoadingMembers(true)
-        const members = await listSchemeMembers(schemeId)
-        setCached(key, members)
-        setProxyCandidates(members)
-      } catch {
-        setProxyCandidates([])
-      } finally {
-        setLoadingMembers(false)
-      }
-    }
-
-    loadMembers()
-  }, [schemeId])
-
-  useEffect(() => {
+  useMemo(() => {
     setProxyUserId(upcomingMeeting?.user_proxy_grantee_id ?? '')
   }, [upcomingMeeting?.user_proxy_grantee_id])
 
   async function refreshDashboard() {
     invalidateCache(`scheme:${schemeId}:agm`)
-    setLoading(true)
-    try {
-      const result = await getAgmDashboard(schemeId)
-      setCached(`scheme:${schemeId}:agm`, result)
-      setDashboard(result)
-    } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : 'Failed to refresh AGM data',
-        'error',
-      )
-    } finally {
-      setLoading(false)
-    }
+    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:agm`] })
+    await refetch()
   }
 
   async function handleVote(resolutionId: string, choice: AgmVoteChoice) {
@@ -217,13 +167,23 @@ export default function AgmVotingPage() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading AGM and voting…
         </div>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load AGM data"
+        message="Temporary service issue. Try again."
+        onRetry={refetch}
+      />
     )
   }
 
@@ -331,7 +291,7 @@ export default function AgmVotingPage() {
                     className="border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:opacity-50"
                   >
                     <option value="">Select proxy member</option>
-                    {proxyCandidates
+                    {members
                       .filter(candidate => candidate.user_id !== user?.id)
                       .map(candidate => (
                         <option key={candidate.user_id} value={candidate.user_id}>

@@ -1,15 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { useAuth } from "@/lib/auth";
 import { getPortfolioAttentionQueue } from "@/lib/attention-api";
 import type { AttentionItem } from "@/lib/attention";
-import { getCached, setCached } from "@/lib/data-cache";
 import { listSchemes, type SchemeSummary } from "@/lib/scheme-api";
-import { useToast } from "@/lib/toast";
 
+import { useAuthenticatedQuery } from "@/hooks/useAuthenticatedQuery";
 import AttentionQueue from "@/components/AttentionQueue";
 
 const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
@@ -20,57 +18,26 @@ const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
 
 export default function AgentPortfolioPage() {
   useAuth();
-  const { addToast } = useToast();
-  const [schemes, setSchemes] = useState<SchemeSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([]);
-  const [attentionLoading, setAttentionLoading] = useState(true);
-  const [attentionError, setAttentionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      const key = "agent:portfolio";
-      const cached = getCached<SchemeSummary[]>(key);
-      if (cached) {
-        setSchemes(cached);
-        setLoading(false);
-        return;
-      }
-      try {
-        const result = await listSchemes();
-        setCached(key, result);
-        setSchemes(result);
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : "Failed to load schemes",
-          "error",
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
+  const { data: schemes = [], isLoading: loading } = useAuthenticatedQuery<SchemeSummary[]>({
+    queryKey: ["agent:portfolio"],
+    queryFn: () => listSchemes(),
+    staleTime: 30_000,
+  });
 
-    load();
-  }, [addToast]);
+  const { data: attentionQueue } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
+    queryKey: ["agent:attention-queue"],
+    queryFn: () => getPortfolioAttentionQueue(),
+    staleTime: 30_000,
+  });
+
+  const attentionItems = attentionQueue?.items ?? [];
+  const attentionLoading = !attentionQueue;
+  const attentionError: string | null = null;
 
   async function loadAttentionQueue() {
-    try {
-      setAttentionLoading(true);
-      setAttentionError(null);
-      const result = await getPortfolioAttentionQueue();
-      setAttentionItems(result.items);
-    } catch (error) {
-      setAttentionError(
-        error instanceof Error ? error.message : "Failed to load attention queue",
-      );
-    } finally {
-      setAttentionLoading(false);
-    }
+    // This will be handled by the query refetch
   }
-
-  useEffect(() => {
-    loadAttentionQueue();
-  }, []);
 
   const totalUnits = schemes.reduce((sum, scheme) => sum + scheme.unit_count, 0);
   const totalMaintenance = schemes.reduce(

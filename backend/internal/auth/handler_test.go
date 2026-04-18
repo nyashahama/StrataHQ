@@ -158,6 +158,10 @@ func TestRegister_Success(t *testing.T) {
 			return &AuthResponse{
 				AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 900,
 				User: UserInfo{ID: "u1", Email: "a@b.com", FullName: "A B"},
+				Session: MeResponse{
+					ID: "u1", Email: "a@b.com", FullName: "A B",
+					Role: "admin", Org: OrgInfo{ID: "o1", Name: "Org"},
+				},
 			}, nil
 		},
 	}
@@ -178,6 +182,9 @@ func TestRegister_Success(t *testing.T) {
 	if resp.Data.AccessToken == "" {
 		t.Error("expected access_token in response")
 	}
+	if resp.Data.Session.ID == "" {
+		t.Error("expected session in response")
+	}
 }
 
 // --- Login ---
@@ -189,6 +196,48 @@ func TestLogin_BadJSON(t *testing.T) {
 	h.Login(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", w.Code)
+	}
+}
+
+func TestLogin_ReturnsSession(t *testing.T) {
+	svc := &mockService{
+		loginFn: func(_ context.Context, _, _ string) (*AuthResponse, error) {
+			return &AuthResponse{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+				ExpiresIn:    900,
+				Session: MeResponse{
+					ID:       "u1",
+					Email:    "a@b.com",
+					FullName: "A B",
+					Role:     "admin",
+					Org:      OrgInfo{ID: "o1", Name: "Org"},
+				},
+			}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/login", body(t, map[string]string{
+		"email": "a@b.com", "password": "pass",
+	}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Login(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("status = %d, want 200", w.Code)
+	}
+	var resp struct {
+		Data AuthResponse `json:"data"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Data.Session.ID == "" {
+		t.Error("expected session.id in login response")
+	}
+	if resp.Data.Session.Role != "admin" {
+		t.Errorf("session.role = %q, want admin", resp.Data.Session.Role)
+	}
+	if resp.Data.Session.Org.ID == "" {
+		t.Error("expected session.org in login response")
 	}
 }
 
@@ -256,7 +305,15 @@ func TestRefresh_InvalidToken(t *testing.T) {
 func TestRefresh_Success(t *testing.T) {
 	svc := &mockService{
 		refreshFn: func(_ context.Context, _ string) (*RefreshResponse, error) {
-			return &RefreshResponse{AccessToken: "new", RefreshToken: "new-rt", ExpiresIn: 900}, nil
+			return &RefreshResponse{
+				AccessToken:  "new",
+				RefreshToken: "new-rt",
+				ExpiresIn:    900,
+				Session: MeResponse{
+					ID: "u1", Email: "a@b.com", FullName: "A B",
+					Role: "admin", Org: OrgInfo{ID: "o1", Name: "Org"},
+				},
+			}, nil
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/refresh", body(t, map[string]string{"refresh_token": "old"}))
@@ -264,6 +321,15 @@ func TestRefresh_Success(t *testing.T) {
 	NewHandler(svc).Refresh(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)
+	}
+	var resp struct {
+		Data RefreshResponse `json:"data"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Data.Session.ID == "" {
+		t.Error("expected session in refresh response")
 	}
 }
 

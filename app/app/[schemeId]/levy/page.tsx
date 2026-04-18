@@ -1,15 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import ReconcileModal from '@/components/ReconcileModal'
+import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
-import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
+import { invalidateCache } from '@/lib/data-cache'
 import { createLevyPeriod, getLevyDashboard, reconcileLevyPayments } from '@/lib/levy-api'
 import type { LevyAccountInfo, LevyDashboard, ReconcilePaymentInput } from '@/lib/levy'
 import { useToast } from '@/lib/toast'
+
+import { queryClient } from '@/lib/query-client'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 function formatRand(cents: number): string {
   return `R ${(cents / 100).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`
@@ -41,8 +45,6 @@ export default function LevyPaymentsPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<LevyDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
   const [reconcileOpen, setReconcileOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [creatingPeriod, setCreatingPeriod] = useState(false)
@@ -52,48 +54,16 @@ export default function LevyPaymentsPage() {
   const isResident = user?.role === 'resident'
   const canEdit = user?.role === 'admin'
 
-  useEffect(() => {
-    async function load() {
-      const key = `scheme:${schemeId}:levy`
-      const cached = getCached<LevyDashboard>(key)
-      if (cached) {
-        setDashboard(cached)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const result = await getLevyDashboard(schemeId)
-        setCached(key, result)
-        setDashboard(result)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load levy dashboard',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, schemeId])
+  const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<LevyDashboard>({
+    queryKey: [`scheme:${schemeId}:levy`],
+    queryFn: () => getLevyDashboard(schemeId),
+    staleTime: 30_000,
+  })
 
   async function refreshDashboard() {
     invalidateCache(`scheme:${schemeId}:levy`)
-    try {
-      setLoading(true)
-      const result = await getLevyDashboard(schemeId)
-      setCached(`scheme:${schemeId}:levy`, result)
-      setDashboard(result)
-    } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : 'Failed to load levy dashboard',
-        'error',
-      )
-    } finally {
-      setLoading(false)
-    }
+    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:levy`] })
+    await refetch()
   }
 
   async function handleCreatePeriod() {
@@ -158,13 +128,23 @@ export default function LevyPaymentsPage() {
     [schemeId, user?.scheme_memberships],
   )
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading levy dashboard…
         </div>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load levy data"
+        message="Temporary service issue. Try again."
+        onRetry={refetch}
+      />
     )
   }
 

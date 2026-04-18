@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import { apiFetch } from '@/lib/api'
 import { readApiError } from '@/lib/api-contract'
 import { useAuth } from '@/lib/auth'
-import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
+import { invalidateCache } from '@/lib/data-cache'
 import {
   listSchemeMembers,
   listSchemeUnits,
@@ -16,6 +16,9 @@ import {
   type UnitInfo,
 } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
+
+import { queryClient } from '@/lib/query-client'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const ROLE_STYLES: Record<string, string> = {
   trustee: 'bg-accent-bg text-accent',
@@ -54,9 +57,6 @@ export default function MembersPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [members, setMembers] = useState<MemberInfo[]>([])
-  const [units, setUnits] = useState<UnitInfo[]>([])
-  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -68,39 +68,17 @@ export default function MembersPage() {
 
   const canEdit = user?.role === 'admin'
 
-  useEffect(() => {
-    async function load() {
-      const membersKey = `scheme:${schemeId}:members`
-      const unitsKey = `scheme:${schemeId}:members:units`
-      const cachedMembers = getCached<MemberInfo[]>(membersKey)
-      const cachedUnits = getCached<UnitInfo[]>(unitsKey)
-      if (cachedMembers && cachedUnits) {
-        setMembers(cachedMembers)
-        setUnits(cachedUnits)
-        setLoading(false)
-        return
-      }
-      try {
-        const [loadedMembers, loadedUnits] = await Promise.all([
-          listSchemeMembers(schemeId),
-          listSchemeUnits(schemeId),
-        ])
-        setCached(membersKey, loadedMembers)
-        setCached(unitsKey, loadedUnits)
-        setMembers(loadedMembers)
-        setUnits(loadedUnits)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load members',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
+  const { data: members = [], isLoading: loading } = useAuthenticatedQuery<MemberInfo[]>({
+    queryKey: [`scheme:${schemeId}:members`],
+    queryFn: () => listSchemeMembers(schemeId),
+    staleTime: 30_000,
+  })
 
-    load()
-  }, [addToast, schemeId])
+  const { data: units = [] } = useAuthenticatedQuery<UnitInfo[]>({
+    queryKey: [`scheme:${schemeId}:members:units`],
+    queryFn: () => listSchemeUnits(schemeId),
+    staleTime: 30_000,
+  })
 
   const trustees = useMemo(
     () => members.filter(member => member.role === 'trustee'),
@@ -181,9 +159,7 @@ export default function MembersPage() {
         role: editForm.role,
         unit_id: editForm.role === 'resident' ? editForm.unit_id : null,
       })
-      setMembers(current =>
-        current.map(member => member.user_id === updated.user_id ? updated : member),
-      )
+      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:members`] })
       setShowEditModal(false)
       setSelectedMember(null)
       setEditForm(EMPTY_EDIT_FORM)

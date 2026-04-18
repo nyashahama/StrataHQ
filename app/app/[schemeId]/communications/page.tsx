@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
+import RetryState from '@/components/RetryState'
 import { createNotice, getCommunicationsDashboard } from '@/lib/communications-api'
 import type { NoticeInfo, NoticeType } from '@/lib/communications'
 import { useAuth } from '@/lib/auth'
-import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
+import { invalidateCache } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
+
+import { queryClient } from '@/lib/query-client'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const TYPE_STYLES: Record<NoticeType, string> = {
   general: 'bg-[#f0efe9] text-muted',
@@ -30,8 +34,6 @@ export default function CommunicationsPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [notices, setNotices] = useState<NoticeInfo[]>([])
-  const [loading, setLoading] = useState(true)
   const [typeFilter, setTypeFilter] = useState<'all' | NoticeType>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
@@ -40,49 +42,24 @@ export default function CommunicationsPage() {
 
   const canCompose = user?.role === 'admin' || user?.role === 'trustee'
 
-  useEffect(() => {
-    async function load() {
-      const key = `scheme:${schemeId}:communications:${typeFilter}`
-      const cached = getCached<NoticeInfo[]>(key)
-      if (cached) {
-        setNotices(cached)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const dashboard = await getCommunicationsDashboard(schemeId, typeFilter)
-        setCached(key, dashboard.notices)
-        setNotices(dashboard.notices)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load notices',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, schemeId, typeFilter])
+  const { data: notices = [], isLoading, error, refetch } = useAuthenticatedQuery<NoticeInfo[]>({
+    queryKey: [`scheme:${schemeId}:communications:${typeFilter}`],
+    queryFn: () => getCommunicationsDashboard(schemeId, typeFilter).then(d => d.notices),
+    staleTime: 30_000,
+  })
 
   async function handleCompose() {
-    invalidateCache(`scheme:${schemeId}:communications`)
     if (!form.title.trim() || !form.body.trim()) return
 
     setSending(true)
     try {
-      const notice = await createNotice(schemeId, {
+      await createNotice(schemeId, {
         title: form.title.trim(),
         body: form.body.trim(),
         type: form.type,
       })
-
-      if (typeFilter === 'all' || typeFilter === notice.type) {
-        setNotices(current => [notice, ...current])
-      }
-      setExpanded(notice.id)
+      invalidateCache(`scheme:${schemeId}:communications`)
+      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:communications`] })
       setShowModal(false)
       setForm({ title: '', body: '', type: 'general' })
       addToast('Notice sent to scheme members', 'success')
@@ -96,13 +73,23 @@ export default function CommunicationsPage() {
     }
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading communications…
         </div>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load communications"
+        message="Temporary service issue. Try again."
+        onRetry={refetch}
+      />
     )
   }
 

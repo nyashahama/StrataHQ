@@ -145,7 +145,7 @@ async function forwardRequest(
 }
 
 function shouldRetry(method: string, status: number): boolean {
-  return method === "GET" && RETRYABLE_STATUS_CODES.includes(status);
+  return method === "GET" && (status === 502 || status === 503 || status === 504);
 }
 
 async function proxyRequest(request: NextRequest, pathSegments: string[]) {

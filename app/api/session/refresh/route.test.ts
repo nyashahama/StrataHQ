@@ -17,7 +17,7 @@ describe("POST /api/session/refresh", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses sh_refresh, not sh_access, to rebuild the session", async () => {
+  it("uses sh_refresh to rebuild the session via shared helper", async () => {
     cookieGet.mockImplementation((name: string) => {
       if (name === "sh_access") return { value: "expired-access-token" };
       if (name === "sh_refresh") return { value: "valid-refresh-token" };
@@ -36,25 +36,22 @@ describe("POST /api/session/refresh", () => {
               data: {
                 access_token: "new-access-token",
                 refresh_token: "new-refresh-token",
+                session: {
+                  id: "user-1",
+                  email: "person@example.com",
+                  full_name: "Person Example",
+                  phone: null,
+                  role: "admin",
+                  wizard_complete: true,
+                  scheme_memberships: [],
+                },
               },
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
         }
 
-        return new Response(
-          JSON.stringify({
-            data: {
-              id: "user-1",
-              email: "person@example.com",
-              full_name: "Person Example",
-              phone: null,
-              role: "admin",
-              wizard_complete: true,
-            },
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        );
+        return new Response("{}", { status: 404 });
       }),
     );
 
@@ -68,38 +65,43 @@ describe("POST /api/session/refresh", () => {
     );
     expect(refreshCall).toBeDefined();
     expect(refreshCall?.options.method).toBe("POST");
-
-    const loginCall = fetchCalls.find(call =>
-      call.url.includes("/api/v1/auth/me"),
-    );
-    expect(loginCall).toBeUndefined();
   });
 
   it("unwraps the backend data envelope before shaping the session", async () => {
-    cookieGet.mockReturnValue({ value: "access-token" });
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_access") return { value: "access-token" };
+      if (name === "sh_refresh") return { value: "refresh-token" };
+      return undefined;
+    });
 
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            data: {
-              id: "user-1",
-              email: "person@example.com",
-              full_name: "Person Example",
-              phone: null,
-              role: "admin",
-              wizard_complete: true,
-              scheme_memberships: [{ scheme_id: "scheme-1", role: "admin" }],
-              org: { id: "org-1", name: "Org 1" },
-            },
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          },
-        ),
-      ),
+      vi.fn(async (url: string) => {
+        if (url.includes("/api/v1/auth/refresh")) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                access_token: "new-access-token",
+                refresh_token: "new-refresh-token",
+                session: {
+                  id: "user-1",
+                  email: "person@example.com",
+                  full_name: "Person Example",
+                  phone: null,
+                  role: "admin",
+                  wizard_complete: true,
+                  scheme_memberships: [
+                    { scheme_id: "scheme-1", scheme_name: "Scheme 1", role: "admin" },
+                  ],
+                  org: { id: "org-1", name: "Org 1" },
+                },
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+        return new Response("{}", { status: 404 });
+      }),
     );
 
     const { POST } = await import("./route");
@@ -113,13 +115,55 @@ describe("POST /api/session/refresh", () => {
       phone: null,
       role: "admin",
       wizard_complete: true,
-      scheme_memberships: [{ scheme_id: "scheme-1", role: "admin" }],
+      scheme_memberships: [
+        { scheme_id: "scheme-1", scheme_name: "Scheme 1", role: "admin" },
+      ],
       org: { id: "org-1", name: "Org 1" },
     });
     expect(cookieSet).toHaveBeenCalledWith(
       "sh_session",
       expect.stringContaining("%22id%22%3A%22user-1%22"),
       expect.any(Object),
+    );
+  });
+
+  it("writes sh_session with httpOnly and expected payload shape", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_access") return { value: "access-token" };
+      if (name === "sh_refresh") return { value: "refresh-token" };
+      return undefined;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              access_token: "new-access-token",
+              refresh_token: "new-refresh-token",
+              session: {
+                id: "user-1",
+                email: "person@example.com",
+                full_name: "Person Example",
+                role: "admin",
+                wizard_complete: true,
+                scheme_memberships: [],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const { POST } = await import("./route");
+    await POST();
+
+    expect(cookieSet).toHaveBeenCalledWith(
+      "sh_session",
+      expect.stringContaining("%22role%22"),
+      expect.objectContaining({ httpOnly: true }),
     );
   });
 });

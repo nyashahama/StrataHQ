@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { readApiData, readApiError } from "./api-contract";
+import { writeAuthCookies, clearAuthCookies } from "./server-auth";
 import type { SessionUser } from "./session";
 import { APP_ROLES } from "./session";
 
@@ -31,49 +32,6 @@ const SESSION_OPTS = {
   maxAge: 30 * 24 * 60 * 60,
 };
 
-async function setAuthCookies(
-  cookieStore: Awaited<ReturnType<typeof cookies>>,
-  accessToken: string,
-  refreshToken: string,
-  me: SessionUser,
-) {
-  const session: SessionUser = {
-    id: me.id,
-    email: me.email,
-    full_name: me.full_name,
-    phone: me.phone ?? null,
-    role: me.role,
-    wizard_complete: me.wizard_complete,
-    scheme_memberships: me.scheme_memberships ?? [],
-    org: me.org,
-  };
-  cookieStore.set("sh_access", accessToken, ACCESS_OPTS);
-  cookieStore.set("sh_refresh", refreshToken, REFRESH_OPTS);
-  cookieStore.set(
-    "sh_session",
-    encodeURIComponent(JSON.stringify(session)),
-    SESSION_OPTS,
-  );
-  return session;
-}
-
-async function fetchMe(accessToken: string): Promise<SessionUser | null> {
-  const res = await fetch(`${BACKEND()}/api/v1/auth/me`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) return null;
-  return readApiData<SessionUser>(res);
-}
-
-async function fetchMeWithRetry(accessToken: string, attempts = 3): Promise<SessionUser | null> {
-  for (let i = 0; i < attempts; i++) {
-    const me = await fetchMe(accessToken);
-    if (me) return me;
-    if (i < attempts - 1) await new Promise(resolve => setTimeout(resolve, 1000));
-  }
-  return null;
-}
-
 // ─── Login ────────────────────────────────────────────────────────────────────
 
 export async function loginAction(
@@ -97,23 +55,13 @@ export async function loginAction(
     };
   }
 
-  const { access_token, refresh_token } = await readApiData<{
+  const { access_token, refresh_token, session } = await readApiData<{
     access_token: string;
     refresh_token: string;
-    user: Pick<SessionUser, "id" | "email" | "full_name">;
+    session: SessionUser;
   }>(res);
 
-  // Backend returns user inline; try /me for full shape with retries
-  const me = await fetchMeWithRetry(access_token);
-  if (!me) return { error: "Login failed — please try again" };
-
-  const cookieStore = await cookies();
-  const session = await setAuthCookies(
-    cookieStore,
-    access_token,
-    refresh_token,
-    me,
-  );
+  await writeAuthCookies({ access_token, refresh_token, session });
   return { user: session };
 }
 
@@ -143,23 +91,13 @@ export async function registerAction(
     };
   }
 
-  const { access_token, refresh_token } = await readApiData<{
+  const { access_token, refresh_token, session } = await readApiData<{
     access_token: string;
     refresh_token: string;
-    user: Pick<SessionUser, "id" | "email" | "full_name">;
+    session: SessionUser;
   }>(res);
 
-  // Backend returns user inline; try /me for full shape with retries
-  const me = await fetchMeWithRetry(access_token);
-  if (!me) return { error: "Registration failed — please try again" };
-
-  const cookieStore = await cookies();
-  const session = await setAuthCookies(
-    cookieStore,
-    access_token,
-    refresh_token,
-    me,
-  );
+  await writeAuthCookies({ access_token, refresh_token, session });
   return { user: session };
 }
 
@@ -177,9 +115,7 @@ export async function logoutAction(): Promise<void> {
     }).catch(() => {});
   }
 
-  cookieStore.delete("sh_access");
-  cookieStore.delete("sh_refresh");
-  cookieStore.delete("sh_session");
+  await clearAuthCookies();
 }
 
 // ─── Token refresh ────────────────────────────────────────────────────────────
@@ -210,10 +146,7 @@ export async function refreshTokens(): Promise<string | null> {
 // ─── Clear auth ───────────────────────────────────────────────────────────────
 
 export async function clearAuth(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete("sh_access");
-  cookieStore.delete("sh_refresh");
-  cookieStore.delete("sh_session");
+  await clearAuthCookies();
 }
 
 // ─── Onboarding setup ─────────────────────────────────────────────────────────
@@ -345,19 +278,12 @@ export async function acceptInviteAction(
     };
   }
 
-  const { access_token, refresh_token } = await readApiData<{
+  const { access_token, refresh_token, session } = await readApiData<{
     access_token: string;
     refresh_token: string;
+    session: SessionUser;
   }>(res);
-  const me = await fetchMe(access_token);
-  if (!me) return { error: "Something went wrong — please try again" };
 
-  const cookieStore = await cookies();
-  const session = await setAuthCookies(
-    cookieStore,
-    access_token,
-    refresh_token,
-    me,
-  );
+  await writeAuthCookies({ access_token, refresh_token, session });
   return { user: session };
 }

@@ -46,16 +46,18 @@ type OrgInfo struct {
 }
 
 type AuthResponse struct {
-	AccessToken  string   `json:"access_token"`
-	RefreshToken string   `json:"refresh_token"`
-	User         UserInfo `json:"user"`
-	ExpiresIn    int      `json:"expires_in"` // seconds
+	AccessToken  string     `json:"access_token"`
+	RefreshToken string     `json:"refresh_token"`
+	User         UserInfo   `json:"user"`
+	Session      MeResponse `json:"session"`
+	ExpiresIn    int        `json:"expires_in"` // seconds
 }
 
 type RefreshResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresIn    int    `json:"expires_in"`
+	AccessToken  string     `json:"access_token"`
+	RefreshToken string     `json:"refresh_token"`
+	Session      MeResponse `json:"session"`
+	ExpiresIn    int        `json:"expires_in"`
 }
 
 type SchemeMembership struct {
@@ -189,6 +191,10 @@ func (s *Service) Login(ctx context.Context, email, password string) (*AuthRespo
 	return s.issueTokens(ctx, user, m.OrgID.String(), m.Role)
 }
 
+func (s *Service) buildSession(ctx context.Context, userID, orgID string) (*MeResponse, error) {
+	return s.Me(ctx, userID, orgID)
+}
+
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshResponse, error) {
 	newRefreshToken, err := GenerateRefreshToken()
 	if err != nil {
@@ -240,10 +246,16 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 		return nil, err
 	}
 
+	session, err := s.Me(ctx, user.ID.String(), membership.OrgID.String())
+	if err != nil {
+		return nil, err
+	}
+
 	return &RefreshResponse{
 		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
 		ExpiresIn:    int(s.jwtExpiry.Seconds()),
+		Session:      *session,
 	}, nil
 }
 
@@ -557,6 +569,11 @@ func (s *Service) issueTokens(ctx context.Context, user dbgen.User, orgID, role 
 		return nil, err
 	}
 
+	session, err := s.Me(ctx, user.ID.String(), orgID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -567,6 +584,7 @@ func (s *Service) issueTokens(ctx context.Context, user dbgen.User, orgID, role 
 			FullName: user.FullName,
 			Phone:    textString(user.Phone),
 		},
+		Session: *session,
 	}, nil
 }
 

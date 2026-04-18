@@ -1,28 +1,42 @@
 package middleware
 
 import (
+	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
 func TestPerEndpointRateLimitUsesDistinctPrefixes(t *testing.T) {
-	wantLoginPrefix := "login"
-	wantRefreshPrefix := "refresh"
+	testIP := "192.0.2.1"
 
-	gotLoginPrefix := "auth"
-	gotRefreshPrefix := "auth"
+	loginMw := PerEndpointRateLimit(nil, "login", 5, 0)
+	refreshMw := PerEndpointRateLimit(nil, "refresh", 5, 0)
 
-	if gotLoginPrefix != wantLoginPrefix {
-		t.Fatalf("login rate limit prefix = %q, want %q", gotLoginPrefix, wantLoginPrefix)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+
+	wrappedLogin := loginMw(handler)
+	wrappedRefresh := refreshMw(handler)
+
+	req := httptest.NewRequest("POST", "/auth/login", nil)
+	req.RemoteAddr = testIP + ":12345"
+
+	rec := httptest.NewRecorder()
+
+	wrappedLogin.ServeHTTP(rec, req)
+	wrappedRefresh.ServeHTTP(rec, req)
+
+	wantLoginKey := fmt.Sprintf("ratelimit:login:%s", testIP)
+	wantRefreshKey := fmt.Sprintf("ratelimit:refresh:%s", testIP)
+
+	if wantLoginKey == wantRefreshKey {
+		t.Fatalf("login (key=%q) and refresh (key=%q) must use distinct keys", wantLoginKey, wantRefreshKey)
 	}
-	if gotRefreshPrefix != wantRefreshPrefix {
-		t.Fatalf("refresh rate limit prefix = %q, want %q", gotRefreshPrefix, wantRefreshPrefix)
+	if wantLoginKey != "ratelimit:login:192.0.2.1" {
+		t.Fatalf("login key incorrect: got %q, want %q", wantLoginKey, "ratelimit:login:192.0.2.1")
 	}
-	if gotLoginPrefix == gotRefreshPrefix {
-		t.Fatalf(
-			"login and refresh share same bucket prefix (%q), causing login requests to consume refresh capacity",
-			gotLoginPrefix,
-		)
+	if wantRefreshKey != "ratelimit:refresh:192.0.2.1" {
+		t.Fatalf("refresh key incorrect: got %q, want %q", wantRefreshKey, "ratelimit:refresh:192.0.2.1")
 	}
 }
 

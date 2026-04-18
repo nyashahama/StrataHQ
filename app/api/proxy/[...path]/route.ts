@@ -3,8 +3,12 @@ import { NextRequest } from "next/server";
 
 import { buildAllowedBackendProxyPath } from "@/lib/backend-proxy";
 import { clearAuthCookies, refreshAuthSession } from "@/lib/server-auth";
+import { getOrCreateRequestId } from "@/lib/request-id";
 
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
+
+const UPSTREAM_TIMEOUT_MS = 10000;
+const RETRYABLE_STATUS_CODES = [502, 503, 504] as const;
 
 const PROXY_HEADERS = [
   "content-type",
@@ -56,10 +60,26 @@ function unauthorizedResponse() {
   });
 }
 
-function proxyResponse(response: Response) {
+function upstreamUnavailableResponse() {
+  return new Response(
+    JSON.stringify({
+      error: {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: "Temporary service issue. Please retry.",
+      },
+    }),
+    {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+}
+
+function proxyResponse(response: Response, requestId?: string) {
   const responseHeaders = new Headers();
   const contentType = response.headers.get("content-type");
   if (contentType) responseHeaders.set("content-type", contentType);
+  if (requestId) responseHeaders.set("x-request-id", requestId);
 
   return new Response(response.body, {
     status: response.status,
@@ -72,6 +92,8 @@ async function forwardRequest(
   request: NextRequest,
   url: URL,
   accessToken: string | undefined,
+  requestId: string,
+  signal?: AbortSignal,
 ) {
   const cookieStore = await cookies();
 
@@ -84,7 +106,9 @@ async function forwardRequest(
   }
   const backendUrl = `${BACKEND()}${backendPath}`;
 
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    "x-request-id": requestId,
+  };
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
@@ -102,12 +126,18 @@ async function forwardRequest(
     method: request.method,
     headers,
     body,
+    signal,
   });
 
   return response;
 }
 
+function shouldRetry(method: string, status: number): boolean {
+  return method === "GET" && RETRYABLE_STATUS_CODES.includes(status);
+}
+
 async function proxyRequest(request: NextRequest, pathSegments: string[]) {
+  const requestId = getOrCreateRequestId(request.headers);
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("sh_access")?.value;
   const auth = request.headers.get("x-skip-auth") !== "true";
@@ -118,9 +148,54 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     return new Response(null, { status: 404 });
   }
 
-  const firstResponse = await forwardRequest(request, url, accessToken);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+
+  let firstResponse: Response;
+  try {
+    firstResponse = await forwardRequest(
+      request,
+      url,
+      accessToken,
+      requestId,
+      controller.signal,
+    );
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return upstreamUnavailableResponse();
+    }
+    throw error;
+  }
+  clearTimeout(timeout);
+
   if (!auth || firstResponse.status !== 401) {
-    return proxyResponse(firstResponse);
+    if (shouldRetry(request.method, firstResponse.status)) {
+      const retryController = new AbortController();
+      const retryTimeout = setTimeout(
+        () => retryController.abort(),
+        UPSTREAM_TIMEOUT_MS,
+      );
+
+      try {
+        const retryResponse = await forwardRequest(
+          request,
+          url,
+          accessToken,
+          requestId,
+          retryController.signal,
+        );
+        clearTimeout(retryTimeout);
+        return proxyResponse(retryResponse, requestId);
+      } catch (error) {
+        clearTimeout(retryTimeout);
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return upstreamUnavailableResponse();
+        }
+        throw error;
+      }
+    }
+    return proxyResponse(firstResponse, requestId);
   }
 
   const refreshed = await refreshAuthSession();
@@ -130,11 +205,11 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   }
 
   const updatedAccessToken = cookieStore.get("sh_access")?.value;
-  const retryResponse = await forwardRequest(request, url, updatedAccessToken);
+  const retryResponse = await forwardRequest(request, url, updatedAccessToken, requestId);
 
   if (retryResponse.status === 401) {
     await clearAuthCookies();
   }
 
-  return proxyResponse(retryResponse);
+  return proxyResponse(retryResponse, requestId);
 }

@@ -26,6 +26,39 @@ var (
 		},
 		[]string{"method", "path"},
 	)
+
+	authRefreshTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "auth_refresh_total",
+			Help: "Total number of auth refreshes",
+		},
+		[]string{"success"},
+	)
+
+	proxyRefreshTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "proxy_refresh_total",
+			Help: "Total number of proxy token refreshes",
+		},
+		[]string{"success"},
+	)
+
+	upstreamFailuresTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "upstream_failures_total",
+			Help: "Total number of upstream failures",
+		},
+		[]string{"error_type"},
+	)
+
+	upstreamRequestDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "upstream_request_duration_seconds",
+			Help:    "Upstream request duration in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"path"},
+	)
 )
 
 func Metrics(next http.Handler) http.Handler {

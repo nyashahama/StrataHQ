@@ -103,4 +103,26 @@ describe("proxyRequest", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(clearAuthCookies).toHaveBeenCalledTimes(1);
   });
+
+  it("returns 503 with shaped error when upstream times out", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new DOMException("The operation was aborted", "AbortError");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { GET } = await import("./route");
+
+    const req = new Request("http://localhost/api/proxy/api/v1/some/endpoint");
+    const params = Promise.resolve({ path: ["api", "v1", "some", "endpoint"] });
+
+    const response = await GET(req as unknown as import("next/server").NextRequest, { params });
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      error: {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: "Temporary service issue. Please retry.",
+      },
+    });
+  });
 });

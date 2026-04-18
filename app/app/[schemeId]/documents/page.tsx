@@ -1,15 +1,19 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
+import RetryState from '@/components/RetryState'
 import { createDocument, deleteDocument, getDocumentsDashboard } from '@/lib/documents-api'
 import { getSafeDocumentDownloadHref } from '@/lib/document-download'
 import type { DocumentCategory, DocumentFileType, SchemeDocumentInfo } from '@/lib/documents'
 import { useAuth } from '@/lib/auth'
-import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
+import { invalidateCache } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
+
+import { queryClient } from '@/lib/query-client'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
   rules: 'Conduct Rules',
@@ -54,8 +58,6 @@ export default function DocumentsPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [documents, setDocuments] = useState<SchemeDocumentInfo[]>([])
-  const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState<'all' | DocumentCategory>('all')
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
@@ -65,55 +67,32 @@ export default function DocumentsPage() {
 
   const canUpload = user?.role === 'admin'
 
-  useEffect(() => {
-    async function load() {
-      const key = `scheme:${schemeId}:documents:${categoryFilter}`
-      const cached = getCached<SchemeDocumentInfo[]>(key)
-      if (cached) {
-        setDocuments(cached)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const dashboard = await getDocumentsDashboard(schemeId, categoryFilter)
-        setCached(key, dashboard.documents)
-        setDocuments(dashboard.documents)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load documents',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, categoryFilter, schemeId])
+  const { data: documents = [], isLoading, error, refetch } = useAuthenticatedQuery<SchemeDocumentInfo[]>({
+    queryKey: [`scheme:${schemeId}:documents:${categoryFilter}`],
+    queryFn: () => getDocumentsDashboard(schemeId, categoryFilter).then(d => d.documents),
+    staleTime: 30_000,
+  })
 
   async function handleUpload() {
-    invalidateCache(`scheme:${schemeId}:documents`)
     if (!selectedFile || !form.name.trim()) return
 
     setUploading(true)
     try {
       const storageKey = await fileToDataURL(selectedFile)
       const fileType = fileTypeFor(selectedFile.name)
-      const created = await createDocument(schemeId, {
+      await createDocument(schemeId, {
         name: form.name.trim(),
         storage_key: storageKey,
         file_type: fileType,
         category: form.category,
         size_bytes: selectedFile.size,
       })
-      if (categoryFilter === 'all' || categoryFilter === created.category) {
-        setDocuments(current => [created, ...current])
-      }
+      invalidateCache(`scheme:${schemeId}:documents`)
+      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:documents`] })
       setShowModal(false)
       setForm(EMPTY_FORM)
       setSelectedFile(null)
-      addToast(`"${created.name}" uploaded successfully`, 'success')
+      addToast('Document uploaded successfully', 'success')
     } catch (error) {
       addToast(
         error instanceof Error ? error.message : 'Failed to upload document',
@@ -129,7 +108,7 @@ export default function DocumentsPage() {
     setDeletingId(document.id)
     try {
       await deleteDocument(schemeId, document.id)
-      setDocuments(current => current.filter(item => item.id !== document.id))
+      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:documents`] })
       addToast(`"${document.name}" deleted`, 'success')
     } catch (error) {
       addToast(
@@ -143,13 +122,23 @@ export default function DocumentsPage() {
 
   const grouped = useMemo(() => groupByCategory(documents), [documents])
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading documents…
         </div>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load documents"
+        message="Temporary service issue. Try again."
+        onRetry={refetch}
+      />
     )
   }
 

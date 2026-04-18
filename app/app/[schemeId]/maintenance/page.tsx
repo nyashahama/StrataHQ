@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
+import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
-import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
+import { invalidateCache } from '@/lib/data-cache'
 import {
   assignMaintenanceRequest,
   createMaintenanceRequest,
@@ -14,6 +15,9 @@ import {
 } from '@/lib/maintenance-api'
 import type { MaintenanceDashboard, MaintenanceRequestInfo } from '@/lib/maintenance'
 import { useToast } from '@/lib/toast'
+
+import { queryClient } from '@/lib/query-client'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const STATUS_STYLES: Record<string, string> = {
   open: 'bg-red-bg text-red',
@@ -47,8 +51,6 @@ export default function MaintenancePage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const [dashboard, setDashboard] = useState<MaintenanceDashboard | null>(null)
-  const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [jobForm, setJobForm] = useState(EMPTY_JOB_FORM)
   const [assignJobId, setAssignJobId] = useState<string | null>(null)
@@ -67,48 +69,16 @@ export default function MaintenancePage() {
     [schemeId, user?.scheme_memberships],
   )
 
-  useEffect(() => {
-    async function load() {
-      const key = `scheme:${schemeId}:maintenance`
-      const cached = getCached<MaintenanceDashboard>(key)
-      if (cached) {
-        setDashboard(cached)
-        setLoading(false)
-        return
-      }
-      try {
-        setLoading(true)
-        const result = await getMaintenanceDashboard(schemeId)
-        setCached(key, result)
-        setDashboard(result)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load maintenance requests',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast, schemeId])
+  const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<MaintenanceDashboard>({
+    queryKey: [`scheme:${schemeId}:maintenance`],
+    queryFn: () => getMaintenanceDashboard(schemeId),
+    staleTime: 30_000,
+  })
 
   async function refreshDashboard() {
     invalidateCache(`scheme:${schemeId}:maintenance`)
-    setLoading(true)
-    try {
-      const result = await getMaintenanceDashboard(schemeId)
-      setCached(`scheme:${schemeId}:maintenance`, result)
-      setDashboard(result)
-    } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : 'Failed to refresh maintenance data',
-        'error',
-      )
-    } finally {
-      setLoading(false)
-    }
+    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:maintenance`] })
+    await refetch()
   }
 
   async function handleCreate() {
@@ -179,13 +149,23 @@ export default function MaintenancePage() {
 
   const requests = dashboard?.requests ?? []
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading maintenance…
         </div>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load maintenance requests"
+        message="Temporary service issue. Try again."
+        onRetry={refetch}
+      />
     )
   }
 

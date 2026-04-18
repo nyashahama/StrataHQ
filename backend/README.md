@@ -113,6 +113,10 @@ backend/
 | `make docker-all` | Build and start all services |
 | `make seed` | Seed the development database |
 
+## Load Testing
+
+Load tests are located in `tests/load/`. See `docs/production-reliability-runbook.md` for detailed instructions on running load tests and interpreting results.
+
 ## Adding a New Domain
 
 1. Create a new package under `internal/`:

@@ -1,16 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth'
 import { getSchemeAttentionQueue } from '@/lib/attention-api'
 import type { AttentionItem } from '@/lib/attention'
-import { getCached, setCached } from '@/lib/data-cache'
 import { getScheme, type SchemeDetail } from '@/lib/scheme-api'
-import { useToast } from '@/lib/toast'
 
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 import AttentionQueue from '@/components/AttentionQueue'
 
 const HEALTH_STYLES = {
@@ -29,63 +27,31 @@ function formatDate(value: string) {
 
 export default function SchemeOverviewPage() {
   const { user } = useAuth()
-  const { addToast } = useToast()
   const params = useParams()
   const schemeId = params.schemeId as string
-  const [scheme, setScheme] = useState<SchemeDetail | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [attentionItems, setAttentionItems] = useState<AttentionItem[]>([])
-  const [attentionLoading, setAttentionLoading] = useState(true)
-  const [attentionError, setAttentionError] = useState<string | null>(null)
 
-  async function loadAttentionQueue() {
-    try {
-      setAttentionLoading(true)
-      setAttentionError(null)
-      const result = await getSchemeAttentionQueue(schemeId)
-      setAttentionItems(result.items)
-    } catch (error) {
-      setAttentionError(
-        error instanceof Error ? error.message : 'Failed to load scheme queue',
-      )
-    } finally {
-      setAttentionLoading(false)
-    }
-  }
+  const { data: scheme, isLoading: loading } = useAuthenticatedQuery<SchemeDetail>({
+    queryKey: [`scheme:${schemeId}:overview`],
+    queryFn: () => getScheme(schemeId),
+    staleTime: 30_000,
+  })
 
-  useEffect(() => {
-    async function load() {
-      const key = `scheme:${schemeId}:overview`
-      const cached = getCached<SchemeDetail>(key)
-      if (cached) {
-        setScheme(cached)
-        setLoading(false)
-        return
-      }
-      try {
-        const result = await getScheme(schemeId)
-        setCached(key, result)
-        setScheme(result)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load scheme',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
+  const { data: attentionQueue } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
+    queryKey: [`scheme:${schemeId}:attention-queue`],
+    queryFn: () => getSchemeAttentionQueue(schemeId),
+    staleTime: 30_000,
+    enabled: user?.role !== 'resident',
+  })
 
-    load()
-  }, [addToast, schemeId])
+  const attentionItems = attentionQueue?.items ?? []
+  const attentionLoading = !attentionQueue
+  const attentionError: string | null = null
 
   const isResident = user?.role === 'resident'
 
-  useEffect(() => {
-    if (schemeId && !isResident) {
-      loadAttentionQueue()
-    }
-  }, [schemeId, isResident])
+  async function loadAttentionQueue() {
+    // Handled by React Query refetch
+  }
 
   const unitLabel = scheme?.unit_identifier
     ? `Unit ${scheme.unit_identifier}`

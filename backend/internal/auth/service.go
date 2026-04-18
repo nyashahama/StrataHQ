@@ -191,10 +191,6 @@ func (s *Service) Login(ctx context.Context, email, password string) (*AuthRespo
 	return s.issueTokens(ctx, user, m.OrgID.String(), m.Role)
 }
 
-func (s *Service) buildSession(ctx context.Context, userID, orgID string) (*MeResponse, error) {
-	return s.Me(ctx, userID, orgID)
-}
-
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshResponse, error) {
 	newRefreshToken, err := GenerateRefreshToken()
 	if err != nil {

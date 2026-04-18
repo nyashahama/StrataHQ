@@ -68,11 +68,15 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public routes
 		r.Group(func(r chi.Router) {
-			// Auth endpoints with stricter per-IP rate limiting
+			// Auth endpoints with per-endpoint rate limiting
 			r.Route("/auth", func(r chi.Router) {
-				r.Use(middleware.PerEndpointRateLimit(rdb, "auth", 5, 1*time.Minute))
 				r.Use(middleware.AuditEvents(auditRecorder, logger))
-				r.Mount("/", h.Auth.Routes())
+				r.With(middleware.PerEndpointRateLimit(rdb, "auth-login", 5, 1*time.Minute)).Post("/login", h.Auth.Login)
+				r.With(middleware.PerEndpointRateLimit(rdb, "auth-refresh", 30, 1*time.Minute)).Post("/refresh", h.Auth.Refresh)
+				r.Post("/register", h.Auth.Register)
+				r.Post("/logout", h.Auth.Logout)
+				r.Post("/forgot-password", h.Auth.ForgotPassword)
+				r.Post("/reset-password", h.Auth.ResetPassword)
 			})
 			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
 			r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())

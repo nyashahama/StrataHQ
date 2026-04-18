@@ -18,6 +18,13 @@ const PROXY_HEADERS = [
   "pragma",
 ] as const;
 
+const IDENTITY_HEADERS = [
+  "x-forwarded-for",
+  "x-real-ip",
+  "user-agent",
+  "x-request-id",
+] as const;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ path: string[] }> },
@@ -113,6 +120,11 @@ async function forwardRequest(
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
   for (const name of PROXY_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) headers[name] = value;
+  }
+  for (const name of IDENTITY_HEADERS) {
+    if (name === "x-request-id") continue;
     const value = request.headers.get(name);
     if (value) headers[name] = value;
   }

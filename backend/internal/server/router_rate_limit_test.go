@@ -23,7 +23,11 @@ func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) 
 	defer rdb.Close()
 
 	ctx := context.Background()
-	rdb.Del(ctx, "ratelimit:*")
+
+	existingKeys, _ := rdb.Keys(ctx, "ratelimit:*").Result()
+	if len(existingKeys) > 0 {
+		rdb.Del(ctx, existingKeys...)
+	}
 
 	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
 
@@ -43,22 +47,19 @@ func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) 
 
 	var loginPrefixUsed, refreshPrefixUsed bool
 	for _, k := range keys {
-		s := k
-		if len(s) > 11 {
-			if s[:11] == "ratelimit:login" {
-				loginPrefixUsed = true
-			}
-			if s[:11] == "ratelimit:refresh" {
-				refreshPrefixUsed = true
-			}
+		if strings.HasPrefix(k, "ratelimit:auth-login:") {
+			loginPrefixUsed = true
+		}
+		if strings.HasPrefix(k, "ratelimit:auth-refresh:") {
+			refreshPrefixUsed = true
 		}
 	}
 
 	if !loginPrefixUsed {
-		t.Error("login route should use 'ratelimit:login:*' key, but found none")
+		t.Error("login route should use 'ratelimit:auth-login:*' key, but found none")
 	}
 	if !refreshPrefixUsed {
-		t.Error("refresh route should use 'ratelimit:refresh:*' key, but found none")
+		t.Error("refresh route should use 'ratelimit:auth-refresh:*' key, but found none")
 	}
 }
 
@@ -72,7 +73,11 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 	defer rdb.Close()
 
 	ctx := context.Background()
-	rdb.Del(ctx, "ratelimit:*")
+
+	existingKeys, _ := rdb.Keys(ctx, "ratelimit:*").Result()
+	if len(existingKeys) > 0 {
+		rdb.Del(ctx, existingKeys...)
+	}
 
 	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
 
@@ -92,8 +97,7 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 
 	var prefixes []string
 	for _, k := range keys {
-		s := k
-		parts := strings.Split(s, ":")
+		parts := strings.Split(k, ":")
 		if len(parts) >= 2 && parts[0] == "ratelimit" {
 			prefixes = append(prefixes, parts[1])
 		}
@@ -102,23 +106,23 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 	hasLogin := false
 	hasRefresh := false
 	for _, p := range prefixes {
-		if p == "login" {
+		if p == "auth-login" {
 			hasLogin = true
 		}
-		if p == "refresh" {
+		if p == "auth-refresh" {
 			hasRefresh = true
 		}
 	}
 
 	if !hasLogin {
-		t.Error("login endpoint must use 'login' rate limit prefix")
+		t.Error("login endpoint must use 'auth-login' rate limit prefix")
 	}
 	if !hasRefresh {
-		t.Error("refresh endpoint must use 'refresh' rate limit prefix")
+		t.Error("refresh endpoint must use 'auth-refresh' rate limit prefix")
 	}
 
 	if !hasLogin || !hasRefresh {
-		t.Fatalf("FAIL: Both 'login' and 'refresh' prefixes required. Found: %v", prefixes)
+		t.Fatalf("FAIL: Both 'auth-login' and 'auth-refresh' prefixes required. Found: %v", prefixes)
 	}
 }
 

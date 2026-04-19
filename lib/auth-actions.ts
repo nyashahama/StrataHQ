@@ -118,31 +118,6 @@ export async function logoutAction(): Promise<void> {
   await clearAuthCookies();
 }
 
-// ─── Token refresh ────────────────────────────────────────────────────────────
-
-export async function refreshTokens(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const refreshToken = cookieStore.get("sh_refresh")?.value;
-  if (!refreshToken) return null;
-
-  const res = await fetch(`${BACKEND()}/api/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-
-  if (!res.ok) return null;
-
-  const { access_token, refresh_token } = await readApiData<{
-    access_token: string;
-    refresh_token: string;
-  }>(res);
-  if (!access_token || !refresh_token) return null;
-  cookieStore.set("sh_access", access_token, ACCESS_OPTS);
-  cookieStore.set("sh_refresh", refresh_token, REFRESH_OPTS);
-  return access_token;
-}
-
 // ─── Clear auth ───────────────────────────────────────────────────────────────
 
 export async function clearAuth(): Promise<void> {

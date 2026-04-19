@@ -12,6 +12,13 @@ export interface AuthSessionPayload {
   session: SessionUser;
 }
 
+export type RefreshAuthSessionResult =
+  | { kind: "success"; session: SessionUser }
+  | { kind: "invalid" }
+  | { kind: "unavailable" }
+
+const AUTH_REFRESH_TIMEOUT_MS = 10_000;
+
 const SESSION_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
@@ -42,25 +49,43 @@ export async function writeAuthCookies(
   return session;
 }
 
-export async function refreshAuthSession(): Promise<SessionUser | null> {
+export async function refreshAuthSession(): Promise<RefreshAuthSessionResult> {
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get("sh_refresh")?.value;
-  if (!refreshToken) return null;
+  if (!refreshToken) return { kind: "invalid" };
 
-  const res = await fetch(`${BACKEND()}/api/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    AUTH_REFRESH_TIMEOUT_MS,
+  );
 
-  if (!res.ok) return null;
+  let res: Response;
+  try {
+    res = await fetch(`${BACKEND()}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return { kind: "unavailable" };
+    }
+    return { kind: "unavailable" };
+  }
+  clearTimeout(timeout);
+
+  if (res.status === 401 || res.status === 403) return { kind: "invalid" };
+  if (!res.ok) return { kind: "unavailable" };
 
   const payload = await readApiData<AuthSessionPayload>(res);
   if (!payload.access_token || !payload.refresh_token || !payload.session) {
-    return null;
+    return { kind: "unavailable" };
   }
 
-  return writeAuthCookies(payload);
+  return { kind: "success", session: await writeAuthCookies(payload) };
 }
 
 export async function clearAuthCookies(): Promise<void> {

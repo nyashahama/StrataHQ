@@ -34,7 +34,10 @@ describe("proxyRequest", () => {
 
     refreshAuthSession.mockImplementation(async () => {
       mockAccessToken.current = "new-access-token";
-      return { id: "1", email: "test@test.com" };
+      return {
+        kind: "success",
+        session: { id: "1", email: "test@test.com" },
+      };
     });
   });
 
@@ -89,7 +92,7 @@ describe("proxyRequest", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    refreshAuthSession.mockResolvedValue(null);
+    refreshAuthSession.mockResolvedValue({ kind: "invalid" });
 
     const { GET } = await import("./route");
 
@@ -178,5 +181,54 @@ describe("proxyRequest", () => {
       JSON.stringify({ full_name: "Test User" }),
       JSON.stringify({ full_name: "Test User" }),
     ]);
+  });
+
+  it("returns 503 without clearing auth when refresh is temporarily unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 401 })));
+    refreshAuthSession.mockResolvedValue({ kind: "unavailable" });
+
+    const { GET } = await import("./route");
+    const req = new Request("http://localhost/api/proxy/api/v1/some/endpoint");
+    const params = Promise.resolve({ path: ["api", "v1", "some", "endpoint"] });
+
+    const response = await GET(req as unknown as import("next/server").NextRequest, { params });
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: "Temporary service issue. Please retry.",
+      },
+    });
+    expect(clearAuthCookies).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when the post-refresh retry aborts", async () => {
+    let attempt = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      attempt++;
+      if (attempt === 1) return new Response(null, { status: 401 });
+      throw new DOMException("The operation was aborted", "AbortError");
+    }));
+    refreshAuthSession.mockResolvedValue({
+      kind: "success",
+      session: { id: "1", email: "test@test.com" },
+    });
+    mockAccessToken.current = "new-access-token";
+
+    const { GET } = await import("./route");
+    const req = new Request("http://localhost/api/proxy/api/v1/some/endpoint");
+    const params = Promise.resolve({ path: ["api", "v1", "some", "endpoint"] });
+
+    const response = await GET(req as unknown as import("next/server").NextRequest, { params });
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: "Temporary service issue. Please retry.",
+      },
+    });
+    expect(clearAuthCookies).not.toHaveBeenCalled();
   });
 });

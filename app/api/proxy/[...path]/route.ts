@@ -198,19 +198,38 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   }
 
   const refreshed = await refreshAuthSession();
-  if (!refreshed) {
+  if (refreshed.kind === "invalid") {
     await clearAuthCookies();
     return unauthorizedResponse();
+  }
+  if (refreshed.kind === "unavailable") {
+    return upstreamUnavailableResponse();
   }
 
   const updatedAccessToken = cookieStore.get("sh_access")?.value;
   const updatedHeaders = { ...proxyHeaders, Authorization: `Bearer ${updatedAccessToken}` };
-  const retryResponse = await forwardRequest({
-    backendPath,
-    method: request.method,
-    headers: updatedHeaders,
-    body: bufferedBody,
-  });
+  const refreshRetryController = new AbortController();
+  const refreshRetryTimeout = setTimeout(
+    () => refreshRetryController.abort(),
+    UPSTREAM_TIMEOUT_MS,
+  );
+  let retryResponse: Response;
+  try {
+    retryResponse = await forwardRequest({
+      backendPath,
+      method: request.method,
+      headers: updatedHeaders,
+      body: bufferedBody,
+      signal: refreshRetryController.signal,
+    });
+  } catch (error) {
+    clearTimeout(refreshRetryTimeout);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return upstreamUnavailableResponse();
+    }
+    throw error;
+  }
+  clearTimeout(refreshRetryTimeout);
 
   if (retryResponse.status === 401) {
     await clearAuthCookies();

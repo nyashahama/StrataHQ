@@ -51,12 +51,15 @@ describe("refreshAuthSession", () => {
     const result = await refreshAuthSession();
 
     expect(result).toEqual({
-      id: "user-1",
-      email: "person@example.com",
-      full_name: "Person Example",
-      role: "admin",
-      wizard_complete: true,
-      scheme_memberships: [],
+      kind: "success",
+      session: {
+        id: "user-1",
+        email: "person@example.com",
+        full_name: "Person Example",
+        role: "admin",
+        wizard_complete: true,
+        scheme_memberships: [],
+      },
     });
     expect(cookieSet).toHaveBeenCalledWith(
       "sh_access",
@@ -68,5 +71,37 @@ describe("refreshAuthSession", () => {
       "new-refresh-token",
       expect.any(Object),
     );
+  });
+
+  it("returns invalid when the backend rejects the refresh token", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_refresh") return { value: "bad-refresh-token" };
+      return undefined;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 401 })),
+    );
+
+    await expect(refreshAuthSession()).resolves.toEqual({ kind: "invalid" });
+    expect(cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("returns unavailable when /auth/refresh aborts", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_refresh") return { value: "refresh-token" };
+      return undefined;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }),
+    );
+
+    await expect(refreshAuthSession()).resolves.toEqual({ kind: "unavailable" });
+    expect(cookieSet).not.toHaveBeenCalled();
   });
 });

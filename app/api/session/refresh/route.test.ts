@@ -211,4 +211,29 @@ describe("POST /api/session/refresh", () => {
       expect.objectContaining({ httpOnly: true }),
     );
   });
+
+  it("returns 503 with a shaped error when refresh is temporarily unavailable", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_refresh") return { value: "refresh-token" };
+      return undefined;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }),
+    );
+
+    const { POST } = await import("./route");
+    const response = await POST();
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "UPSTREAM_UNAVAILABLE",
+        message: "Temporary service issue. Please retry.",
+      },
+    });
+  });
 });

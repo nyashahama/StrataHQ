@@ -26,19 +26,18 @@ export default function AgentPortfolioPage() {
     staleTime: 30_000,
   });
 
-  const { data: attentionQueue } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
+  const {
+    data: attentionQueue,
+    isLoading: attentionLoading,
+    error: attentionError,
+    refetch: refetchAttention,
+  } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
     queryKey: portfolioKeys.attention(),
     queryFn: () => getPortfolioAttentionQueue(),
     staleTime: 30_000,
   });
 
   const attentionItems = attentionQueue?.items ?? [];
-  const attentionLoading = !attentionQueue;
-  const attentionError: string | null = null;
-
-  async function loadAttentionQueue() {
-    // This will be handled by the query refetch
-  }
 
   const totalUnits = schemes.reduce((sum, scheme) => sum + scheme.unit_count, 0);
   const totalMaintenance = schemes.reduce(
@@ -164,8 +163,8 @@ export default function AgentPortfolioPage() {
           items={attentionItems}
           scope="portfolio"
           loading={attentionLoading}
-          error={attentionError}
-          onRefresh={loadAttentionQueue}
+          error={attentionError instanceof Error ? attentionError.message : null}
+          onRefresh={() => { void refetchAttention() }}
         />
       </section>
     </div>

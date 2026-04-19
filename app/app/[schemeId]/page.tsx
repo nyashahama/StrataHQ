@@ -11,6 +11,7 @@ import { getScheme, type SchemeDetail } from '@/lib/scheme-api'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 import { schemeKeys } from '@/lib/query-keys'
 import AttentionQueue from '@/components/AttentionQueue'
+import RetryState from '@/components/RetryState'
 
 const HEALTH_STYLES = {
   good: 'bg-green-bg text-green',
@@ -31,13 +32,23 @@ export default function SchemeOverviewPage() {
   const params = useParams()
   const schemeId = params.schemeId as string
 
-  const { data: scheme, isLoading: loading } = useAuthenticatedQuery<SchemeDetail>({
+  const {
+    data: scheme,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useAuthenticatedQuery<SchemeDetail>({
     queryKey: schemeKeys.overview(schemeId),
     queryFn: () => getScheme(schemeId),
     staleTime: 30_000,
   })
 
-  const { data: attentionQueue } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
+  const {
+    data: attentionQueue,
+    isLoading: attentionLoading,
+    error: attentionError,
+    refetch: refetchAttention,
+  } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
     queryKey: schemeKeys.attentionQueue(schemeId),
     queryFn: () => getSchemeAttentionQueue(schemeId),
     staleTime: 30_000,
@@ -45,14 +56,8 @@ export default function SchemeOverviewPage() {
   })
 
   const attentionItems = attentionQueue?.items ?? []
-  const attentionLoading = !attentionQueue
-  const attentionError: string | null = null
 
   const isResident = user?.role === 'resident'
-
-  async function loadAttentionQueue() {
-    // Handled by React Query refetch
-  }
 
   const unitLabel = scheme?.unit_identifier
     ? `Unit ${scheme.unit_identifier}`
@@ -65,6 +70,16 @@ export default function SchemeOverviewPage() {
           Loading scheme overview…
         </div>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load scheme overview"
+        message="Temporary service issue. Try again."
+        onRetry={() => { void refetch() }}
+      />
     )
   }
 
@@ -205,8 +220,8 @@ export default function SchemeOverviewPage() {
             items={attentionItems}
             scope="scheme"
             loading={attentionLoading}
-            error={attentionError}
-            onRefresh={loadAttentionQueue}
+            error={attentionError instanceof Error ? attentionError.message : null}
+            onRefresh={() => { void refetchAttention() }}
           />
         </section>
       )}

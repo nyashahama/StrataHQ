@@ -20,6 +20,7 @@ import { useToast } from '@/lib/toast'
 import { queryClient } from '@/lib/query-client'
 import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
+import RetryState from '@/components/RetryState'
 
 const ROLE_STYLES: Record<string, string> = {
   trustee: 'bg-accent-bg text-accent',
@@ -69,17 +70,32 @@ export default function MembersPage() {
 
   const canEdit = user?.role === 'admin'
 
-  const { data: members = [], isLoading: loading } = useAuthenticatedQuery<MemberInfo[]>({
+  const {
+    data: members = [],
+    isLoading: loading,
+    error: membersError,
+    refetch: membersRefetch,
+  } = useAuthenticatedQuery<MemberInfo[]>({
     queryKey: schemeKeys.members(schemeId),
     queryFn: () => listSchemeMembers(schemeId),
     staleTime: 30_000,
   })
 
-  const { data: units = [] } = useAuthenticatedQuery<UnitInfo[]>({
+  const {
+    data: units = [],
+    error: unitsError,
+    refetch: unitsRefetch,
+  } = useAuthenticatedQuery<UnitInfo[]>({
     queryKey: schemeKeys.membersUnits(schemeId),
     queryFn: () => listSchemeUnits(schemeId),
     staleTime: 30_000,
   })
+
+  const pageError = membersError ?? unitsError
+  const retryPage = () => {
+    void membersRefetch()
+    void unitsRefetch()
+  }
 
   const trustees = useMemo(
     () => members.filter(member => member.role === 'trustee'),
@@ -182,6 +198,16 @@ export default function MembersPage() {
           Loading members…
         </div>
       </div>
+    )
+  }
+
+  if (pageError) {
+    return (
+      <RetryState
+        title="Could not load members"
+        message="Temporary service issue. Try again."
+        onRetry={retryPage}
+      />
     )
   }
 

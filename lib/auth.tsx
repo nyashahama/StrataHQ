@@ -18,25 +18,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const MAX_REFRESH_RETRIES = 2;
+
+    async function tryRefreshSession(attempt = 0): Promise<SessionUser | null> {
+      try {
+        const refreshResponse = await fetch("/api/session/refresh", {
+          method: "POST",
+        });
+        if (refreshResponse.status === 503 && attempt < MAX_REFRESH_RETRIES) {
+          return tryRefreshSession(attempt + 1);
+        }
+        if (!refreshResponse.ok) {
+          return null;
+        }
+
+        return (await refreshResponse.json()) as SessionUser | null;
+      } catch {
+        if (attempt < MAX_REFRESH_RETRIES) {
+          return tryRefreshSession(attempt + 1);
+        }
+        return null;
+      }
+    }
+
     async function loadSession() {
       try {
         const sessionResponse = await fetch("/api/session");
         const session = (await sessionResponse.json()) as SessionUser | null;
-
         if (session) {
           setUser(session);
           return;
         }
 
-        const refreshResponse = await fetch("/api/session/refresh", {
-          method: "POST",
-        });
-        if (!refreshResponse.ok) {
-          setUser(null);
-          return;
-        }
-
-        const refreshed = (await refreshResponse.json()) as SessionUser | null;
+        const refreshed = await tryRefreshSession();
         setUser(refreshed);
       } catch {
         setUser(null);

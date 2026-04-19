@@ -8,6 +8,7 @@ import type { AttentionItem } from "@/lib/attention";
 import { listSchemes, type SchemeSummary } from "@/lib/scheme-api";
 
 import { useAuthenticatedQuery } from "@/hooks/useAuthenticatedQuery";
+import { portfolioKeys } from "@/lib/query-keys";
 import AttentionQueue from "@/components/AttentionQueue";
 
 const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
@@ -20,13 +21,13 @@ export default function AgentPortfolioPage() {
   useAuth();
 
   const { data: schemes = [], isLoading: loading } = useAuthenticatedQuery<SchemeSummary[]>({
-    queryKey: ["agent:portfolio"],
+    queryKey: portfolioKeys.overview(),
     queryFn: () => listSchemes(),
     staleTime: 30_000,
   });
 
   const { data: attentionQueue } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
-    queryKey: ["agent:attention-queue"],
+    queryKey: portfolioKeys.attention(),
     queryFn: () => getPortfolioAttentionQueue(),
     staleTime: 30_000,
   });

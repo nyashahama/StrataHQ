@@ -13,6 +13,7 @@ import { invalidateCache } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
 
 import { queryClient } from '@/lib/query-client'
+import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const CATEGORY_LABELS: Record<DocumentCategory, string> = {
@@ -68,7 +69,7 @@ export default function DocumentsPage() {
   const canUpload = user?.role === 'admin'
 
   const { data: documents = [], isLoading, error, refetch } = useAuthenticatedQuery<SchemeDocumentInfo[]>({
-    queryKey: [`scheme:${schemeId}:documents:${categoryFilter}`],
+    queryKey: schemeKeys.documents(schemeId, categoryFilter),
     queryFn: () => getDocumentsDashboard(schemeId, categoryFilter).then(d => d.documents),
     staleTime: 30_000,
   })
@@ -88,7 +89,7 @@ export default function DocumentsPage() {
         size_bytes: selectedFile.size,
       })
       invalidateCache(`scheme:${schemeId}:documents`)
-      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:documents`] })
+      await queryClient.invalidateQueries({ queryKey: schemeKeys.documentsBase(schemeId) })
       setShowModal(false)
       setForm(EMPTY_FORM)
       setSelectedFile(null)
@@ -108,7 +109,7 @@ export default function DocumentsPage() {
     setDeletingId(document.id)
     try {
       await deleteDocument(schemeId, document.id)
-      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:documents`] })
+      await queryClient.invalidateQueries({ queryKey: schemeKeys.documentsBase(schemeId) })
       addToast(`"${document.name}" deleted`, 'success')
     } catch (error) {
       addToast(

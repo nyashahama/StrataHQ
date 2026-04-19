@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/lib/toast'
 
 import { queryClient } from '@/lib/query-client'
+import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const ROLE_STYLES: Record<string, string> = {
@@ -69,13 +70,13 @@ export default function MembersPage() {
   const canEdit = user?.role === 'admin'
 
   const { data: members = [], isLoading: loading } = useAuthenticatedQuery<MemberInfo[]>({
-    queryKey: [`scheme:${schemeId}:members`],
+    queryKey: schemeKeys.members(schemeId),
     queryFn: () => listSchemeMembers(schemeId),
     staleTime: 30_000,
   })
 
   const { data: units = [] } = useAuthenticatedQuery<UnitInfo[]>({
-    queryKey: [`scheme:${schemeId}:members:units`],
+    queryKey: schemeKeys.membersUnits(schemeId),
     queryFn: () => listSchemeUnits(schemeId),
     staleTime: 30_000,
   })
@@ -159,7 +160,7 @@ export default function MembersPage() {
         role: editForm.role,
         unit_id: editForm.role === 'resident' ? editForm.unit_id : null,
       })
-      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:members`] })
+      await queryClient.invalidateQueries({ queryKey: schemeKeys.members(schemeId) })
       setShowEditModal(false)
       setSelectedMember(null)
       setEditForm(EMPTY_EDIT_FORM)

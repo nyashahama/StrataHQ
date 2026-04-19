@@ -17,6 +17,7 @@ import type { MaintenanceDashboard, MaintenanceRequestInfo } from '@/lib/mainten
 import { useToast } from '@/lib/toast'
 
 import { queryClient } from '@/lib/query-client'
+import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -70,14 +71,14 @@ export default function MaintenancePage() {
   )
 
   const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<MaintenanceDashboard>({
-    queryKey: [`scheme:${schemeId}:maintenance`],
+    queryKey: schemeKeys.maintenance(schemeId),
     queryFn: () => getMaintenanceDashboard(schemeId),
     staleTime: 30_000,
   })
 
   async function refreshDashboard() {
     invalidateCache(`scheme:${schemeId}:maintenance`)
-    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:maintenance`] })
+    await queryClient.invalidateQueries({ queryKey: schemeKeys.maintenance(schemeId) })
     await refetch()
   }
 

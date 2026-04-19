@@ -9,6 +9,7 @@ import type { AttentionItem } from '@/lib/attention'
 import { getScheme, type SchemeDetail } from '@/lib/scheme-api'
 
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
+import { schemeKeys } from '@/lib/query-keys'
 import AttentionQueue from '@/components/AttentionQueue'
 
 const HEALTH_STYLES = {
@@ -31,13 +32,13 @@ export default function SchemeOverviewPage() {
   const schemeId = params.schemeId as string
 
   const { data: scheme, isLoading: loading } = useAuthenticatedQuery<SchemeDetail>({
-    queryKey: [`scheme:${schemeId}:overview`],
+    queryKey: schemeKeys.overview(schemeId),
     queryFn: () => getScheme(schemeId),
     staleTime: 30_000,
   })
 
   const { data: attentionQueue } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
-    queryKey: [`scheme:${schemeId}:attention-queue`],
+    queryKey: schemeKeys.attentionQueue(schemeId),
     queryFn: () => getSchemeAttentionQueue(schemeId),
     staleTime: 30_000,
     enabled: user?.role !== 'resident',

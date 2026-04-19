@@ -11,6 +11,7 @@ import type { BudgetLineInfo, FinancialDashboard } from '@/lib/financials'
 import { useToast } from '@/lib/toast'
 
 import { queryClient } from '@/lib/query-client'
+import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 function formatRand(cents: number): string {
@@ -42,7 +43,7 @@ export default function FinancialsPage() {
   const canManage = user?.role === 'admin' || user?.role === 'trustee'
 
   const { data: dashboard, isLoading: loading } = useAuthenticatedQuery<FinancialDashboard>({
-    queryKey: [`scheme:${schemeId}:financials:${selectedPeriod}`],
+    queryKey: schemeKeys.financials(schemeId, selectedPeriod || 'current'),
     queryFn: () => getFinancialDashboard(schemeId, selectedPeriod || undefined),
     staleTime: 30_000,
   })
@@ -86,8 +87,8 @@ export default function FinancialsPage() {
 
   async function refreshDashboard(nextPeriod?: string) {
     invalidateCache(`scheme:${schemeId}:financials`)
-    const newPeriod = nextPeriod || selectedPeriod || ''
-    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:financials:${newPeriod}`] })
+    const newPeriod = nextPeriod || selectedPeriod || 'current'
+    await queryClient.invalidateQueries({ queryKey: schemeKeys.financials(schemeId, newPeriod) })
     if (!nextPeriod && dashboard?.selected_period) {
       setSelectedPeriod(dashboard.selected_period)
     }

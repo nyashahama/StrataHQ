@@ -13,6 +13,7 @@ import type { LevyAccountInfo, LevyDashboard, ReconcilePaymentInput } from '@/li
 import { useToast } from '@/lib/toast'
 
 import { queryClient } from '@/lib/query-client'
+import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 function formatRand(cents: number): string {
@@ -55,14 +56,14 @@ export default function LevyPaymentsPage() {
   const canEdit = user?.role === 'admin'
 
   const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<LevyDashboard>({
-    queryKey: [`scheme:${schemeId}:levy`],
+    queryKey: schemeKeys.levy(schemeId),
     queryFn: () => getLevyDashboard(schemeId),
     staleTime: 30_000,
   })
 
   async function refreshDashboard() {
     invalidateCache(`scheme:${schemeId}:levy`)
-    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:levy`] })
+    await queryClient.invalidateQueries({ queryKey: schemeKeys.levy(schemeId) })
     await refetch()
   }
 

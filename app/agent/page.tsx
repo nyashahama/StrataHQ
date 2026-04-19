@@ -10,6 +10,7 @@ import { listSchemes, type SchemeSummary } from "@/lib/scheme-api";
 import { useAuthenticatedQuery } from "@/hooks/useAuthenticatedQuery";
 import { portfolioKeys } from "@/lib/query-keys";
 import AttentionQueue from "@/components/AttentionQueue";
+import RetryState from "@/components/RetryState";
 
 const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
   good: "bg-green-bg text-green",
@@ -20,7 +21,12 @@ const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
 export default function AgentPortfolioPage() {
   useAuth();
 
-  const { data: schemes = [], isLoading: loading } = useAuthenticatedQuery<SchemeSummary[]>({
+  const {
+    data: schemes = [],
+    isLoading: loading,
+    error: schemesError,
+    refetch: refetchSchemes,
+  } = useAuthenticatedQuery<SchemeSummary[]>({
     queryKey: portfolioKeys.overview(),
     queryFn: () => listSchemes(),
     staleTime: 30_000,
@@ -51,6 +57,18 @@ export default function AgentPortfolioPage() {
             schemes.length,
         )
       : 0;
+
+  if (schemesError) {
+    return (
+      <RetryState
+        title="Could not load portfolio overview"
+        message="Temporary service issue. Try again."
+        onRetry={() => {
+          void refetchSchemes();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">

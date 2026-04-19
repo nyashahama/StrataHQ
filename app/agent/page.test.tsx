@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockUseAuthenticatedQuery = vi.hoisted(() => vi.fn());
@@ -45,5 +45,32 @@ describe("AgentPortfolioPage", () => {
     render(<AgentPortfolioPage />);
 
     expect(screen.getByText("Failed to load attention queue")).toBeInTheDocument();
+  });
+
+  it("renders RetryState when the schemes query fails", async () => {
+    const schemesRefetch = vi.fn();
+    const attentionRefetch = vi.fn();
+
+    mockUseAuthenticatedQuery
+      .mockReturnValueOnce({
+        data: undefined,
+        isLoading: false,
+        error: new Error("Failed to load schemes"),
+        refetch: schemesRefetch,
+      })
+      .mockReturnValueOnce({
+        data: { items: [] },
+        isLoading: false,
+        refetch: attentionRefetch,
+      });
+
+    const { default: AgentPortfolioPage } = await import("@/app/agent/page");
+    render(<AgentPortfolioPage />);
+
+    expect(screen.getByText("Could not load portfolio overview")).toBeInTheDocument();
+    expect(screen.queryByText("No schemes found")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(schemesRefetch).toHaveBeenCalledTimes(1);
   });
 });

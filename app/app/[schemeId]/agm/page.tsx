@@ -13,6 +13,7 @@ import { listSchemeMembers } from '@/lib/scheme-api'
 import { useToast } from '@/lib/toast'
 
 import { queryClient } from '@/lib/query-client'
+import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const EMPTY_RESOLUTION = { title: '', description: '' }
@@ -66,7 +67,7 @@ export default function AgmVotingPage() {
   })
 
   const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<AgmDashboard>({
-    queryKey: [`scheme:${schemeId}:agm`],
+    queryKey: schemeKeys.agm(schemeId),
     queryFn: () => getAgmDashboard(schemeId),
     staleTime: 30_000,
   })
@@ -78,7 +79,7 @@ export default function AgmVotingPage() {
   const hasAssignedProxy = Boolean(upcomingMeeting?.user_proxy_grantee_id)
 
   const { data: members = [], isLoading: loadingMembers } = useAuthenticatedQuery<Array<{ user_id: string; full_name: string; role: string }>>({
-    queryKey: [`scheme:${schemeId}:agm:members`],
+    queryKey: schemeKeys.agmMembers(schemeId),
     queryFn: () => listSchemeMembers(schemeId),
     staleTime: 60_000,
   })
@@ -94,7 +95,7 @@ export default function AgmVotingPage() {
 
   async function refreshDashboard() {
     invalidateCache(`scheme:${schemeId}:agm`)
-    await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:agm`] })
+    await queryClient.invalidateQueries({ queryKey: schemeKeys.agm(schemeId) })
     await refetch()
   }
 

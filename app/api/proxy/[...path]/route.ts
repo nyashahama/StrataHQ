@@ -95,53 +95,19 @@ function proxyResponse(response: Response, requestId?: string) {
   });
 }
 
-async function forwardRequest(
-  request: NextRequest,
-  url: URL,
-  accessToken: string | undefined,
-  requestId: string,
-  signal?: AbortSignal,
-) {
-  const cookieStore = await cookies();
-
-  const backendPath = buildAllowedBackendProxyPath(
-    request.url.split("/api/proxy/")[1]?.split("/") ?? [],
-    url.search,
-  );
-  if (!backendPath) {
-    return new Response(null, { status: 404 });
-  }
-  const backendUrl = `${BACKEND()}${backendPath}`;
-
-  const headers: Record<string, string> = {
-    "x-request-id": requestId,
-  };
-  if (accessToken) {
-    headers["Authorization"] = `Bearer ${accessToken}`;
-  }
-  for (const name of PROXY_HEADERS) {
-    const value = request.headers.get(name);
-    if (value) headers[name] = value;
-  }
-  for (const name of IDENTITY_HEADERS) {
-    if (name === "x-request-id") continue;
-    const value = request.headers.get(name);
-    if (value) headers[name] = value;
-  }
-
-  let body: BodyInit | undefined;
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    body = await request.bytes();
-  }
-
-  const response = await fetch(backendUrl, {
-    method: request.method,
-    headers,
-    body,
-    signal,
-  });
-
-  return response;
+async function forwardRequest(args: {
+  backendPath: string
+  method: string
+  headers: Record<string, string>
+  body?: Uint8Array
+  signal?: AbortSignal
+}) {
+  return fetch(`${BACKEND()}${args.backendPath}`, {
+    method: args.method,
+    headers: args.headers,
+    body: args.body as BodyInit | undefined,
+    signal: args.signal,
+  })
 }
 
 function shouldRetry(method: string, status: number): boolean {
@@ -160,18 +126,39 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     return new Response(null, { status: 404 });
   }
 
+  const bufferedBody =
+    request.method !== "GET" && request.method !== "HEAD"
+      ? await request.bytes()
+      : undefined;
+
+  const proxyHeaders: Record<string, string> = {
+    "x-request-id": requestId,
+  };
+  if (accessToken) {
+    proxyHeaders["Authorization"] = `Bearer ${accessToken}`;
+  }
+  for (const name of PROXY_HEADERS) {
+    const value = request.headers.get(name);
+    if (value) proxyHeaders[name] = value;
+  }
+  for (const name of IDENTITY_HEADERS) {
+    if (name === "x-request-id") continue;
+    const value = request.headers.get(name);
+    if (value) proxyHeaders[name] = value;
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
 
   let firstResponse: Response;
   try {
-    firstResponse = await forwardRequest(
-      request,
-      url,
-      accessToken,
-      requestId,
-      controller.signal,
-    );
+    firstResponse = await forwardRequest({
+      backendPath,
+      method: request.method,
+      headers: proxyHeaders,
+      body: bufferedBody,
+      signal: controller.signal,
+    });
   } catch (error) {
     clearTimeout(timeout);
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -190,13 +177,13 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
       );
 
       try {
-        const retryResponse = await forwardRequest(
-          request,
-          url,
-          accessToken,
-          requestId,
-          retryController.signal,
-        );
+        const retryResponse = await forwardRequest({
+          backendPath,
+          method: request.method,
+          headers: proxyHeaders,
+          body: bufferedBody,
+          signal: retryController.signal,
+        });
         clearTimeout(retryTimeout);
         return proxyResponse(retryResponse, requestId);
       } catch (error) {
@@ -217,7 +204,13 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   }
 
   const updatedAccessToken = cookieStore.get("sh_access")?.value;
-  const retryResponse = await forwardRequest(request, url, updatedAccessToken, requestId);
+  const updatedHeaders = { ...proxyHeaders, Authorization: `Bearer ${updatedAccessToken}` };
+  const retryResponse = await forwardRequest({
+    backendPath,
+    method: request.method,
+    headers: updatedHeaders,
+    body: bufferedBody,
+  });
 
   if (retryResponse.status === 401) {
     await clearAuthCookies();

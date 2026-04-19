@@ -8,6 +8,7 @@ import type { AttentionItem } from "@/lib/attention";
 import { listSchemes, type SchemeSummary } from "@/lib/scheme-api";
 
 import { useAuthenticatedQuery } from "@/hooks/useAuthenticatedQuery";
+import { portfolioKeys } from "@/lib/query-keys";
 import AttentionQueue from "@/components/AttentionQueue";
 
 const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
@@ -20,24 +21,23 @@ export default function AgentPortfolioPage() {
   useAuth();
 
   const { data: schemes = [], isLoading: loading } = useAuthenticatedQuery<SchemeSummary[]>({
-    queryKey: ["agent:portfolio"],
+    queryKey: portfolioKeys.overview(),
     queryFn: () => listSchemes(),
     staleTime: 30_000,
   });
 
-  const { data: attentionQueue } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
-    queryKey: ["agent:attention-queue"],
+  const {
+    data: attentionQueue,
+    isLoading: attentionLoading,
+    error: attentionError,
+    refetch: refetchAttention,
+  } = useAuthenticatedQuery<{ items: AttentionItem[] }>({
+    queryKey: portfolioKeys.attention(),
     queryFn: () => getPortfolioAttentionQueue(),
     staleTime: 30_000,
   });
 
   const attentionItems = attentionQueue?.items ?? [];
-  const attentionLoading = !attentionQueue;
-  const attentionError: string | null = null;
-
-  async function loadAttentionQueue() {
-    // This will be handled by the query refetch
-  }
 
   const totalUnits = schemes.reduce((sum, scheme) => sum + scheme.unit_count, 0);
   const totalMaintenance = schemes.reduce(
@@ -163,8 +163,8 @@ export default function AgentPortfolioPage() {
           items={attentionItems}
           scope="portfolio"
           loading={attentionLoading}
-          error={attentionError}
-          onRefresh={loadAttentionQueue}
+          error={attentionError instanceof Error ? attentionError.message : null}
+          onRefresh={() => { void refetchAttention() }}
         />
       </section>
     </div>

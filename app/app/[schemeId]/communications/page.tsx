@@ -12,6 +12,7 @@ import { invalidateCache } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
 
 import { queryClient } from '@/lib/query-client'
+import { schemeKeys } from '@/lib/query-keys'
 import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 const TYPE_STYLES: Record<NoticeType, string> = {
@@ -43,7 +44,7 @@ export default function CommunicationsPage() {
   const canCompose = user?.role === 'admin' || user?.role === 'trustee'
 
   const { data: notices = [], isLoading, error, refetch } = useAuthenticatedQuery<NoticeInfo[]>({
-    queryKey: [`scheme:${schemeId}:communications:${typeFilter}`],
+    queryKey: schemeKeys.communications(schemeId, typeFilter),
     queryFn: () => getCommunicationsDashboard(schemeId, typeFilter).then(d => d.notices),
     staleTime: 30_000,
   })
@@ -59,7 +60,7 @@ export default function CommunicationsPage() {
         type: form.type,
       })
       invalidateCache(`scheme:${schemeId}:communications`)
-      await queryClient.invalidateQueries({ queryKey: [`scheme:${schemeId}:communications`] })
+      await queryClient.invalidateQueries({ queryKey: schemeKeys.communicationsBase(schemeId) })
       setShowModal(false)
       setForm({ title: '', body: '', type: 'general' })
       addToast('Notice sent to scheme members', 'success')

@@ -166,4 +166,49 @@ describe("POST /api/session/refresh", () => {
       expect.objectContaining({ httpOnly: true }),
     );
   });
+
+  it("writes rotated access and refresh tokens with httpOnly", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_access") return { value: "old-access-token" };
+      if (name === "sh_refresh") return { value: "old-refresh-token" };
+      return undefined;
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              access_token: "new-access-token",
+              refresh_token: "new-refresh-token",
+              session: {
+                id: "user-1",
+                email: "person@example.com",
+                full_name: "Person Example",
+                role: "admin",
+                wizard_complete: true,
+                scheme_memberships: [],
+              },
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const { POST } = await import("./route");
+    await POST();
+
+    expect(cookieSet).toHaveBeenCalledWith(
+      "sh_access",
+      "new-access-token",
+      expect.objectContaining({ httpOnly: true }),
+    );
+    expect(cookieSet).toHaveBeenCalledWith(
+      "sh_refresh",
+      "new-refresh-token",
+      expect.objectContaining({ httpOnly: true }),
+    );
+  });
 });

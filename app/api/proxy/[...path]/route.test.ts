@@ -125,4 +125,58 @@ describe("proxyRequest", () => {
       },
     });
   });
+
+  it("forwards the routed path segments and search string exactly once", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      calls.push(url);
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }));
+
+    const { GET } = await import("./route");
+
+    const req = new Request(
+      "http://localhost/api/proxy/api/v1/communications/scheme-1?type=agm",
+    );
+    const params = Promise.resolve({
+      path: ["api", "v1", "communications", "scheme-1"],
+    });
+
+    await GET(req as unknown as import("next/server").NextRequest, { params });
+
+    expect(calls[0]).toBe("http://localhost:8080/api/v1/communications/scheme-1?type=agm");
+  });
+
+  it("reuses the original request body for a retry after refresh", async () => {
+    let callCount = 0;
+    const bodies: string[] = [];
+
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, options: RequestInit) => {
+      callCount++;
+      if (options.body) bodies.push(Buffer.from(options.body as Uint8Array).toString());
+      if (callCount === 1) return new Response(null, { status: 401 });
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }));
+
+    const { POST } = await import("./route");
+
+    const req = new Request("http://localhost/api/proxy/api/v1/invitations", {
+      method: "POST",
+      body: JSON.stringify({ full_name: "Test User" }),
+    });
+    const params = Promise.resolve({ path: ["api", "v1", "invitations"] });
+
+    await POST(req as unknown as import("next/server").NextRequest, { params });
+
+    expect(bodies).toEqual([
+      JSON.stringify({ full_name: "Test User" }),
+      JSON.stringify({ full_name: "Test User" }),
+    ]);
+  });
 });

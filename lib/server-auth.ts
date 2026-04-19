@@ -55,19 +55,12 @@ export async function refreshAuthSession(): Promise<SessionUser | null> {
 
   if (!res.ok) return null;
 
-  const { session } = await readApiData<{ session: SessionUser }>(res);
-  if (!session) return null;
+  const payload = await readApiData<AuthSessionPayload>(res);
+  if (!payload.access_token || !payload.refresh_token || !payload.session) {
+    return null;
+  }
 
-  const access_token = cookieStore.get("sh_access")?.value ?? "";
-  cookieStore.set("sh_access", access_token, ACCESS_OPTS);
-  cookieStore.set("sh_refresh", refreshToken, SESSION_OPTS);
-  cookieStore.set(
-    "sh_session",
-    encodeURIComponent(JSON.stringify(session)),
-    SESSION_OPTS,
-  );
-
-  return session;
+  return writeAuthCookies(payload);
 }
 
 export async function clearAuthCookies(): Promise<void> {

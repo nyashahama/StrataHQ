@@ -231,4 +231,29 @@ describe("proxyRequest", () => {
     });
     expect(clearAuthCookies).not.toHaveBeenCalled();
   });
+
+  it("adds server timing and upstream status headers", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return new Response(JSON.stringify({ data: { ok: true } }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    const { GET } = await import("./route");
+    const req = new Request("http://localhost/api/proxy/api/v1/schemes");
+    const params = Promise.resolve({ path: ["api", "v1", "schemes"] });
+
+    const response = await GET(
+      req as unknown as import("next/server").NextRequest,
+      { params },
+    );
+
+    expect(response.headers.get("server-timing")).toContain("upstream;dur=");
+    expect(response.headers.get("x-upstream-status")).toBe("200");
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+  });
 });

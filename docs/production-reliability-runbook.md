@@ -150,6 +150,23 @@ cd backend && make test
 cd backend && make test-integration
 ```
 
+## Launch Gate
+
+Run this full matrix for release approval:
+
+```bash
+npm run lint
+npm test
+npm run build
+cd backend && go test ./internal/... -v -race
+cd backend && go test ./tests/integration/... -v -race -tags=integration
+k6 run --vus 10 --duration 2m backend/tests/load/auth-and-dashboard.js
+k6 run --vus 25 --duration 2m backend/tests/load/auth-and-dashboard.js
+k6 run --vus 50 --duration 2m backend/tests/load/auth-and-dashboard.js
+```
+
+After the aggregated portfolio summary query is deployed, include a dedicated pass through `/agent` portfolio overview during staging verification to confirm summary counts and collection percentage remain correct under load.
+
 ## Monitoring
 
 ### Prometheus Metrics

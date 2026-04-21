@@ -14,6 +14,17 @@ function getStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+export function defaultRetryDecider(
+  failureCount: number,
+  error: unknown,
+): boolean {
+  const status = getStatus(error);
+  if (status === 401 || status === 403 || status === 404) {
+    return false;
+  }
+  return failureCount < 2;
+}
+
 export function isAuthError(error: unknown): boolean {
   const status = getStatus(error);
   return status === 401;
@@ -33,13 +44,7 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
-      retry(failureCount, error) {
-        const status = getStatus(error);
-        if (status === 401 || status === 403 || status === 404) {
-          return false;
-        }
-        return failureCount < 2;
-      },
+      retry: defaultRetryDecider,
     },
   },
 });

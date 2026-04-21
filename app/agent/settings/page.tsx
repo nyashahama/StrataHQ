@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 
 import Modal from '@/components/Modal'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 import { changePassword, updateOrgSettings } from '@/lib/account-api'
 import { useAuth } from '@/lib/auth'
 import { createCheckoutSession, createPortalSession, getSubscription } from '@/lib/billing-api'
@@ -21,8 +22,6 @@ export default function AgentSettingsPage() {
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
   const [savingOrg, setSavingOrg] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
-  const [subscription, setSubscription] = useState<BillingSubscription | null>(null)
-  const [loadingBilling, setLoadingBilling] = useState(true)
   const [startingCheckout, setStartingCheckout] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
 
@@ -34,23 +33,16 @@ export default function AgentSettingsPage() {
     })
   }, [user])
 
-  useEffect(() => {
-    async function loadBilling() {
-      try {
-        setLoadingBilling(true)
-        setSubscription(await getSubscription())
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load billing status',
-          'error',
-        )
-      } finally {
-        setLoadingBilling(false)
-      }
-    }
-
-    loadBilling()
-  }, [addToast])
+  const {
+    data: subscription = null,
+    isLoading: loadingBilling,
+    error: billingError,
+    refetch: refetchBilling,
+  } = useAuthenticatedQuery<BillingSubscription | null>({
+    queryKey: ['agent', 'settings', 'billing'],
+    queryFn: getSubscription,
+    staleTime: 30_000,
+  })
 
   async function handleOrgSave() {
     if (!user) return
@@ -68,7 +60,6 @@ export default function AgentSettingsPage() {
       })
       const nextUser = { ...user, org }
       setUser(nextUser)
-      await fetch('/api/session/refresh', { method: 'POST' })
       setOrgForm({
         name: org.name,
         contact_email: org.contact_email ?? '',
@@ -194,6 +185,16 @@ export default function AgentSettingsPage() {
         <div className="px-5 py-4 flex flex-col gap-4">
           {loadingBilling ? (
             <p className="text-[13px] text-muted">Loading subscription status…</p>
+          ) : billingError ? (
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[13px] text-red">Failed to load billing status.</p>
+              <button
+                onClick={() => void refetchBilling()}
+                className="text-[12px] font-semibold border border-border bg-surface text-ink px-3 py-1.5 rounded hover:bg-hover-subtle transition-colors"
+              >
+                Retry
+              </button>
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3">

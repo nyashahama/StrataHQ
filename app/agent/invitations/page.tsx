@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 
 import Modal from "@/components/Modal";
+import RetryState from "@/components/RetryState";
+import { useAuthenticatedQuery } from "@/hooks/useAuthenticatedQuery";
 import { apiFetch } from "@/lib/api";
 import { readApiData, readApiError } from "@/lib/api-contract";
 import { useAuth } from "@/lib/auth";
+import { queryClient } from "@/lib/query-client";
 import { useToast } from "@/lib/toast";
 
 interface Invitation {
@@ -41,6 +44,8 @@ const INITIAL_FORM: InviteForm = {
   unit_id: "",
 };
 
+const INVITATIONS_QUERY_KEY = ["agent", "invitations"] as const;
+
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-ZA", {
     day: "numeric",
@@ -57,8 +62,6 @@ function daysUntil(value: string): number {
 export default function InvitationsPage() {
   const { addToast } = useToast();
   const { user } = useAuth();
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [activeAction, setActiveAction] = useState<{
     id: string;
@@ -73,13 +76,6 @@ export default function InvitationsPage() {
     schemes.map((scheme) => [scheme.scheme_id, scheme.scheme_name]),
   );
 
-  const trusteeCount = invitations.filter((inv) => inv.role === "trustee").length;
-  const residentCount = invitations.length - trusteeCount;
-  const nextExpiry = [...invitations].sort(
-    (a, b) =>
-      new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime(),
-  )[0];
-
   function enrichInvitation(invitation: Invitation): Invitation {
     return {
       ...invitation,
@@ -90,29 +86,30 @@ export default function InvitationsPage() {
     };
   }
 
-  async function loadInvitations() {
-    setLoading(true);
-    try {
+  const {
+    data: rawInvitations = [],
+    isLoading,
+    error,
+    refetch,
+  } = useAuthenticatedQuery<Invitation[]>({
+    queryKey: INVITATIONS_QUERY_KEY,
+    queryFn: async () => {
       const res = await apiFetch("/api/v1/invitations");
       if (!res.ok) {
         throw new Error(await readApiError(res, "Failed to load invitations"));
       }
-      const data = await readApiData<Invitation[]>(res);
-      setInvitations(data.map(enrichInvitation));
-    } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : "Failed to load invitations",
-        "error" as never,
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+      return readApiData<Invitation[]>(res);
+    },
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    loadInvitations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const invitations = rawInvitations.map(enrichInvitation);
+  const trusteeCount = invitations.filter((inv) => inv.role === "trustee").length;
+  const residentCount = invitations.length - trusteeCount;
+  const nextExpiry = [...invitations].sort(
+    (a, b) =>
+      new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime(),
+  )[0];
 
   useEffect(() => {
     if (showCompose && schemes.length > 0 && !form.scheme_id) {
@@ -133,7 +130,10 @@ export default function InvitationsPage() {
             await readApiError(res, "Failed to revoke invitation"),
           );
         }
-        setInvitations((prev) => prev.filter((inv) => inv.id !== id));
+        queryClient.setQueryData<Invitation[]>(
+          INVITATIONS_QUERY_KEY,
+          (previous = []) => previous.filter((inv) => inv.id !== id),
+        );
         addToast("Invitation revoked", "info" as never);
         return;
       }
@@ -147,8 +147,10 @@ export default function InvitationsPage() {
         );
       }
       const updated = enrichInvitation(await readApiData<Invitation>(res));
-      setInvitations((prev) =>
-        prev.map((inv) => (inv.id === id ? updated : inv)),
+      queryClient.setQueryData<Invitation[]>(
+        INVITATIONS_QUERY_KEY,
+        (previous = []) =>
+          previous.map((inv) => (inv.id === id ? updated : inv)),
       );
       addToast("Invitation resent", "success" as never);
     } catch (error) {
@@ -200,7 +202,10 @@ export default function InvitationsPage() {
       }
 
       const created = enrichInvitation(await readApiData<Invitation>(res));
-      setInvitations((prev) => [created, ...prev]);
+      queryClient.setQueryData<Invitation[]>(
+        INVITATIONS_QUERY_KEY,
+        (previous = []) => [created, ...previous],
+      );
       setShowCompose(false);
       setForm({
         ...INITIAL_FORM,
@@ -278,7 +283,13 @@ export default function InvitationsPage() {
         backend data model. Trustee invitations only need a scheme.
       </div>
 
-      {loading ? (
+      {error ? (
+        <RetryState
+          title="Could not load invitations"
+          message="Temporary service issue. Try again."
+          onRetry={refetch}
+        />
+      ) : isLoading ? (
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading invitations…
         </div>

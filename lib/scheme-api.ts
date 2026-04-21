@@ -1,7 +1,7 @@
 "use client";
 
 import { apiFetch } from "@/lib/api";
-import { readApiData, readApiError } from "@/lib/api-contract";
+import { readApiData, buildApiHttpError } from "@/lib/api-contract";
 
 export interface SchemeSummary {
   unit_id?: string | null;
@@ -55,7 +55,7 @@ export interface SchemeDetail extends SchemeSummary {
 
 async function parse<T>(response: Response, fallback: string): Promise<T> {
   if (!response.ok) {
-    throw new Error(await readApiError(response, fallback));
+    throw await buildApiHttpError(response, fallback);
   }
   return readApiData<T>(response);
 }

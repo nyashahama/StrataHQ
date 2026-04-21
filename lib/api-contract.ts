@@ -18,6 +18,18 @@ export interface ApiErrorResponse {
   error: ApiErrorBody;
 }
 
+export class ApiHttpError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ApiHttpError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -67,4 +79,22 @@ export async function readApiError(
 ): Promise<string> {
   const body = await readApiBody(response);
   return getApiErrorMessage(body, fallback);
+}
+
+export async function buildApiHttpError(
+  response: Response,
+  fallback: string,
+): Promise<ApiHttpError> {
+  const body = await readApiBody(response);
+  const message = getApiErrorMessage(body, fallback);
+
+  let code: string | undefined;
+  if (isRecord(body) && "error" in body && isRecord(body.error)) {
+    const maybeCode = body.error.code;
+    if (typeof maybeCode === "string" && maybeCode.trim() !== "") {
+      code = maybeCode;
+    }
+  }
+
+  return new ApiHttpError(message, response.status, code);
 }

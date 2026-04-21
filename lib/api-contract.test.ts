@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildApiHttpError,
   getApiErrorMessage,
   unwrapApiData,
 } from "./api-contract";
@@ -29,5 +30,28 @@ describe("getApiErrorMessage", () => {
 
   it("falls back when the payload is not an api error", () => {
     expect(getApiErrorMessage({ nope: true }, "fallback")).toBe("fallback");
+  });
+});
+
+describe("buildApiHttpError", () => {
+  it("preserves response status and backend error code", async () => {
+    const response = new Response(
+      JSON.stringify({
+        error: {
+          code: "FORBIDDEN",
+          message: "No access",
+        },
+      }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+
+    const error = await buildApiHttpError(response, "fallback");
+
+    expect(error.status).toBe(403);
+    expect(error.code).toBe("FORBIDDEN");
+    expect(error.message).toBe("No access");
   });
 });

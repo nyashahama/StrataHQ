@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 
-describe("middleware", () => {
+describe("proxy", () => {
   it("redirects protected pages when the access token is missing", () => {
     const request = new NextRequest("http://localhost/agent", {
       headers: {
@@ -11,7 +11,7 @@ describe("middleware", () => {
       },
     });
 
-    const response = middleware(request);
+    const response = proxy(request);
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(

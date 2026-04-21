@@ -13,11 +13,20 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [loading, setLoading] = useState(true);
+interface AuthProviderProps {
+  children: React.ReactNode;
+  initialUser?: SessionUser | null;
+}
+
+export function AuthProvider({ children, initialUser }: AuthProviderProps) {
+  const [user, setUser] = useState<SessionUser | null>(initialUser ?? null);
+  const [loading, setLoading] = useState(initialUser === undefined);
 
   useEffect(() => {
+    if (initialUser !== undefined) {
+      return;
+    }
+
     const MAX_REFRESH_RETRIES = 2;
 
     async function tryRefreshSession(attempt = 0): Promise<SessionUser | null> {
@@ -60,7 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     void loadSession();
-  }, []);
+  }, [initialUser]);
 
   function clearUser() {
     logoutAction().finally(() => {

@@ -19,10 +19,9 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // ─── CSRF Origin Validation (mutating requests) ─────────────────────────
   const method = request.method.toUpperCase();
   if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
     const origin = request.headers.get("origin");
@@ -39,7 +38,6 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // ─── Auth Route Protection ──────────────────────────────────────────────
   if (!isPublicPath(pathname)) {
     const sessionCookie = request.cookies.get("sh_session");
     const accessCookie = request.cookies.get("sh_access");
@@ -50,7 +48,6 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // ─── Security Headers ──────────────────────────────────────────────────
   const response = NextResponse.next();
 
   response.headers.set("X-Frame-Options", "DENY");

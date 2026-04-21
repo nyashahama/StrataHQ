@@ -1,43 +1,71 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const mockUseAuthenticatedQuery = vi.hoisted(() => vi.fn());
+import { SchemeOverview } from "@/components/scheme/SchemeOverview";
 
-vi.mock("@/lib/auth", () => ({
-  useAuth: vi.fn(() => ({ user: { role: "admin" } })),
-}));
+describe("SchemeOverview", () => {
+  it("renders core scheme details for trustees and admins", () => {
+    render(
+      <SchemeOverview
+        isResident={false}
+        attentionItems={[]}
+        scheme={{
+          id: "scheme-1",
+          name: "Scheme 1",
+          address: "Address 1",
+          role: "admin",
+          health: "good",
+          unit_count: 10,
+          total_members: 11,
+          trustee_count: 2,
+          resident_count: 9,
+          levy_collection_pct: 96,
+          open_maintenance_count: 2,
+          notice_count: 1,
+          unit_id: null,
+          unit_identifier: null,
+          next_agm_date: null,
+          days_to_agm: null,
+          units: [],
+          recent_notices: [],
+        }}
+      />,
+    );
 
-vi.mock("next/navigation", () => ({
-  useParams: vi.fn(() => ({ schemeId: "scheme-1" })),
-}));
-
-vi.mock("@/hooks/useAuthenticatedQuery", () => ({
-  useAuthenticatedQuery: mockUseAuthenticatedQuery,
-}));
-
-describe("SchemeOverviewPage", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+    expect(screen.getByText("Scheme 1")).toBeInTheDocument();
+    expect(screen.getByText("Scheme health")).toBeInTheDocument();
+    expect(screen.getByText("Collections attention queue")).toBeInTheDocument();
   });
 
-  it("renders RetryState when the overview query fails", async () => {
-    const refetch = vi.fn();
+  it("hides attention queue for residents", () => {
+    render(
+      <SchemeOverview
+        isResident={true}
+        attentionItems={[]}
+        scheme={{
+          id: "scheme-1",
+          name: "Scheme 1",
+          address: "Address 1",
+          role: "resident",
+          health: "good",
+          unit_count: 10,
+          total_members: 11,
+          trustee_count: 2,
+          resident_count: 9,
+          levy_collection_pct: 96,
+          open_maintenance_count: 2,
+          notice_count: 1,
+          unit_id: "unit-1",
+          unit_identifier: "1A",
+          next_agm_date: null,
+          days_to_agm: null,
+          units: [],
+          recent_notices: [],
+        }}
+      />,
+    );
 
-    mockUseAuthenticatedQuery
-      .mockReturnValueOnce({
-        data: undefined,
-        isLoading: false,
-        error: new Error("Failed to load scheme"),
-        refetch,
-      })
-      .mockReturnValueOnce({
-        data: { items: [] },
-        isLoading: false,
-      });
-
-    const { default: SchemeOverviewPage } = await import("@/app/app/[schemeId]/page");
-    render(<SchemeOverviewPage />);
-
-    expect(screen.getByText("Could not load scheme overview")).toBeInTheDocument();
+    expect(screen.queryByText("Collections attention queue")).not.toBeInTheDocument();
+    expect(screen.getByText("Unit 1A · Welcome back.")).toBeInTheDocument();
   });
 });

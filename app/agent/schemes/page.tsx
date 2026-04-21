@@ -1,11 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
 
-import { useAuth } from '@/lib/auth'
+import RetryState from '@/components/RetryState'
+import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
+import { portfolioKeys } from '@/lib/query-keys'
 import { listSchemes, type SchemeSummary } from '@/lib/scheme-api'
-import { useToast } from '@/lib/toast'
 
 const HEALTH_STYLES: Record<SchemeSummary['health'], string> = {
   good: 'bg-green-bg text-green',
@@ -14,34 +14,33 @@ const HEALTH_STYLES: Record<SchemeSummary['health'], string> = {
 }
 
 export default function SchemesPage() {
-  useAuth()
-  const { addToast } = useToast()
-  const [schemes, setSchemes] = useState<SchemeSummary[]>([])
-  const [loading, setLoading] = useState(true)
+  const {
+    data: schemes = [],
+    isLoading,
+    error,
+    refetch,
+  } = useAuthenticatedQuery<SchemeSummary[]>({
+    queryKey: portfolioKeys.overview(),
+    queryFn: listSchemes,
+    staleTime: 30_000,
+  })
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setSchemes(await listSchemes())
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load schemes',
-          'error',
-        )
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    load()
-  }, [addToast])
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load schemes"
+        message="Temporary service issue. Try again."
+        onRetry={refetch}
+      />
+    )
+  }
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">All schemes</h1>
       <p className="text-[14px] text-muted mb-8">Schemes managed by your organisation.</p>
 
-      {loading ? (
+      {isLoading ? (
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">
           Loading schemes…
         </div>

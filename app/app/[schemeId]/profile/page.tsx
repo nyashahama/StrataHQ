@@ -44,7 +44,6 @@ export default function ResidentProfilePage() {
         phone: profileForm.phone.trim(),
       })
       setUser(updated)
-      await fetch('/api/session/refresh', { method: 'POST' })
       setProfileForm({
         full_name: updated.full_name,
         email: updated.email,

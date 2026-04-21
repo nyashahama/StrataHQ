@@ -230,6 +230,127 @@ func (q *Queries) ListSchemeMembersByScheme(ctx context.Context, schemeID uuid.U
 	return items, nil
 }
 
+const listSchemeSummariesByOrg = `-- name: ListSchemeSummariesByOrg :many
+WITH member_counts AS (
+  SELECT
+    sm.scheme_id,
+    COUNT(*)::int AS total_members,
+    COUNT(*) FILTER (WHERE sm.role = 'trustee')::int AS trustee_count,
+    COUNT(*) FILTER (WHERE sm.role = 'resident')::int AS resident_count
+  FROM scheme_memberships sm
+  GROUP BY sm.scheme_id
+),
+maintenance_counts AS (
+  SELECT
+    mr.scheme_id,
+    COUNT(*) FILTER (WHERE mr.status != 'resolved')::bigint AS open_maintenance_count
+  FROM maintenance_requests mr
+  GROUP BY mr.scheme_id
+),
+notice_counts AS (
+  SELECT
+    n.scheme_id,
+    COUNT(*)::int AS notice_count
+  FROM notices n
+  GROUP BY n.scheme_id
+),
+next_agm AS (
+  SELECT
+    am.scheme_id,
+    (MIN(am.meeting_date) FILTER (
+      WHERE am.meeting_date IS NOT NULL
+        AND am.meeting_date >= CURRENT_DATE
+    ))::date AS next_agm_date
+  FROM agm_meetings am
+  GROUP BY am.scheme_id
+),
+latest_period AS (
+  SELECT DISTINCT ON (lp.scheme_id)
+    lp.scheme_id,
+    lp.id AS period_id
+  FROM levy_periods lp
+  ORDER BY lp.scheme_id, lp.due_date DESC, lp.created_at DESC
+),
+collection AS (
+  SELECT
+    p.scheme_id,
+    COALESCE(SUM(la.amount_cents), 0)::bigint AS total_due_cents,
+    COALESCE(SUM(LEAST(la.paid_cents, la.amount_cents)), 0)::bigint AS total_paid_cents
+  FROM latest_period p
+  LEFT JOIN levy_accounts la ON la.period_id = p.period_id
+  GROUP BY p.scheme_id
+)
+SELECT
+  s.id,
+  s.name,
+  s.address,
+  s.unit_count,
+  COALESCE(mc.total_members, 0) AS total_members,
+  COALESCE(mc.trustee_count, 0) AS trustee_count,
+  COALESCE(mc.resident_count, 0) AS resident_count,
+  COALESCE(mtc.open_maintenance_count, 0)::bigint AS open_maintenance_count,
+  COALESCE(nc.notice_count, 0) AS notice_count,
+  nagm.next_agm_date,
+  CASE
+    WHEN COALESCE(c.total_due_cents, 0) = 0 THEN 100
+    ELSE ROUND((c.total_paid_cents::numeric * 100.0) / c.total_due_cents::numeric)::int
+  END AS levy_collection_pct
+FROM schemes s
+LEFT JOIN member_counts mc ON mc.scheme_id = s.id
+LEFT JOIN maintenance_counts mtc ON mtc.scheme_id = s.id
+LEFT JOIN notice_counts nc ON nc.scheme_id = s.id
+LEFT JOIN next_agm nagm ON nagm.scheme_id = s.id
+LEFT JOIN collection c ON c.scheme_id = s.id
+WHERE s.org_id = $1
+ORDER BY s.name
+`
+
+type ListSchemeSummariesByOrgRow struct {
+	ID                   uuid.UUID   `json:"id"`
+	Name                 string      `json:"name"`
+	Address              string      `json:"address"`
+	UnitCount            int32       `json:"unit_count"`
+	TotalMembers         int32       `json:"total_members"`
+	TrusteeCount         int32       `json:"trustee_count"`
+	ResidentCount        int32       `json:"resident_count"`
+	OpenMaintenanceCount int64       `json:"open_maintenance_count"`
+	NoticeCount          int32       `json:"notice_count"`
+	NextAgmDate          pgtype.Date `json:"next_agm_date"`
+	LevyCollectionPct    int32       `json:"levy_collection_pct"`
+}
+
+func (q *Queries) ListSchemeSummariesByOrg(ctx context.Context, orgID uuid.UUID) ([]ListSchemeSummariesByOrgRow, error) {
+	rows, err := q.db.Query(ctx, listSchemeSummariesByOrg, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSchemeSummariesByOrgRow{}
+	for rows.Next() {
+		var i ListSchemeSummariesByOrgRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Address,
+			&i.UnitCount,
+			&i.TotalMembers,
+			&i.TrusteeCount,
+			&i.ResidentCount,
+			&i.OpenMaintenanceCount,
+			&i.NoticeCount,
+			&i.NextAgmDate,
+			&i.LevyCollectionPct,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSchemesByOrg = `-- name: ListSchemesByOrg :many
 SELECT id, org_id, name, address, unit_count, created_at, updated_at FROM schemes
 WHERE org_id = $1

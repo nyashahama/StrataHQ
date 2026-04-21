@@ -23,6 +23,32 @@ describe("AuthProvider", () => {
     vi.restoreAllMocks();
   });
 
+  it("uses initialUser without calling /api/session", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <AuthProvider
+        initialUser={{
+          id: "user-1",
+          email: "person@example.com",
+          full_name: "Person Example",
+          phone: null,
+          role: "admin",
+          wizard_complete: true,
+          scheme_memberships: [],
+          org: { id: "org-1", name: "Org 1" },
+        }}
+      >
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    expect(screen.getByTestId("loading")).toHaveTextContent("false");
+    expect(screen.getByTestId("email")).toHaveTextContent("person@example.com");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("refreshes session state when the cached session is invalid but recoverable", async () => {
     const fetchMock = vi
       .fn()

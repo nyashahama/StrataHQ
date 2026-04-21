@@ -1,7 +1,7 @@
 "use client";
 
 import { apiFetch } from "@/lib/api";
-import { readApiData, readApiError } from "@/lib/api-contract";
+import { readApiData, buildApiHttpError } from "@/lib/api-contract";
 import type { SessionOrg, SessionUser } from "@/lib/session";
 
 export async function updateProfile(input: {
@@ -19,7 +19,7 @@ export async function updateProfile(input: {
   });
 
   if (!res.ok) {
-    throw new Error(await readApiError(res, "Failed to update profile"));
+    throw await buildApiHttpError(res, "Failed to update profile");
   }
 
   return readApiData<SessionUser>(res);
@@ -40,8 +40,9 @@ export async function updateOrgSettings(input: {
   });
 
   if (!res.ok) {
-    throw new Error(
-      await readApiError(res, "Failed to update organisation settings"),
+    throw await buildApiHttpError(
+      res,
+      "Failed to update organisation settings",
     );
   }
 
@@ -58,6 +59,6 @@ export async function changePassword(input: {
   });
 
   if (!res.ok) {
-    throw new Error(await readApiError(res, "Failed to update password"));
+    throw await buildApiHttpError(res, "Failed to update password");
   }
 }

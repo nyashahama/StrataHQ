@@ -85,7 +85,11 @@ function upstreamUnavailableResponse() {
 function proxyResponse(response: Response, requestId?: string) {
   const responseHeaders = new Headers();
   const contentType = response.headers.get("content-type");
+  const serverTiming = response.headers.get("server-timing");
+  const upstreamStatus = response.headers.get("x-upstream-status");
   if (contentType) responseHeaders.set("content-type", contentType);
+  if (serverTiming) responseHeaders.set("server-timing", serverTiming);
+  if (upstreamStatus) responseHeaders.set("x-upstream-status", upstreamStatus);
   if (requestId) responseHeaders.set("x-request-id", requestId);
 
   return new Response(response.body, {
@@ -115,6 +119,7 @@ function shouldRetry(method: string, status: number): boolean {
 }
 
 async function proxyRequest(request: NextRequest, pathSegments: string[]) {
+  const startedAt = performance.now();
   const requestId = getOrCreateRequestId(request.headers);
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("sh_access")?.value;
@@ -168,6 +173,18 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   }
   clearTimeout(timeout);
 
+  function withTiming(response: Response): Response {
+    const headers = new Headers(response.headers);
+    headers.set("server-timing", `upstream;dur=${(performance.now() - startedAt).toFixed(1)}`);
+    headers.set("x-upstream-status", String(response.status));
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
   if (!auth || firstResponse.status !== 401) {
     if (shouldRetry(request.method, firstResponse.status)) {
       const retryController = new AbortController();
@@ -185,7 +202,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
           signal: retryController.signal,
         });
         clearTimeout(retryTimeout);
-        return proxyResponse(retryResponse, requestId);
+        return proxyResponse(withTiming(retryResponse), requestId);
       } catch (error) {
         clearTimeout(retryTimeout);
         if (error instanceof DOMException && error.name === "AbortError") {
@@ -194,7 +211,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
         throw error;
       }
     }
-    return proxyResponse(firstResponse, requestId);
+    return proxyResponse(withTiming(firstResponse), requestId);
   }
 
   const refreshed = await refreshAuthSession();
@@ -235,5 +252,5 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     await clearAuthCookies();
   }
 
-  return proxyResponse(retryResponse, requestId);
+  return proxyResponse(withTiming(retryResponse), requestId);
 }

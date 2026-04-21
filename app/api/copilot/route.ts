@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 import { readApiData, readApiError } from '@/lib/api-contract'
 
 const BACKEND = () => process.env.BACKEND_URL ?? 'http://localhost:8080'
+const COPILOT_TIMEOUT_MS = 15_000;
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -13,14 +14,30 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const response = await fetch(`${BACKEND()}/api/v1/ai/copilot`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(body),
-  })
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), COPILOT_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(`${BACKEND()}/api/v1/ai/copilot`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return new Response("Copilot temporarily unavailable. Please retry.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+    throw error;
+  }
+  clearTimeout(timeout);
 
   if (!response.ok) {
     return new Response(

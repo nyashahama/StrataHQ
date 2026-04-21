@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Lora, DM_Sans } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AppProviders } from "@/components/providers/AppProviders";
+import { parseSessionCookie } from "@/lib/session";
 
 const lora = Lora({
   subsets: ["latin"],
@@ -41,11 +43,14 @@ const themeScript = `
 })();
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+  const initialUser = parseSessionCookie(cookieStore.get("sh_session")?.value);
+
   return (
     <html
       lang="en"
@@ -58,7 +63,7 @@ export default function RootLayout({
       <body className="bg-page text-ink font-sans antialiased leading-relaxed">
         <ThemeProvider>
           <AppProviders>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider initialUser={initialUser}>{children}</AuthProvider>
           </AppProviders>
         </ThemeProvider>
       </body>

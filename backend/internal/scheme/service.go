@@ -121,19 +121,47 @@ func (s *Service) List(ctx context.Context, identity auth.Identity) ([]SchemeSum
 		if err != nil {
 			return nil, ErrInvalidInput
 		}
-		schemes, err := s.db.Q.ListSchemesByOrg(ctx, orgID)
+		rows, err := s.db.Q.ListSchemeSummariesByOrg(ctx, orgID)
 		if err != nil {
 			return nil, err
 		}
 
-		summaries := make([]SchemeSummary, 0, len(schemes))
-		for _, scheme := range schemes {
-			summary, err := s.buildSummary(ctx, scheme, string(auth.RoleAdmin), nil, nil)
-			if err != nil {
-				return nil, err
+		now := time.Now()
+		summaries := make([]SchemeSummary, 0, len(rows))
+		for _, row := range rows {
+			var nextAgmDate *string
+			var daysToAgm *int
+			if row.NextAgmDate.Valid {
+				meetingTime := row.NextAgmDate.Time
+				date := meetingTime.Format("2006-01-02")
+				nextAgmDate = &date
+				days := int(math.Ceil(meetingTime.Sub(now).Hours() / 24))
+				if days < 0 {
+					days = 0
+				}
+				daysToAgm = &days
 			}
-			summaries = append(summaries, summary)
+
+			openMaintenanceCount := row.OpenMaintenanceCount
+			levyCollectionPct := int(row.LevyCollectionPct)
+			summaries = append(summaries, SchemeSummary{
+				ID:                   row.ID.String(),
+				Name:                 row.Name,
+				Address:              row.Address,
+				Role:                 string(auth.RoleAdmin),
+				Health:               healthFor(levyCollectionPct, openMaintenanceCount),
+				UnitCount:            row.UnitCount,
+				TotalMembers:         int(row.TotalMembers),
+				TrusteeCount:         int(row.TrusteeCount),
+				ResidentCount:        int(row.ResidentCount),
+				LevyCollectionPct:    levyCollectionPct,
+				OpenMaintenanceCount: openMaintenanceCount,
+				NoticeCount:          int(row.NoticeCount),
+				NextAgmDate:          nextAgmDate,
+				DaysToAgm:            daysToAgm,
+			})
 		}
+
 		return summaries, nil
 	}
 

@@ -47,6 +47,17 @@ func TestScheme_AdminCoreFlow(t *testing.T) {
 	if listResp[0].Role != "admin" {
 		t.Fatalf("expected admin role in summary, got %q", listResp[0].Role)
 	}
+	if listResp[0].LevyCollectionPct < 0 || listResp[0].LevyCollectionPct > 100 {
+		t.Fatalf("expected levy collection pct in [0,100], got %d", listResp[0].LevyCollectionPct)
+	}
+	if listResp[0].TotalMembers < 0 || listResp[0].TrusteeCount < 0 || listResp[0].ResidentCount < 0 {
+		t.Fatalf(
+			"expected non-negative membership counts, got total=%d trustee=%d resident=%d",
+			listResp[0].TotalMembers,
+			listResp[0].TrusteeCount,
+			listResp[0].ResidentCount,
+		)
+	}
 
 	createBody, _ := json.Marshal(map[string]any{
 		"name":       "Bluewater Gardens",

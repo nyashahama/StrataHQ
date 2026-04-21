@@ -15,9 +15,10 @@ export default function AttentionQueue({
   scope: "portfolio" | "scheme";
   loading: boolean;
   error: string | null;
-  onRefresh: () => void;
+  onRefresh?: () => void;
 }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const handleRefresh = onRefresh ?? (() => {});
 
   if (loading)
     return (
@@ -80,7 +81,7 @@ export default function AttentionQueue({
             </button>
             {expanded ? (
               <div className="border-t border-border px-5 py-4">
-                <CollectionActionPanel item={item} onRefresh={onRefresh} />
+                <CollectionActionPanel item={item} onRefresh={handleRefresh} />
               </div>
             ) : null}
           </div>

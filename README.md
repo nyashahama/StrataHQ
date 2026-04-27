@@ -74,8 +74,11 @@ Backend runs at `http://localhost:8080`. See [`backend/README.md`](backend/READM
 ### Frontend (`.env.local`)
 
 ```bash
+BACKEND_URL=http://localhost:8080
 NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
+
+`BACKEND_URL` is used by server-side code (server actions, API routes) to reach the Go backend. `NEXT_PUBLIC_API_URL` is used by client-side code when direct backend calls are needed.
 
 ### Backend (`backend/.env`)
 

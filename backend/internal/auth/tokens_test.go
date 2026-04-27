@@ -11,7 +11,7 @@ import (
 const testSecret = "test-secret-key-for-testing-only"
 
 func TestGenerateAccessToken_ValidClaims(t *testing.T) {
-	tok, err := GenerateAccessToken("user-123", "org-456", "admin", testSecret, 15*time.Minute)
+	tok, err := GenerateAccessToken("user-123", "org-456", "admin", "https://localhost:3000", "stratahq-api", testSecret, 15*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -31,7 +31,7 @@ func TestGenerateAccessToken_ValidClaims(t *testing.T) {
 }
 
 func TestValidateAccessToken_WrongSecret(t *testing.T) {
-	tok, _ := GenerateAccessToken("user-1", "org-1", "admin", "secret-a", 15*time.Minute)
+	tok, _ := GenerateAccessToken("user-1", "org-1", "admin", "https://localhost:3000", "stratahq-api", "secret-a", 15*time.Minute)
 	_, err := ValidateAccessToken(tok, "secret-b")
 	if err == nil {
 		t.Fatal("expected error for wrong secret, got nil")
@@ -59,7 +59,7 @@ func TestValidateAccessToken_Expired(t *testing.T) {
 }
 
 func TestValidateAccessToken_TamperedSignature(t *testing.T) {
-	tok, _ := GenerateAccessToken("user-1", "org-1", "admin", testSecret, 15*time.Minute)
+	tok, _ := GenerateAccessToken("user-1", "org-1", "admin", "https://localhost:3000", "stratahq-api", testSecret, 15*time.Minute)
 	tampered := tok[:len(tok)-4] + "xxxx"
 	_, err := ValidateAccessToken(tampered, testSecret)
 	if err == nil {

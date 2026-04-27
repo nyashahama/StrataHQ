@@ -40,7 +40,11 @@ export async function requireSchemeSession(
   }
 
   if (!hasSchemeMembership(session, schemeId)) {
-    redirect(`/app/${primarySchemeId(session) ?? ""}`);
+    const schemeId_ = primarySchemeId(session);
+    if (!schemeId_) {
+      redirect("/auth/login");
+    }
+    redirect(`/app/${schemeId_}`);
   }
 
   return session;

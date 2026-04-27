@@ -27,13 +27,15 @@ type Claims struct {
 }
 
 // GenerateAccessToken creates a signed HS256 JWT for the given user.
-func GenerateAccessToken(userID, orgID, role, secret string, expiry time.Duration) (string, error) {
+func GenerateAccessToken(userID, orgID, role, issuer, audience, secret string, expiry time.Duration) (string, error) {
 	now := time.Now()
 	claims := Claims{
 		OrgID: orgID,
 		Role:  role,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    issuer,
 			Subject:   userID,
+			Audience:  jwt.ClaimStrings{audience},
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(expiry)),
 		},

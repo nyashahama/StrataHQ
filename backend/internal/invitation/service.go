@@ -85,12 +85,13 @@ type Service struct {
 	withTx        func(ctx context.Context, fn func(q txStore) error) error
 	db            *database.Pool
 	sender        notification.Sender
+	appBaseURL    string
 	jwtSecret     string
 	jwtExpiry     time.Duration
 	refreshExpiry time.Duration
 }
 
-func NewService(db *database.Pool, sender notification.Sender, jwtSecret string, jwtExpiry, refreshExpiry time.Duration) *Service {
+func NewService(db *database.Pool, sender notification.Sender, appBaseURL, jwtSecret string, jwtExpiry, refreshExpiry time.Duration) *Service {
 	return &Service{
 		q: db.Q,
 		withTx: func(ctx context.Context, fn func(q txStore) error) error {
@@ -100,6 +101,7 @@ func NewService(db *database.Pool, sender notification.Sender, jwtSecret string,
 		},
 		db:            db,
 		sender:        sender,
+		appBaseURL:    appBaseURL,
 		jwtSecret:     jwtSecret,
 		jwtExpiry:     jwtExpiry,
 		refreshExpiry: refreshExpiry,
@@ -325,7 +327,7 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 		return nil, err
 	}
 
-	accessToken, err := auth.GenerateAccessToken(user.ID.String(), inv.OrgID.String(), inv.Role, s.jwtSecret, s.jwtExpiry)
+	accessToken, err := auth.GenerateAccessToken(user.ID.String(), inv.OrgID.String(), inv.Role, s.appBaseURL, "stratahq-api", s.jwtSecret, s.jwtExpiry)
 	if err != nil {
 		return nil, err
 	}

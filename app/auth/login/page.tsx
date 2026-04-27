@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import LogoIcon from "@/components/LogoIcon";
 import { loginAction } from "@/lib/auth-actions";
 import { postLoginPath } from "@/lib/session";
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const redirectParam = searchParams.get("redirect");
+  const isSafeRedirect =
+    redirectParam && /^\/[^\\]*$/.test(redirectParam) && !redirectParam.includes("//");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -25,7 +31,7 @@ export default function LoginPage() {
     }
 
     const { user } = result;
-    window.location.replace(postLoginPath(user));
+    window.location.replace(isSafeRedirect ? redirectParam : postLoginPath(user));
   }
 
   return (
@@ -113,5 +119,13 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Lora, DM_Sans } from "next/font/google";
 import { cookies } from "next/headers";
+import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -58,7 +59,9 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <Script id="theme-script" strategy="beforeInteractive">
+          {themeScript}
+        </Script>
       </head>
       <body className="bg-page text-ink font-sans antialiased leading-relaxed">
         <ThemeProvider>

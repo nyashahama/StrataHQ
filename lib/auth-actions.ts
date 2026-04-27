@@ -4,9 +4,27 @@ import { cookies } from "next/headers";
 import { readApiData, readApiError } from "./api-contract";
 import { writeAuthCookies, clearAuthCookies } from "./server-auth";
 import type { SessionUser } from "./session";
-import { APP_ROLES } from "./session";
+import { APP_ROLES, parseSessionCookie } from "./session";
 
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
+
+const AUTH_FETCH_TIMEOUT_MS = 10_000;
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeoutMs = AUTH_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+const TEMP_UNAVAILABLE = "Service temporarily unavailable — please try again";
 
 const ACCESS_OPTS = {
   httpOnly: true,
@@ -38,11 +56,16 @@ export async function loginAction(
   email: string,
   password: string,
 ): Promise<{ user: SessionUser } | { error: string }> {
-  const res = await fetch(`${BACKEND()}/api/v1/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${BACKEND()}/api/v1/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+  } catch {
+    return { error: TEMP_UNAVAILABLE };
+  }
 
   if (!res.ok) {
     return {
@@ -72,11 +95,16 @@ export async function registerAction(
   password: string,
   full_name: string,
 ): Promise<{ user: SessionUser } | { error: string }> {
-  const res = await fetch(`${BACKEND()}/api/v1/auth/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, full_name }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${BACKEND()}/api/v1/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, full_name }),
+    });
+  } catch {
+    return { error: TEMP_UNAVAILABLE };
+  }
 
   if (!res.ok) {
     if (res.status === 409)
@@ -137,14 +165,19 @@ export async function setupAction(data: {
   const accessToken = cookieStore.get("sh_access")?.value;
   if (!accessToken) return { error: "Not authenticated" };
 
-  const res = await fetch(`${BACKEND()}/api/v1/onboarding/setup`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(data),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${BACKEND()}/api/v1/onboarding/setup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
+  } catch {
+    return { error: TEMP_UNAVAILABLE };
+  }
 
   if (!res.ok) return { error: "Setup failed — please try again" };
 
@@ -155,8 +188,8 @@ export async function setupAction(data: {
 
   // Update session cookie: wizard_complete + first scheme membership
   const raw = cookieStore.get("sh_session")?.value;
-  if (raw) {
-    const session = JSON.parse(decodeURIComponent(raw)) as SessionUser;
+  const session = parseSessionCookie(raw);
+  if (session) {
     session.wizard_complete = true;
     session.org = {
       id: result.org.id,
@@ -187,7 +220,7 @@ export async function setupAction(data: {
 // ─── Forgot password ──────────────────────────────────────────────────────────
 
 export async function forgotPasswordAction(email: string): Promise<void> {
-  await fetch(`${BACKEND()}/api/v1/auth/forgot-password`, {
+  fetchWithTimeout(`${BACKEND()}/api/v1/auth/forgot-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
@@ -201,11 +234,16 @@ export async function resetPasswordAction(
   token: string,
   password: string,
 ): Promise<{ ok: true } | { error: string }> {
-  const res = await fetch(`${BACKEND()}/api/v1/auth/reset-password`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ token, password }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${BACKEND()}/api/v1/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, password }),
+    });
+  } catch {
+    return { error: TEMP_UNAVAILABLE };
+  }
 
   if (!res.ok) {
     if (res.status === 401)

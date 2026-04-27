@@ -237,7 +237,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 		return nil, err
 	}
 
-	accessToken, err := GenerateAccessToken(user.ID.String(), membership.OrgID.String(), membership.Role, s.jwtSecret, s.jwtExpiry)
+	accessToken, err := GenerateAccessToken(user.ID.String(), membership.OrgID.String(), membership.Role, s.appBaseURL, "stratahq-api", s.jwtSecret, s.jwtExpiry)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +546,7 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) err
 
 // issueTokens creates a token pair and persists the refresh token.
 func (s *Service) issueTokens(ctx context.Context, user dbgen.User, orgID, role string) (*AuthResponse, error) {
-	accessToken, err := GenerateAccessToken(user.ID.String(), orgID, role, s.jwtSecret, s.jwtExpiry)
+	accessToken, err := GenerateAccessToken(user.ID.String(), orgID, role, s.appBaseURL, "stratahq-api", s.jwtSecret, s.jwtExpiry)
 	if err != nil {
 		return nil, err
 	}

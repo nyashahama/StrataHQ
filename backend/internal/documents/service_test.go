@@ -8,16 +8,16 @@ import (
 
 func TestDocumentAuditEventForCreate(t *testing.T) {
 	event := documentCreatedAuditEvent(documentAuditInput{
-		SchemeID:     "scheme-1",
-		OrgID:        "org-1",
-		ActorUserID:  "user-1",
-		ActorRole:    "admin",
-		DocumentID:   "doc-1",
-		Name:         "rules.pdf",
-		Category:     "rules",
-		FileType:     "pdf",
-		SizeBytes:    1234,
-		StorageKey:   "scheme/doc.pdf",
+		SchemeID:    "scheme-1",
+		OrgID:       "org-1",
+		ActorUserID: "user-1",
+		ActorRole:   "admin",
+		DocumentID:  "doc-1",
+		Name:        "rules.pdf",
+		Category:    "rules",
+		FileType:    "pdf",
+		SizeBytes:   1234,
+		StorageKey:  "scheme/doc.pdf",
 	})
 
 	if event.Action != "document.uploaded" {

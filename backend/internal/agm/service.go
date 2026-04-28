@@ -204,7 +204,7 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 		ResourceID:   meeting.ID.String(),
 		Action:       "agm_meeting.scheduled",
 		AfterState: map[string]any{
-			"meeting_date":     input.MeetingDate.Format("2006-01-02"),
+			"meeting_date":     meeting.MeetingDate.Time.Format("2006-01-02"),
 			"quorum_required":  meeting.QuorumRequired,
 			"resolution_count": len(input.Resolutions),
 		},

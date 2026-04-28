@@ -947,6 +947,7 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 		AfterState: map[string]any{
 			"levy_account_id": created.LevyAccountID.String(),
 			"event_type":      input.EventType,
+			"note":            textPointer(created.Note),
 		},
 	})
 

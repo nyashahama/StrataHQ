@@ -55,3 +55,21 @@ func TestHasOutgoingProxyAssignment(t *testing.T) {
 		t.Fatal("hasOutgoingProxyAssignment() = false, want true")
 	}
 }
+
+func TestAgmVoteAuditEvent(t *testing.T) {
+	event := agmVoteAuditEvent(agmVoteAuditInput{
+		SchemeID:     "scheme-1",
+		OrgID:        "org-1",
+		ActorUserID:  "user-1",
+		ActorRole:    "trustee",
+		ResolutionID: "resolution-1",
+		Choice:       "for",
+	})
+
+	if event.Action != "agm.vote_cast" {
+		t.Fatalf("action = %q, want agm.vote_cast", event.Action)
+	}
+	if event.ResourceType != "agm_resolution" {
+		t.Fatalf("resource type = %q, want agm_resolution", event.ResourceType)
+	}
+}

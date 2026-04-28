@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/platform/database"
@@ -127,17 +128,27 @@ type ReconcileResult struct {
 	SkippedCount      int      `json:"skipped_count"`
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
 	db             *database.Pool
 	emailSender    reminderEmailSender
 	whatsAppSender reminderWhatsAppSender
+	auditor        resourceAuditor
 }
 
 func NewService(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender) *Service {
+	return NewServiceWithAudit(db, emailSender, whatsAppSender, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender, auditor resourceAuditor) *Service {
 	return &Service{
 		db:             db,
 		emailSender:    emailSender,
 		whatsAppSender: whatsAppSender,
+		auditor:        auditor,
 	}
 }
 
@@ -282,6 +293,21 @@ func (s *Service) CreatePeriod(ctx context.Context, identity auth.Identity, sche
 	}
 
 	created := mapPeriod(period)
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, levyPeriodCreatedAuditEvent(levyPeriodAuditInput{
+			SchemeID:     scheme.ID.String(),
+			OrgID:        scheme.OrgID.String(),
+			ActorUserID:  identity.UserID,
+			ActorRole:    role,
+			PeriodID:     period.ID.String(),
+			Label:        period.Label,
+			DueDate:      formatDate(period.DueDate),
+			AmountCents:  period.AmountCents,
+			AccountCount: len(units),
+		}))
+	}
+
 	return &created, nil
 }
 
@@ -381,6 +407,18 @@ func (s *Service) Reconcile(ctx context.Context, identity auth.Identity, schemeI
 
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, levyReconciledAuditEvent(levyReconcileAuditInput{
+			SchemeID:          scheme.ID.String(),
+			OrgID:             scheme.OrgID.String(),
+			ActorUserID:       identity.UserID,
+			ActorRole:         role,
+			AppliedCount:      result.AppliedCount,
+			SkippedCount:      result.SkippedCount,
+			UpdatedAccountIDs: result.UpdatedAccountIDs,
+		}))
 	}
 
 	return result, nil
@@ -836,9 +874,11 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 	if err := validateCollectionEventInput(input); err != nil {
 		return nil, err
 	}
-	if _, role, _, err := s.resolveSchemeAccess(ctx, identity, schemeID); err != nil {
+	scheme, role, _, err := s.resolveSchemeAccess(ctx, identity, schemeID)
+	if err != nil {
 		return nil, err
-	} else if role == string(auth.RoleResident) {
+	}
+	if role == string(auth.RoleResident) {
 		return nil, ErrForbidden
 	}
 
@@ -898,6 +938,23 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 	if created.PromiseDate.Valid {
 		dateStr := created.PromiseDate.Time.Format("2006-01-02")
 		result.PromiseDate = &dateStr
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
+			SchemeID:     scheme.ID.String(),
+			OrgID:        scheme.OrgID.String(),
+			ActorUserID:  identity.UserID,
+			ActorRole:    identity.Role,
+			ResourceType: "collection_event",
+			ResourceID:   created.ID.String(),
+			Action:       "collection_event." + input.EventType,
+			AfterState: map[string]any{
+				"levy_account_id": created.LevyAccountID.String(),
+				"event_type":      input.EventType,
+				"note":            textPointer(created.Note),
+			},
+		})
 	}
 
 	return result, nil
@@ -1005,4 +1062,60 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 	}
 
 	return s.RecordCollectionEvent(ctx, identity, schemeID, accountID, eventInput)
+}
+
+type levyPeriodAuditInput struct {
+	SchemeID     string
+	OrgID        string
+	ActorUserID  string
+	ActorRole    string
+	PeriodID     string
+	Label        string
+	DueDate      string
+	AmountCents  int64
+	AccountCount int
+}
+
+func levyPeriodCreatedAuditEvent(input levyPeriodAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "levy_period",
+		ResourceID:   input.PeriodID,
+		Action:       "levy_period.created",
+		AfterState: map[string]any{
+			"label":         input.Label,
+			"due_date":      input.DueDate,
+			"amount_cents":  input.AmountCents,
+			"account_count": input.AccountCount,
+		},
+	}
+}
+
+type levyReconcileAuditInput struct {
+	SchemeID          string
+	OrgID             string
+	ActorUserID       string
+	ActorRole         string
+	AppliedCount      int
+	SkippedCount      int
+	UpdatedAccountIDs []string
+}
+
+func levyReconciledAuditEvent(input levyReconcileAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "levy_reconciliation",
+		Action:       "levy.reconciled",
+		Metadata: map[string]any{
+			"applied_count":       input.AppliedCount,
+			"skipped_count":       input.SkippedCount,
+			"updated_account_ids": input.UpdatedAccountIDs,
+		},
+	}
 }

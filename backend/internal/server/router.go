@@ -31,6 +31,7 @@ import (
 type Handlers struct {
 	Health          *health.Handler
 	Auth            *auth.Handler
+	Audit           *audit.Handler
 	Agm             *agm.Handler
 	AI              *ai.Handler
 	Scheme          *scheme.Handler
@@ -127,6 +128,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 			r.Mount("/whatsapp", h.WhatsApp.Routes())
 			r.Mount("/billing", h.Billing.Routes())
 			r.Mount("/admin/early-access", h.EarlyAccess.ProtectedRoutes())
+			r.Mount("/audit", h.Audit.Routes())
 		})
 	})
 

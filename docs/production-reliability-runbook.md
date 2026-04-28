@@ -218,6 +218,27 @@ Initial action:
 3. Compare `http_requests_total` status labels before and after the alert.
 4. Confirm provider status pages for Stripe, Twilio, Resend, and the AI provider.
 
+### Resource Audit Log
+
+Business audit records live in `resource_audit_events`; request telemetry remains in `audit_events`.
+
+Verify audit writes after staging deploy:
+
+```bash
+psql "$DATABASE_URL" -c "select action, resource_type, occurred_at from resource_audit_events order by occurred_at desc limit 10;"
+```
+
+Minimum actions expected during smoke testing:
+
+- `document.uploaded`
+- `document.deleted`
+- `levy_period.created`
+- `levy.reconciled`
+- `collection_event.reminder_sent`
+- `agm_meeting.scheduled`
+- `agm.vote_cast`
+- `agm.proxy_assigned`
+
 ### Prometheus Metrics
 
 The backend exposes Prometheus metrics at `/metrics`. Key metrics for load testing:

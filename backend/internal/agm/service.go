@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -80,12 +81,21 @@ type accessInfo struct {
 	userID string
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
-	db *database.Pool
+	db      *database.Pool
+	auditor resourceAuditor
 }
 
 func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+	return NewServiceWithAudit(db, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, auditor resourceAuditor) *Service {
+	return &Service{db: db, auditor: auditor}
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -183,6 +193,23 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 
 	if commitErr := tx.Commit(ctx); commitErr != nil {
 		return nil, commitErr
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
+			SchemeID:     access.scheme.ID.String(),
+			OrgID:        access.scheme.OrgID.String(),
+			ActorUserID:  access.userID,
+			ActorRole:    access.role,
+			ResourceType: "agm_meeting",
+			ResourceID:   meeting.ID.String(),
+			Action:       "agm_meeting.scheduled",
+			AfterState: map[string]any{
+				"meeting_date":     meeting.MeetingDate.Time.Format("2006-01-02"),
+				"quorum_required":  meeting.QuorumRequired,
+				"resolution_count": len(input.Resolutions),
+			},
+		})
 	}
 
 	createdMeeting, err := s.db.Q.GetAgmMeeting(ctx, meeting.ID)
@@ -283,6 +310,18 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 	item := mapResolution(updated)
 	choice := input.Choice
 	item.UserVote = &choice
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, agmVoteAuditEvent(agmVoteAuditInput{
+			SchemeID:     access.scheme.ID.String(),
+			OrgID:        access.scheme.OrgID.String(),
+			ActorUserID:  access.userID,
+			ActorRole:    access.role,
+			ResolutionID: resolution.ID.String(),
+			Choice:       input.Choice,
+		}))
+	}
+
 	return &item, nil
 }
 
@@ -362,7 +401,27 @@ func (s *Service) AssignProxy(ctx context.Context, identity auth.Identity, schem
 		GrantorUserID: grantorID,
 		GranteeUserID: granteeID,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
+			SchemeID:     access.scheme.ID.String(),
+			OrgID:        access.scheme.OrgID.String(),
+			ActorUserID:  access.userID,
+			ActorRole:    access.role,
+			ResourceType: "agm_meeting",
+			ResourceID:   meeting.ID.String(),
+			Action:       "agm.proxy_assigned",
+			AfterState: map[string]any{
+				"grantor_user_id": grantorID.String(),
+				"grantee_user_id": granteeID.String(),
+			},
+		})
+	}
+
+	return nil
 }
 
 func (s *Service) buildMeeting(ctx context.Context, access *accessInfo, meeting dbgen.AgmMeeting) (*MeetingInfo, error) {
@@ -559,4 +618,28 @@ func (s *Service) userHasMeetingVote(ctx context.Context, meetingID, userID uuid
 		}
 	}
 	return false, nil
+}
+
+type agmVoteAuditInput struct {
+	SchemeID     string
+	OrgID        string
+	ActorUserID  string
+	ActorRole    string
+	ResolutionID string
+	Choice       string
+}
+
+func agmVoteAuditEvent(input agmVoteAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "agm_resolution",
+		ResourceID:   input.ResolutionID,
+		Action:       "agm.vote_cast",
+		AfterState: map[string]any{
+			"choice": input.Choice,
+		},
+	}
 }

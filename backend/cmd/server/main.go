@@ -79,7 +79,9 @@ func main() {
 
 	// Services
 	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
-	agmService := agm.NewService(db)
+	auditService := audit.NewService(db)
+	resourceAuditService := audit.NewResourceService(db.Q)
+	agmService := agm.NewServiceWithAudit(db, resourceAuditService)
 	aiService := ai.NewService(db, ai.NewClient(ai.Config{
 		BaseURL: cfg.AIBaseURL,
 		APIKey:  cfg.AIAPIKey,
@@ -88,7 +90,7 @@ func main() {
 	schemeService := scheme.NewService(db)
 	complianceService := compliance.NewService(db)
 	communicationsService := communications.NewService(db)
-	documentsService := documents.NewService(db)
+	documentsService := documents.NewServiceWithAudit(db, resourceAuditService)
 	financialsService := financials.NewService(db)
 	maintenanceService := maintenance.NewService(db)
 	var sender whatsapp.MessageSender
@@ -99,7 +101,7 @@ func main() {
 		sender = whatsapp.NewNoOpSender()
 		logger.Info("twilio whatsapp disabled, using no-op sender")
 	}
-	levyService := levy.NewService(db, emailClient, sender)
+	levyService := levy.NewServiceWithAudit(db, emailClient, sender, resourceAuditService)
 
 	whatsAppService := whatsapp.NewService(db, sender, logger)
 	whatsAppBot := whatsapp.NewBot(db)
@@ -108,12 +110,12 @@ func main() {
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
-	auditService := audit.NewService(db)
 
 	// Handlers
 	handlers := server.Handlers{
 		Health:          health.New(db, &redisChecker{rdb}),
 		Auth:            auth.NewHandler(authService),
+		Audit:           audit.NewHandler(resourceAuditService),
 		Agm:             agm.NewHandler(agmService),
 		AI:              ai.NewHandler(aiService),
 		Scheme:          scheme.NewHandler(schemeService),

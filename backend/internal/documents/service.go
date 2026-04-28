@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -56,12 +57,21 @@ type accessInfo struct {
 	userID string
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
-	db *database.Pool
+	db      *database.Pool
+	auditor resourceAuditor
 }
 
 func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+	return NewServiceWithAudit(db, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, auditor resourceAuditor) *Service {
+	return &Service{db: db, auditor: auditor}
 }
 
 func (s *Service) List(ctx context.Context, identity auth.Identity, schemeID, category string) (*DashboardResponse, error) {
@@ -144,6 +154,21 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		return nil, err
 	}
 
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, documentCreatedAuditEvent(documentAuditInput{
+			SchemeID:    access.scheme.ID.String(),
+			OrgID:       access.scheme.OrgID.String(),
+			ActorUserID: access.userID,
+			ActorRole:   access.role,
+			DocumentID:  created.ID.String(),
+			Name:        created.Name,
+			Category:    string(created.Category),
+			FileType:    string(created.FileType),
+			SizeBytes:   created.SizeBytes,
+			StorageKey:  created.StorageKey,
+		}))
+	}
+
 	var uploadedByName *string
 	if uploadedBy.Valid {
 		user, userErr := s.db.Q.GetUserByID(ctx, uuid.UUID(uploadedBy.Bytes))
@@ -189,7 +214,26 @@ func (s *Service) Delete(ctx context.Context, identity auth.Identity, schemeID, 
 		return ErrForbidden
 	}
 
-	return s.db.Q.DeleteSchemeDocument(ctx, document.ID)
+	if err := s.db.Q.DeleteSchemeDocument(ctx, document.ID); err != nil {
+		return err
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, documentDeletedAuditEvent(documentAuditInput{
+			SchemeID:    access.scheme.ID.String(),
+			OrgID:       access.scheme.OrgID.String(),
+			ActorUserID: access.userID,
+			ActorRole:   access.role,
+			DocumentID:  document.ID.String(),
+			Name:        document.Name,
+			Category:    string(document.Category),
+			FileType:    string(document.FileType),
+			SizeBytes:   document.SizeBytes,
+			StorageKey:  document.StorageKey,
+		}))
+	}
+
+	return nil
 }
 
 func (s *Service) resolveAccess(ctx context.Context, identity auth.Identity, schemeID string) (*accessInfo, error) {
@@ -346,5 +390,54 @@ func validFileType(value string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+type documentAuditInput struct {
+	SchemeID    string
+	OrgID       string
+	ActorUserID string
+	ActorRole   string
+	DocumentID  string
+	Name        string
+	Category    string
+	FileType    string
+	SizeBytes   int64
+	StorageKey  string
+}
+
+func documentCreatedAuditEvent(input documentAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "document",
+		ResourceID:   input.DocumentID,
+		Action:       "document.uploaded",
+		AfterState:   documentAuditState(input),
+	}
+}
+
+func documentDeletedAuditEvent(input documentAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "document",
+		ResourceID:   input.DocumentID,
+		Action:       "document.deleted",
+		BeforeState:  documentAuditState(input),
+	}
+}
+
+func documentAuditState(input documentAuditInput) map[string]any {
+	return map[string]any{
+		"name":        input.Name,
+		"category":    input.Category,
+		"file_type":   input.FileType,
+		"size_bytes":  input.SizeBytes,
+		"storage_key": input.StorageKey,
 	}
 }

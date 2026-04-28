@@ -8,21 +8,21 @@ import (
 
 func TestLoad_AllFieldsSet(t *testing.T) {
 	envs := map[string]string{
-		"PORT":                   "9090",
-		"ENV":                    "production",
-		"DATABASE_URL":           "postgres://user:pass@localhost:5432/db",
-		"REDIS_URL":              "redis://localhost:6379",
-		"JWT_SECRET":             "test-secret-that-is-long-enough-32ch",
-		"JWT_EXPIRY":             "30m",
-		"REFRESH_EXPIRY":         "48h",
-		"STRIPE_SECRET_KEY":      "sk_test_123",
-		"STRIPE_WEBHOOK_SECRET":  "whsec_123",
-		"RESEND_API_KEY":         "re_123",
-		"AI_BASE_URL":            "https://api.deepseek.com/v1",
-		"AI_API_KEY":             "sk-ai-123",
-		"AI_MODEL":               "deepseek-chat",
-		"ALLOWED_ORIGINS":        "http://localhost:3000,https://app.stratahq.com",
-		"APP_BASE_URL":           "http://localhost:3000",
+		"PORT":                  "9090",
+		"ENV":                   "production",
+		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":             "redis://localhost:6379",
+		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
+		"JWT_EXPIRY":            "30m",
+		"REFRESH_EXPIRY":        "48h",
+		"STRIPE_SECRET_KEY":     "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"RESEND_API_KEY":        "re_123",
+		"AI_BASE_URL":           "https://api.deepseek.com/v1",
+		"AI_API_KEY":            "sk-ai-123",
+		"AI_MODEL":              "deepseek-chat",
+		"ALLOWED_ORIGINS":       "http://localhost:3000,https://app.stratahq.com",
+		"APP_BASE_URL":          "http://localhost:3000",
 	}
 
 	for k, v := range envs {
@@ -63,16 +63,16 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 
 func TestLoad_Defaults(t *testing.T) {
 	required := map[string]string{
-		"DATABASE_URL":           "postgres://user:pass@localhost:5432/db",
-		"REDIS_URL":              "redis://localhost:6379",
-		"JWT_SECRET":             "test-secret-that-is-long-enough-32ch",
-		"STRIPE_SECRET_KEY":      "sk_test_123",
-		"STRIPE_WEBHOOK_SECRET":  "whsec_123",
-		"RESEND_API_KEY":         "re_123",
-		"AI_BASE_URL":            "https://api.deepseek.com/v1",
-		"AI_API_KEY":             "sk-ai-123",
-		"AI_MODEL":               "deepseek-chat",
-		"APP_BASE_URL":           "http://localhost:3000",
+		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":             "redis://localhost:6379",
+		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
+		"STRIPE_SECRET_KEY":     "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"RESEND_API_KEY":        "re_123",
+		"AI_BASE_URL":           "https://api.deepseek.com/v1",
+		"AI_API_KEY":            "sk-ai-123",
+		"AI_MODEL":              "deepseek-chat",
+		"APP_BASE_URL":          "http://localhost:3000",
 	}
 
 	for k, v := range required {

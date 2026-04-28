@@ -13,14 +13,6 @@ import (
 	dbgen "github.com/stratahq/backend/db/gen"
 )
 
-type fixedClock struct {
-	now time.Time
-}
-
-func (c fixedClock) Now() time.Time {
-	return c.now
-}
-
 func TestBackoffCapsAtFiveMinutes(t *testing.T) {
 	now := time.Date(2026, 4, 28, 10, 0, 0, 0, time.UTC)
 	got := nextRunAfter(now, 5)

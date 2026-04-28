@@ -206,11 +206,11 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 	jobService := jobs.NewService(testPool.Q, jobs.Registry{}, nil, nil, jobs.Config{})
 	svc := levy.NewServiceWithAuditAndJobs(testPool, emailSender, whatsAppSender, nil, jobService)
 
-	identity, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey)
+	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey)
 	require.NoError(t, err)
 
 	event, err := svc.SendReminder(ctx, auth.Identity{
-		UserID: identity.UserID.String(),
+		UserID: claims.Subject,
 		OrgID:  orgID,
 		Role:   string(auth.RoleAdmin),
 	}, schemeID, account.ID.String(), levy.SendReminderInput{
@@ -227,8 +227,10 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, event)
 
-	require.Equal(t, "queued", event.Email.Status)
-	require.Equal(t, "queued", event.WhatsApp.Status)
+	dbEvent, err := testQ.GetCollectionEventByID(ctx, mustParseUUID(event.ID))
+	require.NoError(t, err)
+	require.Equal(t, "queued", dbEvent.EmailStatus.String)
+	require.Equal(t, "queued", dbEvent.WhatsappStatus.String)
 
 	jobsList, err := testQ.ClaimDueBackgroundJobs(ctx, dbgen.ClaimDueBackgroundJobsParams{
 		Limit:    10,

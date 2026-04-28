@@ -449,6 +449,73 @@ func (q *Queries) ListLevyPeriodsByScheme(ctx context.Context, schemeID uuid.UUI
 	return items, nil
 }
 
+const listOpenLevyAccountsByScheme = `-- name: ListOpenLevyAccountsByScheme :many
+SELECT
+    la.id, la.unit_id, la.period_id, la.amount_cents, la.paid_cents, la.status, la.due_date, la.paid_date, la.created_at, la.updated_at,
+    lp.scheme_id,
+    lp.label AS period_label,
+    u.identifier AS unit_identifier,
+    u.owner_name
+FROM levy_accounts la
+JOIN levy_periods lp ON lp.id = la.period_id
+JOIN units u ON u.id = la.unit_id
+WHERE lp.scheme_id = $1
+  AND la.status IN ('pending', 'partial', 'overdue')
+ORDER BY lp.due_date DESC, u.identifier ASC
+`
+
+type ListOpenLevyAccountsBySchemeRow struct {
+	ID             uuid.UUID   `json:"id"`
+	UnitID         uuid.UUID   `json:"unit_id"`
+	PeriodID       uuid.UUID   `json:"period_id"`
+	AmountCents    int64       `json:"amount_cents"`
+	PaidCents      int64       `json:"paid_cents"`
+	Status         string      `json:"status"`
+	DueDate        pgtype.Date `json:"due_date"`
+	PaidDate       pgtype.Date `json:"paid_date"`
+	CreatedAt      time.Time   `json:"created_at"`
+	UpdatedAt      time.Time   `json:"updated_at"`
+	SchemeID       uuid.UUID   `json:"scheme_id"`
+	PeriodLabel    string      `json:"period_label"`
+	UnitIdentifier string      `json:"unit_identifier"`
+	OwnerName      string      `json:"owner_name"`
+}
+
+func (q *Queries) ListOpenLevyAccountsByScheme(ctx context.Context, schemeID uuid.UUID) ([]ListOpenLevyAccountsBySchemeRow, error) {
+	rows, err := q.db.Query(ctx, listOpenLevyAccountsByScheme, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenLevyAccountsBySchemeRow{}
+	for rows.Next() {
+		var i ListOpenLevyAccountsBySchemeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UnitID,
+			&i.PeriodID,
+			&i.AmountCents,
+			&i.PaidCents,
+			&i.Status,
+			&i.DueDate,
+			&i.PaidDate,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SchemeID,
+			&i.PeriodLabel,
+			&i.UnitIdentifier,
+			&i.OwnerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateLevyAccountPaid = `-- name: UpdateLevyAccountPaid :one
 UPDATE levy_accounts
 SET paid_cents = $2,

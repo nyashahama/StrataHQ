@@ -12,6 +12,7 @@ import (
 const (
 	KindCollectionReminderEmail    = "collection_reminder_email"
 	KindCollectionReminderWhatsApp = "collection_reminder_whatsapp"
+	KindBankStatementImport        = "bank_statement_import"
 )
 
 var (

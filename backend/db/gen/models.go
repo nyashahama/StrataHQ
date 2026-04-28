@@ -100,6 +100,97 @@ func (ns NullBackgroundJobStatus) Value() (driver.Value, error) {
 	return string(ns.BackgroundJobStatus), nil
 }
 
+type BankStatementImportStatus string
+
+const (
+	BankStatementImportStatusQueued         BankStatementImportStatus = "queued"
+	BankStatementImportStatusProcessing     BankStatementImportStatus = "processing"
+	BankStatementImportStatusReviewRequired BankStatementImportStatus = "review_required"
+	BankStatementImportStatusApplied        BankStatementImportStatus = "applied"
+	BankStatementImportStatusFailed         BankStatementImportStatus = "failed"
+)
+
+func (e *BankStatementImportStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BankStatementImportStatus(s)
+	case string:
+		*e = BankStatementImportStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BankStatementImportStatus: %T", src)
+	}
+	return nil
+}
+
+type NullBankStatementImportStatus struct {
+	BankStatementImportStatus BankStatementImportStatus `json:"bank_statement_import_status"`
+	Valid                     bool                      `json:"valid"` // Valid is true if BankStatementImportStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBankStatementImportStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.BankStatementImportStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BankStatementImportStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBankStatementImportStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BankStatementImportStatus), nil
+}
+
+type BankStatementRowStatus string
+
+const (
+	BankStatementRowStatusMatched   BankStatementRowStatus = "matched"
+	BankStatementRowStatusAmbiguous BankStatementRowStatus = "ambiguous"
+	BankStatementRowStatusUnmatched BankStatementRowStatus = "unmatched"
+	BankStatementRowStatusApplied   BankStatementRowStatus = "applied"
+	BankStatementRowStatusSkipped   BankStatementRowStatus = "skipped"
+	BankStatementRowStatusFailed    BankStatementRowStatus = "failed"
+)
+
+func (e *BankStatementRowStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BankStatementRowStatus(s)
+	case string:
+		*e = BankStatementRowStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BankStatementRowStatus: %T", src)
+	}
+	return nil
+}
+
+type NullBankStatementRowStatus struct {
+	BankStatementRowStatus BankStatementRowStatus `json:"bank_statement_row_status"`
+	Valid                  bool                   `json:"valid"` // Valid is true if BankStatementRowStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBankStatementRowStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.BankStatementRowStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BankStatementRowStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBankStatementRowStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BankStatementRowStatus), nil
+}
+
 type ComplianceCategory string
 
 const (
@@ -689,6 +780,46 @@ type BackgroundJob struct {
 	UpdatedAt      time.Time           `json:"updated_at"`
 	SucceededAt    pgtype.Timestamptz  `json:"succeeded_at"`
 	FailedAt       pgtype.Timestamptz  `json:"failed_at"`
+}
+
+type BankStatementImport struct {
+	ID               uuid.UUID                 `json:"id"`
+	SchemeID         uuid.UUID                 `json:"scheme_id"`
+	UploadedByUserID uuid.UUID                 `json:"uploaded_by_user_id"`
+	BankName         string                    `json:"bank_name"`
+	OriginalFilename string                    `json:"original_filename"`
+	RawCsv           []byte                    `json:"raw_csv"`
+	Status           BankStatementImportStatus `json:"status"`
+	TotalRows        int32                     `json:"total_rows"`
+	MatchedRows      int32                     `json:"matched_rows"`
+	AmbiguousRows    int32                     `json:"ambiguous_rows"`
+	UnmatchedRows    int32                     `json:"unmatched_rows"`
+	AppliedRows      int32                     `json:"applied_rows"`
+	LastError        pgtype.Text               `json:"last_error"`
+	ParsedAt         pgtype.Timestamptz        `json:"parsed_at"`
+	AppliedAt        pgtype.Timestamptz        `json:"applied_at"`
+	CreatedAt        time.Time                 `json:"created_at"`
+	UpdatedAt        time.Time                 `json:"updated_at"`
+}
+
+type BankStatementRow struct {
+	ID                   uuid.UUID              `json:"id"`
+	ImportID             uuid.UUID              `json:"import_id"`
+	RowNumber            int32                  `json:"row_number"`
+	TransactionDate      pgtype.Date            `json:"transaction_date"`
+	AmountCents          int64                  `json:"amount_cents"`
+	Reference            string                 `json:"reference"`
+	Description          string                 `json:"description"`
+	NormalizedReference  string                 `json:"normalized_reference"`
+	RowFingerprint       string                 `json:"row_fingerprint"`
+	Status               BankStatementRowStatus `json:"status"`
+	Confidence           int32                  `json:"confidence"`
+	MatchReason          pgtype.Text            `json:"match_reason"`
+	MatchedLevyAccountID pgtype.UUID            `json:"matched_levy_account_id"`
+	MatchedLevyPaymentID pgtype.UUID            `json:"matched_levy_payment_id"`
+	RawData              []byte                 `json:"raw_data"`
+	CreatedAt            time.Time              `json:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at"`
 }
 
 type BudgetLine struct {

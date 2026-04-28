@@ -2,12 +2,16 @@ package audit
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
+	dbgen "github.com/stratahq/backend/db/gen"
 	"github.com/stratahq/backend/internal/platform/database"
 )
 
@@ -95,4 +99,102 @@ func parseOptionalUUID(value string) interface{} {
 		return nil
 	}
 	return parsed
+}
+
+var ErrInvalidResourceEvent = errors.New("invalid resource audit event")
+var ErrForbidden = errors.New("forbidden")
+var ErrNotFound = errors.New("not found")
+
+type ResourceEvent struct {
+	SchemeID     string
+	OrgID        string
+	ActorUserID  string
+	ActorRole    string
+	ResourceType string
+	ResourceID   string
+	Action       string
+	BeforeState  any
+	AfterState   any
+	Metadata     any
+}
+
+type ResourceRecorder interface {
+	RecordResourceEvent(ctx context.Context, event ResourceEvent) error
+}
+
+type ResourceAuditQueries interface {
+	CreateResourceAuditEvent(ctx context.Context, arg dbgen.CreateResourceAuditEventParams) (dbgen.ResourceAuditEvent, error)
+	ListResourceAuditEventsByScheme(ctx context.Context, arg dbgen.ListResourceAuditEventsBySchemeParams) ([]dbgen.ResourceAuditEvent, error)
+	ListResourceAuditEventsBySchemeAndAction(ctx context.Context, arg dbgen.ListResourceAuditEventsBySchemeAndActionParams) ([]dbgen.ResourceAuditEvent, error)
+	CountResourceAuditEventsByScheme(ctx context.Context, schemeID uuid.UUID) (int64, error)
+	GetScheme(ctx context.Context, id uuid.UUID) (dbgen.Scheme, error)
+	GetSchemeMembership(ctx context.Context, arg dbgen.GetSchemeMembershipParams) (dbgen.SchemeMembership, error)
+}
+
+type ResourceService struct {
+	q ResourceAuditQueries
+}
+
+func NewResourceService(q ResourceAuditQueries) *ResourceService {
+	return &ResourceService{q: q}
+}
+
+func (s *ResourceService) RecordResourceEvent(ctx context.Context, event ResourceEvent) error {
+	if s == nil || s.q == nil {
+		return nil
+	}
+	if strings.TrimSpace(event.SchemeID) == "" ||
+		strings.TrimSpace(event.OrgID) == "" ||
+		strings.TrimSpace(event.ResourceType) == "" ||
+		strings.TrimSpace(event.Action) == "" {
+		return ErrInvalidResourceEvent
+	}
+
+	schemeID, err := uuid.Parse(event.SchemeID)
+	if err != nil {
+		return ErrInvalidResourceEvent
+	}
+	orgID, err := uuid.Parse(event.OrgID)
+	if err != nil {
+		return ErrInvalidResourceEvent
+	}
+
+	params := dbgen.CreateResourceAuditEventParams{
+		SchemeID:     schemeID,
+		OrgID:        orgID,
+		ActorUserID:  optionalUUID(event.ActorUserID),
+		ActorRole:    strings.TrimSpace(event.ActorRole),
+		ResourceType: strings.TrimSpace(event.ResourceType),
+		ResourceID:   optionalUUID(event.ResourceID),
+		Action:       strings.TrimSpace(event.Action),
+		BeforeState:  jsonbValue(event.BeforeState),
+		AfterState:   jsonbValue(event.AfterState),
+		Metadata:     jsonbValue(event.Metadata),
+	}
+
+	_, err = s.q.CreateResourceAuditEvent(ctx, params)
+	return err
+}
+
+func optionalUUID(value string) pgtype.UUID {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return pgtype.UUID{}
+	}
+	parsed, err := uuid.Parse(trimmed)
+	if err != nil {
+		return pgtype.UUID{}
+	}
+	return pgtype.UUID{Bytes: parsed, Valid: true}
+}
+
+func jsonbValue(value any) []byte {
+	if value == nil {
+		return []byte(`{}`)
+	}
+	bytes, err := json.Marshal(value)
+	if err != nil {
+		return []byte(`{}`)
+	}
+	return bytes
 }

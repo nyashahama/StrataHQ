@@ -189,7 +189,7 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 		SchemeID:    mustParseUUID(schemeID),
 		Label:       "Test Period",
 		AmountCents: 50000,
-		DueDate:     pgtype.Date{Time: today.AddDate(0, 1, 0), Valid: true},
+		DueDate:     pgtype.Date{Time: today, Valid: true},
 	})
 	require.NoError(t, err)
 
@@ -197,7 +197,7 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 		UnitID:      unit.ID,
 		PeriodID:    period.ID,
 		AmountCents: 50000,
-		DueDate:     pgtype.Date{Time: today.AddDate(0, 1, 0), Valid: true},
+		DueDate:     pgtype.Date{Time: today, Valid: true},
 	})
 	require.NoError(t, err)
 

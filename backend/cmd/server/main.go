@@ -79,6 +79,8 @@ func main() {
 
 	// Services
 	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
+	auditService := audit.NewService(db)
+	resourceAuditService := audit.NewResourceService(db.Q)
 	agmService := agm.NewService(db)
 	aiService := ai.NewService(db, ai.NewClient(ai.Config{
 		BaseURL: cfg.AIBaseURL,
@@ -99,7 +101,7 @@ func main() {
 		sender = whatsapp.NewNoOpSender()
 		logger.Info("twilio whatsapp disabled, using no-op sender")
 	}
-	levyService := levy.NewService(db, emailClient, sender)
+	levyService := levy.NewServiceWithAudit(db, emailClient, sender, resourceAuditService)
 
 	whatsAppService := whatsapp.NewService(db, sender, logger)
 	whatsAppBot := whatsapp.NewBot(db)
@@ -108,8 +110,6 @@ func main() {
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewService(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
-	auditService := audit.NewService(db)
-	resourceAuditService := audit.NewResourceService(db.Q)
 
 	// Handlers
 	handlers := server.Handlers{

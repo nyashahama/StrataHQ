@@ -18,7 +18,10 @@ func TestLevyPeriodCreatedAuditEvent(t *testing.T) {
 	if event.Action != "levy_period.created" {
 		t.Fatalf("action = %q, want levy_period.created", event.Action)
 	}
-	after := event.AfterState.(map[string]any)
+	after, ok := event.AfterState.(map[string]any)
+	if !ok {
+		t.Fatal("after state should be a map")
+	}
 	if after["account_count"] != 12 {
 		t.Fatalf("account count = %v, want 12", after["account_count"])
 	}
@@ -38,7 +41,10 @@ func TestLevyReconciledAuditEvent(t *testing.T) {
 	if event.Action != "levy.reconciled" {
 		t.Fatalf("action = %q, want levy.reconciled", event.Action)
 	}
-	metadata := event.Metadata.(map[string]any)
+	metadata, ok := event.Metadata.(map[string]any)
+	if !ok {
+		t.Fatal("metadata should be a map")
+	}
 	if metadata["skipped_count"] != 1 {
 		t.Fatalf("skipped count = %v, want 1", metadata["skipped_count"])
 	}

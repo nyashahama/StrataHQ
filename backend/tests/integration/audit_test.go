@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/stratahq/backend/internal/audit"
 )
 
@@ -33,8 +35,12 @@ func TestAudit_ListSchemeResourceEvents(t *testing.T) {
 	h := audit.NewHandler(recorder)
 	req := httptest.NewRequest(http.MethodGet, "/audit/schemes/"+schemeID+"/events", nil)
 	req = withAuthContext(req, accessToken, testJWTSigningKey)
-	w := httptest.NewRecorder()
 
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("schemeId", schemeID)
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+	w := httptest.NewRecorder()
 	h.ListSchemeEvents(w, req)
 
 	if w.Code != http.StatusOK {

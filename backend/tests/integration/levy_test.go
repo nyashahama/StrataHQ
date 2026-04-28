@@ -9,9 +9,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/jobs"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/whatsapp"
@@ -172,5 +176,116 @@ func mustParseUUID(value string) uuid.UUID {
 }
 
 func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
-	t.Skip("Skipped: loadReminderContext has a pre-existing bug — it queries columns (email, whatsapp_phone, whatsapp_connected) that do not exist on the units table. This is a schema issue outside the scope of this PR.")
+	ctx := context.Background()
+	accessToken, orgID := setupAgent(t)
+	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey)
+	if err != nil {
+		t.Fatalf("validate access token: %v", err)
+	}
+	identity := auth.Identity{UserID: claims.Subject, OrgID: orgID, Role: claims.Role}
+	schemeID := setupScheme(t, accessToken)
+	schemeUUID := mustParseUUID(schemeID)
+
+	unit, err := testQ.CreateUnit(ctx, createUnitParams(schemeID, "9R", "Reminder Owner"))
+	if err != nil {
+		t.Fatalf("create reminder unit: %v", err)
+	}
+	owner, err := testQ.CreateUser(ctx, dbgen.CreateUserParams{
+		Email:        uniqueEmail(t),
+		PasswordHash: "test-hash",
+		FullName:     "Reminder Owner",
+	})
+	if err != nil {
+		t.Fatalf("create owner user: %v", err)
+	}
+	if _, err := testQ.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+		UserID:   owner.ID,
+		SchemeID: schemeUUID,
+		UnitID:   pgtype.UUID{Bytes: unit.ID, Valid: true},
+		Role:     string(auth.RoleOwner),
+	}); err != nil {
+		t.Fatalf("create owner scheme membership: %v", err)
+	}
+	phone := "+27715550123"
+	if _, err := testQ.CreateWhatsAppThread(ctx, dbgen.CreateWhatsAppThreadParams{
+		SchemeID:       schemeUUID,
+		UnitID:         unit.ID,
+		ResidentUserID: pgtype.UUID{Bytes: owner.ID, Valid: true},
+		PhoneNumber:    pgtype.Text{String: phone, Valid: true},
+		Connected:      true,
+		ConsentedAt:    pgtype.Timestamptz{Time: time.Now().UTC().Add(-24 * time.Hour), Valid: true},
+		UnreadCount:    0,
+		LastActiveAt:   time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("create whatsapp thread: %v", err)
+	}
+
+	jobService := jobs.NewService(testQ, jobs.Registry{}, nil, jobs.RealClock{}, jobs.Config{WorkerID: "integration-enqueuer"})
+	service := levy.NewServiceWithAuditAndJobs(testPool, &notification.NoopSender{}, whatsapp.NewNoOpSender(), nil, jobService)
+	service.SetMaxJobAttempts(3)
+	_, err = service.CreatePeriod(ctx, identity, schemeID, levy.CreatePeriodInput{
+		Label:       "Reminder Test",
+		AmountCents: 245000,
+		DueDate:     time.Now().UTC().AddDate(0, 0, -1),
+	})
+	if err != nil {
+		t.Fatalf("create levy period: %v", err)
+	}
+
+	accounts, err := testQ.ListAttentionAccountsByScheme(ctx, schemeUUID)
+	if err != nil {
+		t.Fatalf("list attention accounts: %v", err)
+	}
+	var accountID uuid.UUID
+	for _, account := range accounts {
+		if account.UnitID == unit.ID {
+			accountID = account.LevyAccountID
+			break
+		}
+	}
+	if accountID == uuid.Nil {
+		t.Fatalf("expected reminder unit in attention accounts: %+v", accounts)
+	}
+
+	event, err := service.SendReminder(ctx, identity, schemeID, accountID.String(), levy.SendReminderInput{
+		Email:    levy.ReminderChannelInput{Enabled: true, Subject: "Reminder subject", Body: "Email body"},
+		WhatsApp: levy.ReminderChannelInput{Enabled: true, Body: "WhatsApp body"},
+	})
+	if err != nil {
+		t.Fatalf("send reminder: %v", err)
+	}
+	if event.EventType != "reminder_sent" {
+		t.Fatalf("event type = %q, want reminder_sent", event.EventType)
+	}
+
+	stored, err := testQ.GetCollectionEventByID(ctx, mustParseUUID(event.ID))
+	if err != nil {
+		t.Fatalf("get collection event: %v", err)
+	}
+	if stored.EmailStatus.String != "queued" || stored.WhatsappStatus.String != "queued" {
+		t.Fatalf("delivery statuses = email:%+v whatsapp:%+v, want queued", stored.EmailStatus, stored.WhatsappStatus)
+	}
+	if stored.EmailTo.String != owner.Email || stored.WhatsappTo.String != phone {
+		t.Fatalf("delivery recipients = email:%q whatsapp:%q, want %q and %q", stored.EmailTo.String, stored.WhatsappTo.String, owner.Email, phone)
+	}
+
+	var emailAttempts int32
+	if err := testPool.QueryRow(ctx, `
+		SELECT max_attempts
+		FROM background_jobs
+		WHERE kind = $1 AND idempotency_key = $2
+	`, jobs.KindCollectionReminderEmail, event.ID+":email").Scan(&emailAttempts); err != nil {
+		t.Fatalf("get email job: %v", err)
+	}
+	var whatsappAttempts int32
+	if err := testPool.QueryRow(ctx, `
+		SELECT max_attempts
+		FROM background_jobs
+		WHERE kind = $1 AND idempotency_key = $2
+	`, jobs.KindCollectionReminderWhatsApp, event.ID+":whatsapp").Scan(&whatsappAttempts); err != nil {
+		t.Fatalf("get whatsapp job: %v", err)
+	}
+	if emailAttempts != 3 || whatsappAttempts != 3 {
+		t.Fatalf("max attempts = email:%d whatsapp:%d, want 3", emailAttempts, whatsappAttempts)
+	}
 }

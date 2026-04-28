@@ -576,6 +576,13 @@ func dateValue(value time.Time) pgtype.Date {
 	return pgtype.Date{Time: value, Valid: true}
 }
 
+func textValue(value string) pgtype.Text {
+	if value == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: value, Valid: true}
+}
+
 func textPointer(value pgtype.Text) *string {
 	if !value.Valid {
 		return nil
@@ -934,6 +941,15 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 		Note:               note,
 		PromiseAmountCents: promiseAmountCents,
 		PromiseDate:        promiseDate,
+		EmailTo:            textValue(input.Email.To),
+		EmailSubject:       textValue(input.Email.Subject),
+		EmailBody:          textValue(input.Email.Body),
+		EmailStatus:        textValue(input.Email.Status),
+		EmailError:         textValue(input.Email.Error),
+		WhatsappTo:         textValue(input.WhatsApp.To),
+		WhatsappBody:       textValue(input.WhatsApp.Body),
+		WhatsappStatus:     textValue(input.WhatsApp.Status),
+		WhatsappError:      textValue(input.WhatsApp.Error),
 	}
 
 	created, err := s.db.Q.CreateCollectionEvent(ctx, params)
@@ -989,24 +1005,21 @@ type reminderContext struct {
 
 func (s *Service) loadReminderContext(ctx context.Context, identity auth.Identity, schemeID, accountID string) (*reminderContext, error) {
 	accountUUID := uuid.MustParse(accountID)
+	schemeUUID := uuid.MustParse(schemeID)
 
-	rows, err := s.db.Q.ListAttentionAccountsByScheme(ctx, uuid.MustParse(schemeID))
+	rows, err := s.db.Q.ListAttentionAccountsByScheme(ctx, schemeUUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load accounts: %w", err)
 	}
 
 	for _, r := range rows {
 		if r.LevyAccountID == accountUUID {
-			var ownerEmail string
-			var whatsappPhone string
-			var whatsappConnected bool
-			err := s.db.QueryRow(ctx, `
-				SELECT email, whatsapp_phone, whatsapp_connected
-				FROM units
-				WHERE id = $1
-			`, r.UnitID).Scan(&ownerEmail, &whatsappPhone, &whatsappConnected)
+			reminder, err := s.db.Q.GetCollectionReminderContext(ctx, dbgen.GetCollectionReminderContextParams{
+				ID:       accountUUID,
+				SchemeID: schemeUUID,
+			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to load unit contact: %w", err)
+				return nil, fmt.Errorf("failed to load reminder context: %w", err)
 			}
 			daysOverdue := int(time.Since(r.DueDate.Time).Hours() / 24)
 			if daysOverdue < 0 {
@@ -1027,9 +1040,9 @@ func (s *Service) loadReminderContext(ctx context.Context, identity auth.Identit
 					OutstandingCents: outstanding,
 					DaysOverdue:      daysOverdue,
 				},
-				ownerEmail:        ownerEmail,
-				whatsAppPhone:     whatsappPhone,
-				whatsAppConnected: whatsappConnected,
+				ownerEmail:        reminder.OwnerEmail,
+				whatsAppPhone:     reminder.WhatsappPhone,
+				whatsAppConnected: reminder.WhatsappConnected,
 			}, nil
 		}
 	}

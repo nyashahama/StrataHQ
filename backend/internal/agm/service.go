@@ -195,20 +195,22 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 		return nil, commitErr
 	}
 
-	_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
-		SchemeID:     access.scheme.ID.String(),
-		OrgID:        access.scheme.OrgID.String(),
-		ActorUserID:  access.userID,
-		ActorRole:    access.role,
-		ResourceType: "agm_meeting",
-		ResourceID:   meeting.ID.String(),
-		Action:       "agm_meeting.scheduled",
-		AfterState: map[string]any{
-			"meeting_date":     meeting.MeetingDate.Time.Format("2006-01-02"),
-			"quorum_required":  meeting.QuorumRequired,
-			"resolution_count": len(input.Resolutions),
-		},
-	})
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
+			SchemeID:     access.scheme.ID.String(),
+			OrgID:        access.scheme.OrgID.String(),
+			ActorUserID:  access.userID,
+			ActorRole:    access.role,
+			ResourceType: "agm_meeting",
+			ResourceID:   meeting.ID.String(),
+			Action:       "agm_meeting.scheduled",
+			AfterState: map[string]any{
+				"meeting_date":     meeting.MeetingDate.Time.Format("2006-01-02"),
+				"quorum_required":  meeting.QuorumRequired,
+				"resolution_count": len(input.Resolutions),
+			},
+		})
+	}
 
 	createdMeeting, err := s.db.Q.GetAgmMeeting(ctx, meeting.ID)
 	if err != nil {
@@ -309,14 +311,16 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 	choice := input.Choice
 	item.UserVote = &choice
 
-	_ = s.auditor.RecordResourceEvent(ctx, agmVoteAuditEvent(agmVoteAuditInput{
-		SchemeID:     access.scheme.ID.String(),
-		OrgID:        access.scheme.OrgID.String(),
-		ActorUserID:  access.userID,
-		ActorRole:    access.role,
-		ResolutionID: resolution.ID.String(),
-		Choice:       input.Choice,
-	}))
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, agmVoteAuditEvent(agmVoteAuditInput{
+			SchemeID:     access.scheme.ID.String(),
+			OrgID:        access.scheme.OrgID.String(),
+			ActorUserID:  access.userID,
+			ActorRole:    access.role,
+			ResolutionID: resolution.ID.String(),
+			Choice:       input.Choice,
+		}))
+	}
 
 	return &item, nil
 }
@@ -401,19 +405,21 @@ func (s *Service) AssignProxy(ctx context.Context, identity auth.Identity, schem
 		return err
 	}
 
-	_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
-		SchemeID:     access.scheme.ID.String(),
-		OrgID:        access.scheme.OrgID.String(),
-		ActorUserID:  access.userID,
-		ActorRole:    access.role,
-		ResourceType: "agm_meeting",
-		ResourceID:   meeting.ID.String(),
-		Action:       "agm.proxy_assigned",
-		AfterState: map[string]any{
-			"grantor_user_id": grantorID.String(),
-			"grantee_user_id": granteeID.String(),
-		},
-	})
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
+			SchemeID:     access.scheme.ID.String(),
+			OrgID:        access.scheme.OrgID.String(),
+			ActorUserID:  access.userID,
+			ActorRole:    access.role,
+			ResourceType: "agm_meeting",
+			ResourceID:   meeting.ID.String(),
+			Action:       "agm.proxy_assigned",
+			AfterState: map[string]any{
+				"grantor_user_id": grantorID.String(),
+				"grantee_user_id": granteeID.String(),
+			},
+		})
+	}
 
 	return nil
 }

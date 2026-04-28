@@ -154,18 +154,20 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		return nil, err
 	}
 
-	_ = s.auditor.RecordResourceEvent(ctx, documentCreatedAuditEvent(documentAuditInput{
-		SchemeID:    access.scheme.ID.String(),
-		OrgID:       access.scheme.OrgID.String(),
-		ActorUserID: access.userID,
-		ActorRole:   access.role,
-		DocumentID:  created.ID.String(),
-		Name:        created.Name,
-		Category:    string(created.Category),
-		FileType:    string(created.FileType),
-		SizeBytes:   created.SizeBytes,
-		StorageKey:  created.StorageKey,
-	}))
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, documentCreatedAuditEvent(documentAuditInput{
+			SchemeID:    access.scheme.ID.String(),
+			OrgID:       access.scheme.OrgID.String(),
+			ActorUserID: access.userID,
+			ActorRole:   access.role,
+			DocumentID:  created.ID.String(),
+			Name:        created.Name,
+			Category:    string(created.Category),
+			FileType:    string(created.FileType),
+			SizeBytes:   created.SizeBytes,
+			StorageKey:  created.StorageKey,
+		}))
+	}
 
 	var uploadedByName *string
 	if uploadedBy.Valid {
@@ -216,18 +218,20 @@ func (s *Service) Delete(ctx context.Context, identity auth.Identity, schemeID, 
 		return err
 	}
 
-	_ = s.auditor.RecordResourceEvent(ctx, documentDeletedAuditEvent(documentAuditInput{
-		SchemeID:    access.scheme.ID.String(),
-		OrgID:       access.scheme.OrgID.String(),
-		ActorUserID: access.userID,
-		ActorRole:   access.role,
-		DocumentID:  document.ID.String(),
-		Name:        document.Name,
-		Category:    string(document.Category),
-		FileType:    string(document.FileType),
-		SizeBytes:   document.SizeBytes,
-		StorageKey:  document.StorageKey,
-	}))
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, documentDeletedAuditEvent(documentAuditInput{
+			SchemeID:    access.scheme.ID.String(),
+			OrgID:       access.scheme.OrgID.String(),
+			ActorUserID: access.userID,
+			ActorRole:   access.role,
+			DocumentID:  document.ID.String(),
+			Name:        document.Name,
+			Category:    string(document.Category),
+			FileType:    string(document.FileType),
+			SizeBytes:   document.SizeBytes,
+			StorageKey:  document.StorageKey,
+		}))
+	}
 
 	return nil
 }

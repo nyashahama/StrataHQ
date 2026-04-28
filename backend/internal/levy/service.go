@@ -294,17 +294,19 @@ func (s *Service) CreatePeriod(ctx context.Context, identity auth.Identity, sche
 
 	created := mapPeriod(period)
 
-	_ = s.auditor.RecordResourceEvent(ctx, levyPeriodCreatedAuditEvent(levyPeriodAuditInput{
-		SchemeID:     scheme.ID.String(),
-		OrgID:        scheme.OrgID.String(),
-		ActorUserID:  identity.UserID,
-		ActorRole:    role,
-		PeriodID:     period.ID.String(),
-		Label:        period.Label,
-		DueDate:      formatDate(period.DueDate),
-		AmountCents:  period.AmountCents,
-		AccountCount: len(units),
-	}))
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, levyPeriodCreatedAuditEvent(levyPeriodAuditInput{
+			SchemeID:     scheme.ID.String(),
+			OrgID:        scheme.OrgID.String(),
+			ActorUserID:  identity.UserID,
+			ActorRole:    role,
+			PeriodID:     period.ID.String(),
+			Label:        period.Label,
+			DueDate:      formatDate(period.DueDate),
+			AmountCents:  period.AmountCents,
+			AccountCount: len(units),
+		}))
+	}
 
 	return &created, nil
 }
@@ -407,15 +409,17 @@ func (s *Service) Reconcile(ctx context.Context, identity auth.Identity, schemeI
 		return nil, err
 	}
 
-	_ = s.auditor.RecordResourceEvent(ctx, levyReconciledAuditEvent(levyReconcileAuditInput{
-		SchemeID:          scheme.ID.String(),
-		OrgID:             scheme.OrgID.String(),
-		ActorUserID:       identity.UserID,
-		ActorRole:         role,
-		AppliedCount:      result.AppliedCount,
-		SkippedCount:      result.SkippedCount,
-		UpdatedAccountIDs: result.UpdatedAccountIDs,
-	}))
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, levyReconciledAuditEvent(levyReconcileAuditInput{
+			SchemeID:          scheme.ID.String(),
+			OrgID:             scheme.OrgID.String(),
+			ActorUserID:       identity.UserID,
+			ActorRole:         role,
+			AppliedCount:      result.AppliedCount,
+			SkippedCount:      result.SkippedCount,
+			UpdatedAccountIDs: result.UpdatedAccountIDs,
+		}))
+	}
 
 	return result, nil
 }
@@ -936,20 +940,22 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 		result.PromiseDate = &dateStr
 	}
 
-	_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
-		SchemeID:     scheme.ID.String(),
-		OrgID:        scheme.OrgID.String(),
-		ActorUserID:  identity.UserID,
-		ActorRole:    identity.Role,
-		ResourceType: "collection_event",
-		ResourceID:   created.ID.String(),
-		Action:       "collection_event." + input.EventType,
-		AfterState: map[string]any{
-			"levy_account_id": created.LevyAccountID.String(),
-			"event_type":      input.EventType,
-			"note":            textPointer(created.Note),
-		},
-	})
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, audit.ResourceEvent{
+			SchemeID:     scheme.ID.String(),
+			OrgID:        scheme.OrgID.String(),
+			ActorUserID:  identity.UserID,
+			ActorRole:    identity.Role,
+			ResourceType: "collection_event",
+			ResourceID:   created.ID.String(),
+			Action:       "collection_event." + input.EventType,
+			AfterState: map[string]any{
+				"levy_account_id": created.LevyAccountID.String(),
+				"event_type":      input.EventType,
+				"note":            textPointer(created.Note),
+			},
+		})
+	}
 
 	return result, nil
 }

@@ -143,6 +143,7 @@ type Service struct {
 	whatsAppSender reminderWhatsAppSender
 	auditor        resourceAuditor
 	jobs           jobEnqueuer
+	maxJobAttempts int32
 }
 
 func NewService(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender) *Service {
@@ -155,6 +156,7 @@ func NewServiceWithAudit(db *database.Pool, emailSender reminderEmailSender, wha
 		emailSender:    emailSender,
 		whatsAppSender: whatsAppSender,
 		auditor:        auditor,
+		maxJobAttempts: 5,
 	}
 }
 
@@ -162,6 +164,12 @@ func NewServiceWithAuditAndJobs(db *database.Pool, emailSender reminderEmailSend
 	s := NewServiceWithAudit(db, emailSender, whatsAppSender, auditor)
 	s.jobs = jobQueue
 	return s
+}
+
+func (s *Service) SetMaxJobAttempts(n int32) {
+	if n > 0 {
+		s.maxJobAttempts = n
+	}
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -1081,7 +1089,7 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 			Kind:           jobs.KindCollectionReminderEmail,
 			Payload:        jobs.CollectionReminderEmailPayload{CollectionEventID: eventUUID, To: account.ownerEmail, Subject: input.Email.Subject, HTMLBody: htmlBody},
 			IdempotencyKey: event.ID + ":email",
-			MaxAttempts:    5,
+			MaxAttempts:    s.maxJobAttempts,
 		}); enqueueErr != nil {
 			_, _ = s.db.Q.MarkCollectionEventEmailDelivery(ctx, dbgen.MarkCollectionEventEmailDeliveryParams{
 				ID:          eventUUID,
@@ -1097,7 +1105,7 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 			Kind:           jobs.KindCollectionReminderWhatsApp,
 			Payload:        jobs.CollectionReminderWhatsAppPayload{CollectionEventID: eventUUID, To: account.whatsAppPhone, Body: input.WhatsApp.Body},
 			IdempotencyKey: event.ID + ":whatsapp",
-			MaxAttempts:    5,
+			MaxAttempts:    s.maxJobAttempts,
 		}); enqueueErr != nil {
 			_, _ = s.db.Q.MarkCollectionEventWhatsAppDelivery(ctx, dbgen.MarkCollectionEventWhatsAppDeliveryParams{
 				ID:             eventUUID,

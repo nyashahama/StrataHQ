@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -17,11 +18,12 @@ import (
 func TestBackgroundJobsClaimDueJobsOnceAcrossWorkers(t *testing.T) {
 	ctx := context.Background()
 
+	key := fmt.Sprintf("integration-email-%d", time.Now().UnixNano())
 	payload := []byte(`{"collectionEventId":"11111111-1111-1111-1111-111111111111","to":"owner@example.com","subject":"Reminder","htmlBody":"<p>Pay</p>"}`)
 	_, err := testQ.EnqueueBackgroundJob(ctx, dbgen.EnqueueBackgroundJobParams{
 		Kind:           jobs.KindCollectionReminderEmail,
 		Payload:        payload,
-		IdempotencyKey: "integration-email-1",
+		IdempotencyKey: key,
 		MaxAttempts:    5,
 		RunAfter:       time.Now().Add(-time.Minute),
 	})

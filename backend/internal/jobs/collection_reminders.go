@@ -3,7 +3,7 @@ package jobs
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -26,10 +26,11 @@ type CollectionDeliveryStore interface {
 type CollectionReminderEmailHandler struct {
 	store  CollectionDeliveryStore
 	sender CollectionReminderEmailSender
+	logger *slog.Logger
 }
 
 func NewCollectionReminderEmailHandler(store CollectionDeliveryStore, sender CollectionReminderEmailSender) *CollectionReminderEmailHandler {
-	return &CollectionReminderEmailHandler{store: store, sender: sender}
+	return &CollectionReminderEmailHandler{store: store, sender: sender, logger: slog.Default()}
 }
 
 func (h *CollectionReminderEmailHandler) Handle(ctx context.Context, raw json.RawMessage) error {
@@ -45,18 +46,17 @@ func (h *CollectionReminderEmailHandler) Handle(ctx context.Context, raw json.Ra
 			EmailError:  pgtype.Text{String: err.Error(), Valid: true},
 		})
 		if markErr != nil {
-			return fmt.Errorf("send email failed and mark failed failed: send=%v mark=%w", err, markErr)
+			h.logger.Error("failed to mark collection event email delivery as failed", "collectionEventId", payload.CollectionEventID, "markError", markErr)
 		}
 		return err
 	}
 
-	_, err := h.store.MarkCollectionEventEmailDelivery(ctx, dbgen.MarkCollectionEventEmailDeliveryParams{
+	if _, err := h.store.MarkCollectionEventEmailDelivery(ctx, dbgen.MarkCollectionEventEmailDeliveryParams{
 		ID:          payload.CollectionEventID,
 		EmailStatus: pgtype.Text{String: "sent", Valid: true},
 		EmailError:  pgtype.Text{},
-	})
-	if err != nil {
-		return fmt.Errorf("mark email sent: %w", err)
+	}); err != nil {
+		h.logger.Error("failed to mark collection event email delivery as sent", "collectionEventId", payload.CollectionEventID, "error", err)
 	}
 	return nil
 }
@@ -64,10 +64,11 @@ func (h *CollectionReminderEmailHandler) Handle(ctx context.Context, raw json.Ra
 type CollectionReminderWhatsAppHandler struct {
 	store  CollectionDeliveryStore
 	sender CollectionReminderWhatsAppSender
+	logger *slog.Logger
 }
 
 func NewCollectionReminderWhatsAppHandler(store CollectionDeliveryStore, sender CollectionReminderWhatsAppSender) *CollectionReminderWhatsAppHandler {
-	return &CollectionReminderWhatsAppHandler{store: store, sender: sender}
+	return &CollectionReminderWhatsAppHandler{store: store, sender: sender, logger: slog.Default()}
 }
 
 func (h *CollectionReminderWhatsAppHandler) Handle(ctx context.Context, raw json.RawMessage) error {
@@ -83,18 +84,17 @@ func (h *CollectionReminderWhatsAppHandler) Handle(ctx context.Context, raw json
 			WhatsappError:  pgtype.Text{String: err.Error(), Valid: true},
 		})
 		if markErr != nil {
-			return fmt.Errorf("send whatsapp failed and mark failed failed: send=%v mark=%w", err, markErr)
+			h.logger.Error("failed to mark collection event whatsapp delivery as failed", "collectionEventId", payload.CollectionEventID, "markError", markErr)
 		}
 		return err
 	}
 
-	_, err := h.store.MarkCollectionEventWhatsAppDelivery(ctx, dbgen.MarkCollectionEventWhatsAppDeliveryParams{
+	if _, err := h.store.MarkCollectionEventWhatsAppDelivery(ctx, dbgen.MarkCollectionEventWhatsAppDeliveryParams{
 		ID:             payload.CollectionEventID,
 		WhatsappStatus: pgtype.Text{String: "sent", Valid: true},
 		WhatsappError:  pgtype.Text{},
-	})
-	if err != nil {
-		return fmt.Errorf("mark whatsapp sent: %w", err)
+	}); err != nil {
+		h.logger.Error("failed to mark collection event whatsapp delivery as sent", "collectionEventId", payload.CollectionEventID, "error", err)
 	}
 	return nil
 }

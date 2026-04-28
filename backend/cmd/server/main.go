@@ -108,6 +108,7 @@ func main() {
 		LeaseTTL:  cfg.WorkerLeaseTTL,
 	})
 	levyService := levy.NewServiceWithAuditAndJobs(db, emailClient, sender, resourceAuditService, jobService)
+	levyService.SetMaxJobAttempts(cfg.WorkerMaxAttempts)
 
 	whatsAppService := whatsapp.NewService(db, sender, logger)
 	whatsAppBot := whatsapp.NewBot(db)

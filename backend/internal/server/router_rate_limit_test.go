@@ -63,6 +63,53 @@ func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) 
 	}
 }
 
+func TestRouterUsesDedicatedRateLimitPrefixesForAIAndWebhooks(t *testing.T) {
+	cfg := &config.Config{}
+	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
+	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	defer rdb.Close()
+
+	ctx := context.Background()
+	existingKeys, _ := rdb.Keys(ctx, "ratelimit:*").Result()
+	if len(existingKeys) > 0 {
+		rdb.Del(ctx, existingKeys...)
+	}
+
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
+	testIP := "192.0.2.44"
+
+	requests := []struct {
+		method string
+		path   string
+		prefix string
+	}{
+		{method: "POST", path: "/api/v1/ai/copilot", prefix: "ai-copilot"},
+		{method: "POST", path: "/api/v1/billing/webhooks/stripe", prefix: "stripe-webhook"},
+		{method: "POST", path: "/api/v1/whatsapp/webhooks", prefix: "twilio-webhook"},
+	}
+
+	for _, tc := range requests {
+		req := httptest.NewRequest(tc.method, tc.path, strings.NewReader("{}"))
+		req.RemoteAddr = testIP + ":12345"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	keys, _ := rdb.Keys(ctx, "ratelimit:*").Result()
+	for _, prefix := range []string{"ai-copilot", "stripe-webhook", "twilio-webhook"} {
+		found := false
+		for _, key := range keys {
+			if strings.HasPrefix(key, "ratelimit:"+prefix+":") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("missing dedicated rate limit prefix %q in keys %v", prefix, keys)
+		}
+	}
+}
+
 func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))

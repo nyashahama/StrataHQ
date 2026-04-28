@@ -22,8 +22,9 @@ type ErrorResponse struct {
 }
 
 type ErrorBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	RequestID string `json:"requestId,omitempty"`
 }
 
 func JSON(w http.ResponseWriter, status int, data any) {
@@ -39,11 +40,21 @@ func JSONList(w http.ResponseWriter, status int, data any, meta Meta) {
 }
 
 func Error(w http.ResponseWriter, status int, code string, message string) {
+	writeError(w, status, ErrorBody{Code: code, Message: message})
+}
+
+func ErrorWithRequest(w http.ResponseWriter, r *http.Request, status int, code string, message string) {
+	requestID := ""
+	if r != nil {
+		requestID = r.Header.Get("X-Request-ID")
+	}
+	writeError(w, status, ErrorBody{Code: code, Message: message, RequestID: requestID})
+}
+
+func writeError(w http.ResponseWriter, status int, body ErrorBody) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(ErrorResponse{
-		Err: ErrorBody{Code: code, Message: message},
-	})
+	_ = json.NewEncoder(w).Encode(ErrorResponse{Err: body})
 }
 
 // DecodeJSON decodes a JSON request body into dst, rejecting unknown fields.

@@ -47,14 +47,15 @@ func AuditEvents(recorder audit.Recorder, logger *slog.Logger) func(http.Handler
 				event.ActorRole = identity.Role
 			}
 
-			if err := recorder.Record(context.WithoutCancel(r.Context()), event); err != nil {
-				logger.Error("record audit event",
-					"error", err,
-					"method", event.Method,
-					"path", event.Path,
-					"status", event.StatusCode,
-				)
-			}
+	if err := recorder.Record(context.WithoutCancel(r.Context()), event); err != nil {
+		logger.Error("record audit event",
+			"error", err,
+			"method", event.Method,
+			"path", event.Path,
+			"status", event.StatusCode,
+			"request_id", RequestIDFromContext(r.Context()),
+		)
+	}
 		})
 	}
 }

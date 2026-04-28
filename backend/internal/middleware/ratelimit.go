@@ -35,7 +35,7 @@ func RateLimit(rdb *redis.Client, limit int, window time.Duration) func(http.Han
 			}
 
 			if count > int64(limit) {
-				response.Error(w, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests")
+				response.ErrorWithRequest(w, r, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests")
 				return
 			}
 
@@ -69,7 +69,7 @@ func PerEndpointRateLimit(rdb *redis.Client, prefix string, limit int, window ti
 			}
 
 			if count > int64(limit) {
-				response.Error(w, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests")
+				response.ErrorWithRequest(w, r, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests")
 				return
 			}
 

@@ -48,6 +48,22 @@ func TestJSONList(t *testing.T) {
 	}
 }
 
+func TestErrorWithRequestIncludesRequestID(t *testing.T) {
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("X-Request-ID", "req-test-123")
+
+	ErrorWithRequest(w, req, http.StatusBadRequest, CodeBadRequest, "invalid request")
+
+	var resp ErrorResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode error: %v", err)
+	}
+	if resp.Err.RequestID != "req-test-123" {
+		t.Fatalf("error.requestId = %q, want req-test-123", resp.Err.RequestID)
+	}
+}
+
 func TestError(t *testing.T) {
 	w := httptest.NewRecorder()
 

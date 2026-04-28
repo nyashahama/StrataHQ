@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func TestLogger_LogsRequest(t *testing.T) {
+func TestLogger_LogsRequestWithRequestID(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&buf, nil))
 
-	handler := Logger(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := RequestID(Logger(logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-	}))
+	})))
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
@@ -22,6 +22,12 @@ func TestLogger_LogsRequest(t *testing.T) {
 	handler.ServeHTTP(w, req)
 
 	if buf.Len() == 0 {
-		t.Error("expected log output, got empty")
+		t.Fatal("expected log output, got empty")
+	}
+	if !bytes.Contains(buf.Bytes(), []byte(`"request_id"`)) {
+		t.Fatalf("log output does not include request_id: %s", buf.String())
+	}
+	if got := w.Header().Get(RequestIDHeader); got == "" {
+		t.Fatal("response X-Request-ID header is empty")
 	}
 }

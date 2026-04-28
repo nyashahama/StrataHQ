@@ -81,7 +81,7 @@ func main() {
 	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
 	auditService := audit.NewService(db)
 	resourceAuditService := audit.NewResourceService(db.Q)
-	agmService := agm.NewService(db)
+	agmService := agm.NewServiceWithAudit(db, resourceAuditService)
 	aiService := ai.NewService(db, ai.NewClient(ai.Config{
 		BaseURL: cfg.AIBaseURL,
 		APIKey:  cfg.AIAPIKey,

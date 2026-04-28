@@ -109,11 +109,13 @@ func main() {
 	invitationService := invitation.NewService(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
 	auditService := audit.NewService(db)
+	resourceAuditService := audit.NewResourceService(db.Q)
 
 	// Handlers
 	handlers := server.Handlers{
 		Health:          health.New(db, &redisChecker{rdb}),
 		Auth:            auth.NewHandler(authService),
+		Audit:           audit.NewHandler(resourceAuditService),
 		Agm:             agm.NewHandler(agmService),
 		AI:              ai.NewHandler(aiService),
 		Scheme:          scheme.NewHandler(schemeService),

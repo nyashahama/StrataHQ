@@ -90,3 +90,22 @@ INSERT INTO collection_events (
     $14, $15, $16, $17
 )
 RETURNING *;
+
+-- name: MarkCollectionEventEmailDelivery :one
+UPDATE collection_events
+SET email_status = $2,
+    email_error = $3
+WHERE id = $1
+RETURNING *;
+
+-- name: MarkCollectionEventWhatsAppDelivery :one
+UPDATE collection_events
+SET whatsapp_status = $2,
+    whatsapp_error = $3
+WHERE id = $1
+RETURNING *;
+
+-- name: GetCollectionEventByID :one
+SELECT *
+FROM collection_events
+WHERE id = $1;

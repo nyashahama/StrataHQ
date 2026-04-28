@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -10,6 +11,7 @@ import (
 type Config struct {
 	ConfigStrings
 	ConfigDurations
+	ConfigInts
 }
 
 type ConfigStrings struct {
@@ -37,8 +39,15 @@ type ConfigStrings struct {
 }
 
 type ConfigDurations struct {
-	JWTExpiry     time.Duration
-	RefreshExpiry time.Duration
+	JWTExpiry          time.Duration
+	RefreshExpiry      time.Duration
+	WorkerPollInterval time.Duration
+	WorkerLeaseTTL     time.Duration
+}
+
+type ConfigInts struct {
+	WorkerBatchSize   int32
+	WorkerMaxAttempts int32
 }
 
 func Load() (*Config, error) {
@@ -73,6 +82,22 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.ConfigDurations.RefreshExpiry, err = parseDuration("REFRESH_EXPIRY", 168*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigDurations.WorkerPollInterval, err = parseDuration("WORKER_POLL_INTERVAL", 2*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigDurations.WorkerLeaseTTL, err = parseDuration("WORKER_LEASE_TTL", 5*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigInts.WorkerBatchSize, err = parseInt32("WORKER_BATCH_SIZE", 10)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigInts.WorkerMaxAttempts, err = parseInt32("WORKER_MAX_ATTEMPTS", 5)
 	if err != nil {
 		return nil, err
 	}
@@ -135,4 +160,19 @@ func parseDuration(key string, fallback time.Duration) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid duration for %s: %w", key, err)
 	}
 	return d, nil
+}
+
+func parseInt32(key string, fallback int32) (int32, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.ParseInt(val, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid integer for %s: %w", key, err)
+	}
+	if parsed <= 0 {
+		return 0, fmt.Errorf("invalid integer for %s: must be positive", key)
+	}
+	return int32(parsed), nil
 }

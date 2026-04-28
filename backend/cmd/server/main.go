@@ -88,7 +88,7 @@ func main() {
 	schemeService := scheme.NewService(db)
 	complianceService := compliance.NewService(db)
 	communicationsService := communications.NewService(db)
-	documentsService := documents.NewService(db)
+	documentsService := documents.NewServiceWithAudit(db, resourceAuditService)
 	financialsService := financials.NewService(db)
 	maintenanceService := maintenance.NewService(db)
 	var sender whatsapp.MessageSender

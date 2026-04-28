@@ -1,6 +1,14 @@
 package levy
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/google/uuid"
+
+	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/jobs"
+)
 
 func TestLevyPeriodCreatedAuditEvent(t *testing.T) {
 	event := levyPeriodCreatedAuditEvent(levyPeriodAuditInput{
@@ -49,3 +57,18 @@ func TestLevyReconciledAuditEvent(t *testing.T) {
 		t.Fatalf("skipped count = %v, want 1", metadata["skipped_count"])
 	}
 }
+
+type fakeJobQueue struct {
+	inputs []jobs.EnqueueInput
+	err    error
+}
+
+func (f *fakeJobQueue) Enqueue(ctx context.Context, input jobs.EnqueueInput) (dbgen.BackgroundJob, error) {
+	f.inputs = append(f.inputs, input)
+	if f.err != nil {
+		return dbgen.BackgroundJob{}, f.err
+	}
+	return dbgen.BackgroundJob{ID: uuid.New(), Kind: input.Kind, IdempotencyKey: input.IdempotencyKey}, nil
+}
+
+

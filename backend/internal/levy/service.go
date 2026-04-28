@@ -15,6 +15,7 @@ import (
 	dbgen "github.com/stratahq/backend/db/gen"
 	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/jobs"
 	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -132,11 +133,16 @@ type resourceAuditor interface {
 	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
 }
 
+type jobEnqueuer interface {
+	Enqueue(ctx context.Context, input jobs.EnqueueInput) (dbgen.BackgroundJob, error)
+}
+
 type Service struct {
 	db             *database.Pool
 	emailSender    reminderEmailSender
 	whatsAppSender reminderWhatsAppSender
 	auditor        resourceAuditor
+	jobs           jobEnqueuer
 }
 
 func NewService(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender) *Service {
@@ -150,6 +156,12 @@ func NewServiceWithAudit(db *database.Pool, emailSender reminderEmailSender, wha
 		whatsAppSender: whatsAppSender,
 		auditor:        auditor,
 	}
+}
+
+func NewServiceWithAuditAndJobs(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender, auditor resourceAuditor, jobQueue jobEnqueuer) *Service {
+	s := NewServiceWithAudit(db, emailSender, whatsAppSender, auditor)
+	s.jobs = jobQueue
+	return s
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -1043,25 +1055,60 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 	}
 
 	if input.Email.Enabled {
+		eventInput.Email.Status = "queued"
+	}
+	if input.WhatsApp.Enabled {
+		eventInput.WhatsApp.Status = "queued"
+	}
+
+	event, err := s.RecordCollectionEvent(ctx, identity, schemeID, accountID, eventInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.jobs == nil {
+		return event, nil
+	}
+
+	eventUUID, err := uuid.Parse(event.ID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid collection event id: %w", err)
+	}
+
+	if input.Email.Enabled {
 		_, htmlBody := notification.CollectionReminderEmail(account.attention.OwnerName, account.attention.UnitIdentifier, account.attention.SchemeName, formatCurrency(account.attention.OutstandingCents), strconv.Itoa(account.attention.DaysOverdue), input.Email.Body)
-		if err := s.emailSender.SendCollectionReminder(ctx, account.ownerEmail, input.Email.Subject, htmlBody); err != nil {
-			eventInput.Email.Status = "failed"
-			eventInput.Email.Error = err.Error()
-		} else {
-			eventInput.Email.Status = "sent"
+		if _, enqueueErr := s.jobs.Enqueue(ctx, jobs.EnqueueInput{
+			Kind:           jobs.KindCollectionReminderEmail,
+			Payload:        jobs.CollectionReminderEmailPayload{CollectionEventID: eventUUID, To: account.ownerEmail, Subject: input.Email.Subject, HTMLBody: htmlBody},
+			IdempotencyKey: event.ID + ":email",
+			MaxAttempts:    5,
+		}); enqueueErr != nil {
+			_, _ = s.db.Q.MarkCollectionEventEmailDelivery(ctx, dbgen.MarkCollectionEventEmailDeliveryParams{
+				ID:          eventUUID,
+				EmailStatus: pgtype.Text{String: "failed", Valid: true},
+				EmailError:  pgtype.Text{String: enqueueErr.Error(), Valid: true},
+			})
+			return nil, enqueueErr
 		}
 	}
 
 	if input.WhatsApp.Enabled {
-		if err := s.whatsAppSender.SendWhatsAppMessage(account.whatsAppPhone, input.WhatsApp.Body); err != nil {
-			eventInput.WhatsApp.Status = "failed"
-			eventInput.WhatsApp.Error = err.Error()
-		} else {
-			eventInput.WhatsApp.Status = "sent"
+		if _, enqueueErr := s.jobs.Enqueue(ctx, jobs.EnqueueInput{
+			Kind:           jobs.KindCollectionReminderWhatsApp,
+			Payload:        jobs.CollectionReminderWhatsAppPayload{CollectionEventID: eventUUID, To: account.whatsAppPhone, Body: input.WhatsApp.Body},
+			IdempotencyKey: event.ID + ":whatsapp",
+			MaxAttempts:    5,
+		}); enqueueErr != nil {
+			_, _ = s.db.Q.MarkCollectionEventWhatsAppDelivery(ctx, dbgen.MarkCollectionEventWhatsAppDeliveryParams{
+				ID:             eventUUID,
+				WhatsappStatus: pgtype.Text{String: "failed", Valid: true},
+				WhatsappError:  pgtype.Text{String: enqueueErr.Error(), Valid: true},
+			})
+			return nil, enqueueErr
 		}
 	}
 
-	return s.RecordCollectionEvent(ctx, identity, schemeID, accountID, eventInput)
+	return event, nil
 }
 
 type levyPeriodAuditInput struct {

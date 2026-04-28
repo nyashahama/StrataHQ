@@ -111,6 +111,13 @@ func TestBilling_CheckoutPortalAndWebhook(t *testing.T) {
 		t.Fatalf("handle webhook: status=%d body=%s", w.Code, w.Body)
 	}
 
+	duplicateReq := httptest.NewRequest(http.MethodPost, "/billing/webhooks/stripe", bytes.NewReader(webhookBody))
+	duplicateW := httptest.NewRecorder()
+	h.HandleStripeWebhook(duplicateW, duplicateReq)
+	if duplicateW.Code != http.StatusOK {
+		t.Fatalf("duplicate webhook should be idempotent: status=%d body=%s", duplicateW.Code, duplicateW.Body)
+	}
+
 	req = httptest.NewRequest(http.MethodGet, "/billing/subscription", nil)
 	req = withAuthContext(req, accessToken, testJWTSigningKey)
 	w = httptest.NewRecorder()

@@ -53,6 +53,7 @@ func AuditEvents(recorder audit.Recorder, logger *slog.Logger) func(http.Handler
 					"method", event.Method,
 					"path", event.Path,
 					"status", event.StatusCode,
+					"request_id", RequestIDFromContext(r.Context()),
 				)
 			}
 		})

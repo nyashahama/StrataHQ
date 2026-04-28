@@ -32,7 +32,10 @@ func Logger(logger *slog.Logger) func(http.Handler) http.Handler {
 				"remote_addr", r.RemoteAddr,
 			}
 
-			requestID := r.Header.Get("X-Request-ID")
+			requestID := RequestIDFromContext(r.Context())
+			if requestID == "" {
+				requestID = r.Header.Get(RequestIDHeader)
+			}
 			if requestID != "" {
 				attrs = append(attrs, "request_id", requestID)
 			}

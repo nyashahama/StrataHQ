@@ -52,6 +52,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 
 	// Global middleware stack
 	r.Use(middleware.Recover)
+	r.Use(middleware.RequestID)
 	r.Use(middleware.Metrics)
 	r.Use(middleware.Logger(logger))
 	r.Use(middleware.SecurityHeaders())
@@ -78,8 +79,14 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 				r.Post("/forgot-password", h.Auth.ForgotPassword)
 				r.Post("/reset-password", h.Auth.ResetPassword)
 			})
-			r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
-			r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.PerEndpointRateLimit(rdb, "stripe-webhook", 60, 1*time.Minute))
+				r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.PerEndpointRateLimit(rdb, "twilio-webhook", 120, 1*time.Minute))
+				r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
+			})
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuditEvents(auditRecorder, logger))
 				r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
@@ -89,6 +96,14 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 				r.Use(middleware.AuditEvents(auditRecorder, logger))
 				r.Mount("/", h.EarlyAccess.PublicRoutes())
 			})
+		})
+
+		// AI routes with dedicated rate limit (rate limited before auth)
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.PerEndpointRateLimit(rdb, "ai-copilot", 30, 1*time.Minute))
+			r.Use(middleware.Auth(cfg.JWTSecret))
+			r.Use(middleware.AuditEvents(auditRecorder, logger))
+			r.Mount("/ai", h.AI.Routes())
 		})
 
 		// Protected routes
@@ -102,7 +117,6 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 			r.Mount("/onboarding", h.Auth.OnboardingRoutes())
 			r.Mount("/invitations", h.Invitation.ProtectedRoutes())
 			r.Mount("/agm", h.Agm.Routes())
-			r.Mount("/ai", h.AI.Routes())
 			r.Mount("/schemes", h.Scheme.Routes())
 			r.Mount("/compliance", h.Compliance.Routes())
 			r.Mount("/communications", h.Communications.Routes())

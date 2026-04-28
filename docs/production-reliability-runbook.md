@@ -148,6 +148,9 @@ cd backend && make test
 
 # Backend integration tests (requires Docker)
 cd backend && make test-integration
+
+# Backend observability/security focused tests
+cd backend && go test ./internal/middleware ./internal/platform/response ./internal/server ./internal/billing ./internal/whatsapp ./internal/security
 ```
 
 ## Launch Gate
@@ -168,6 +171,52 @@ k6 run --vus 50 --duration 2m backend/tests/load/auth-and-dashboard.js
 After the aggregated portfolio summary query is deployed, include a dedicated pass through `/agent` portfolio overview during staging verification to confirm summary counts and collection percentage remain correct under load.
 
 ## Monitoring
+
+### Request Correlation
+
+Every backend response should include `X-Request-ID`.
+
+Verification:
+
+```bash
+curl -i "$BASE_URL/healthz" | grep -i "x-request-id"
+```
+
+For API errors, JSON responses from request-aware handlers include:
+
+```json
+{
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "missing authorization header",
+    "requestId": "..."
+  }
+}
+```
+
+Support workflow:
+
+1. Ask the user for the request ID shown in the UI or browser network response.
+2. Search application logs for `request_id`.
+3. Correlate route, status, actor, and provider failures.
+
+### Security and Abuse Alerts
+
+Alert on:
+
+- Elevated `401` or `403` rate on protected API routes.
+- Elevated `429` rate on `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/ai/copilot`, `/api/v1/billing/webhooks/stripe`, and `/api/v1/whatsapp/webhooks`.
+- Stripe webhook signature failures.
+- Twilio webhook signature failures.
+- Audit event recorder failures.
+- Sudden increase in `5xx` errors for billing, documents, levy reconciliation, AGM voting, or auth.
+
+Initial action:
+
+1. Check `/healthz`, `/readyz`, and `/metrics`.
+2. Filter logs by `request_id` or route pattern.
+3. Compare `http_requests_total` status labels before and after the alert.
+4. Confirm provider status pages for Stripe, Twilio, Resend, and the AI provider.
 
 ### Prometheus Metrics
 

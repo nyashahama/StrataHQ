@@ -1,0 +1,43 @@
+package whatsapp
+
+import (
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+)
+
+func TestInboundRejectsMissingTwilioSignature(t *testing.T) {
+	handler := NewWebhookHandler(nil, nil, nil, slog.Default(), "twilio-token")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/whatsapp/webhooks", strings.NewReader("From=whatsapp%3A%2B27123456789&Body=hello"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+
+	handler.Inbound(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestInboundRejectsInvalidTwilioSignature(t *testing.T) {
+	handler := NewWebhookHandler(nil, nil, nil, slog.Default(), "twilio-token")
+
+	form := url.Values{}
+	form.Set("From", "whatsapp:+27123456789")
+	form.Set("Body", "hello")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/whatsapp/webhooks", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("X-Twilio-Signature", "invalid")
+	w := httptest.NewRecorder()
+
+	handler.Inbound(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}

@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -88,4 +90,29 @@ type discardWriter struct{}
 
 func (w *discardWriter) Write(p []byte) (int, error) {
 	return len(p), nil
+}
+
+type failingAuditRecorder struct{}
+
+func (f failingAuditRecorder) Record(_ context.Context, _ audit.Event) error {
+	return errors.New("audit store unavailable")
+}
+
+func TestAuditEvents_LogsRecorderFailureWithRequestID(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, nil))
+	handler := RequestID(AuditEvents(failingAuditRecorder{}, logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/org", nil)
+	req.Header.Set(RequestIDHeader, "req-audit-123")
+	req.RemoteAddr = "127.0.0.1:8080"
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if !bytes.Contains(buf.Bytes(), []byte(`"request_id":"req-audit-123"`)) {
+		t.Fatalf("audit failure log missing request_id: %s", buf.String())
+	}
 }

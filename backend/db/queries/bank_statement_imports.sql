@@ -17,6 +17,12 @@ FROM bank_statement_imports
 WHERE id = $1 AND scheme_id = $2
 LIMIT 1;
 
+-- name: GetBankStatementImportByID :one
+SELECT *
+FROM bank_statement_imports
+WHERE id = $1
+LIMIT 1;
+
 -- name: ListBankStatementImportsByScheme :many
 SELECT *
 FROM bank_statement_imports

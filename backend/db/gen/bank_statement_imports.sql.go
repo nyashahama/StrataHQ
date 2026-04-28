@@ -183,6 +183,38 @@ func (q *Queries) GetBankStatementImport(ctx context.Context, arg GetBankStateme
 	return i, err
 }
 
+const getBankStatementImportByID = `-- name: GetBankStatementImportByID :one
+SELECT id, scheme_id, uploaded_by_user_id, bank_name, original_filename, raw_csv, status, total_rows, matched_rows, ambiguous_rows, unmatched_rows, applied_rows, last_error, parsed_at, applied_at, created_at, updated_at
+FROM bank_statement_imports
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetBankStatementImportByID(ctx context.Context, id uuid.UUID) (BankStatementImport, error) {
+	row := q.db.QueryRow(ctx, getBankStatementImportByID, id)
+	var i BankStatementImport
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.UploadedByUserID,
+		&i.BankName,
+		&i.OriginalFilename,
+		&i.RawCsv,
+		&i.Status,
+		&i.TotalRows,
+		&i.MatchedRows,
+		&i.AmbiguousRows,
+		&i.UnmatchedRows,
+		&i.AppliedRows,
+		&i.LastError,
+		&i.ParsedAt,
+		&i.AppliedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listBankStatementImportsByScheme = `-- name: ListBankStatementImportsByScheme :many
 SELECT id, scheme_id, uploaded_by_user_id, bank_name, original_filename, raw_csv, status, total_rows, matched_rows, ambiguous_rows, unmatched_rows, applied_rows, last_error, parsed_at, applied_at, created_at, updated_at
 FROM bank_statement_imports

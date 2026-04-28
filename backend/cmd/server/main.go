@@ -20,6 +20,7 @@ import (
 	"github.com/stratahq/backend/internal/earlyaccess"
 	"github.com/stratahq/backend/internal/financials"
 	"github.com/stratahq/backend/internal/invitation"
+	"github.com/stratahq/backend/internal/jobs"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/maintenance"
 	"github.com/stratahq/backend/internal/notification"
@@ -101,7 +102,13 @@ func main() {
 		sender = whatsapp.NewNoOpSender()
 		logger.Info("twilio whatsapp disabled, using no-op sender")
 	}
-	levyService := levy.NewServiceWithAudit(db, emailClient, sender, resourceAuditService)
+	jobService := jobs.NewService(db.Q, jobs.Registry{}, logger, jobs.RealClock{}, jobs.Config{
+		WorkerID:  "api-enqueuer",
+		BatchSize: cfg.WorkerBatchSize,
+		LeaseTTL:  cfg.WorkerLeaseTTL,
+	})
+	levyService := levy.NewServiceWithAuditAndJobs(db, emailClient, sender, resourceAuditService, jobService)
+	levyService.SetMaxJobAttempts(cfg.WorkerMaxAttempts)
 
 	whatsAppService := whatsapp.NewService(db, sender, logger)
 	whatsAppBot := whatsapp.NewBot(db)

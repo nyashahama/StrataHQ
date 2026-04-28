@@ -261,6 +261,97 @@ If production load tests fail after tuning:
 3. Scale horizontally (add more backend instances) before tuning vertically
 4. Enable Redis caching for expensive queries
 
+## Background Worker Operations
+
+The background worker runs `go run ./cmd/worker/` in development and the `bin/worker` binary in deployed environments. It processes durable PostgreSQL jobs from `background_jobs`.
+
+### Required Environment
+
+The worker requires the same core provider and database variables as the API:
+
+- `DATABASE_URL`
+- `REDIS_URL`
+- `JWT_SECRET`
+- `RESEND_API_KEY`
+- `AI_BASE_URL`
+- `AI_API_KEY`
+- `AI_MODEL`
+- `APP_BASE_URL`
+- `EMAIL_FROM`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_WHATSAPP_NUMBER`
+
+Worker tuning variables:
+
+- `WORKER_POLL_INTERVAL`: default `2s`
+- `WORKER_LEASE_TTL`: default `5m`
+- `WORKER_BATCH_SIZE`: default `10`
+- `WORKER_MAX_ATTEMPTS`: default `5`
+
+### Collection Reminder Delivery
+
+The API records collection reminders with delivery status `queued` and inserts one job per enabled channel:
+
+- `collection_reminder_email`
+- `collection_reminder_whatsapp`
+
+The worker sends the provider request and then updates `collection_events.email_status` or `collection_events.whatsapp_status` to `sent` or `failed`.
+
+### Retry Behavior
+
+Transient provider failures are retried with exponential backoff starting at 30 seconds and capped at 5 minutes. A job moves to `failed` after its configured max attempts.
+
+### Operator Queries
+
+Queued or running jobs:
+
+```sql
+SELECT kind, status, count(*)
+FROM background_jobs
+WHERE status IN ('queued', 'running')
+GROUP BY kind, status
+ORDER BY kind, status;
+```
+
+Failed jobs:
+
+```sql
+SELECT id, kind, attempts, max_attempts, last_error, failed_at
+FROM background_jobs
+WHERE status = 'failed'
+ORDER BY failed_at DESC
+LIMIT 50;
+```
+
+Stale running jobs:
+
+```sql
+SELECT id, kind, locked_by, locked_at, now() - locked_at AS locked_for
+FROM background_jobs
+WHERE status = 'running'
+  AND locked_at < now() - interval '5 minutes'
+ORDER BY locked_at ASC;
+```
+
+### Alerts
+
+Alert on:
+
+- Any `failed` jobs in the last 15 minutes.
+- More than 100 queued jobs for a single kind.
+- Any `running` job locked longer than `WORKER_LEASE_TTL`.
+- More than 5 consecutive worker iteration errors in logs.
+
+### Verification Commands
+
+```bash
+cd backend && make generate
+cd backend && go test ./internal/jobs ./internal/levy ./internal/config -count=1
+cd backend && go build ./cmd/server ./cmd/worker
+cd backend && make test
+```
+
 ## Contact
 
 For issues during load testing, contact the engineering team.

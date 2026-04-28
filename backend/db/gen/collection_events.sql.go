@@ -105,6 +105,39 @@ func (q *Queries) CreateCollectionEvent(ctx context.Context, arg CreateCollectio
 	return i, err
 }
 
+const getCollectionEventByID = `-- name: GetCollectionEventByID :one
+SELECT id, scheme_id, levy_account_id, actor_user_id, actor_role, event_type, note, promise_amount_cents, promise_date, created_at, email_to, email_subject, email_body, email_status, email_error, whatsapp_to, whatsapp_body, whatsapp_status, whatsapp_error
+FROM collection_events
+WHERE id = $1
+`
+
+func (q *Queries) GetCollectionEventByID(ctx context.Context, id uuid.UUID) (CollectionEvent, error) {
+	row := q.db.QueryRow(ctx, getCollectionEventByID, id)
+	var i CollectionEvent
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.LevyAccountID,
+		&i.ActorUserID,
+		&i.ActorRole,
+		&i.EventType,
+		&i.Note,
+		&i.PromiseAmountCents,
+		&i.PromiseDate,
+		&i.CreatedAt,
+		&i.EmailTo,
+		&i.EmailSubject,
+		&i.EmailBody,
+		&i.EmailStatus,
+		&i.EmailError,
+		&i.WhatsappTo,
+		&i.WhatsappBody,
+		&i.WhatsappStatus,
+		&i.WhatsappError,
+	)
+	return i, err
+}
+
 const listAttentionAccountsByOrg = `-- name: ListAttentionAccountsByOrg :many
 SELECT
     la.id AS levy_account_id,
@@ -323,4 +356,86 @@ func (q *Queries) ListCollectionEventsByAccountIDs(ctx context.Context, dollar_1
 		return nil, err
 	}
 	return items, nil
+}
+
+const markCollectionEventEmailDelivery = `-- name: MarkCollectionEventEmailDelivery :one
+UPDATE collection_events
+SET email_status = $2,
+    email_error = $3
+WHERE id = $1
+RETURNING id, scheme_id, levy_account_id, actor_user_id, actor_role, event_type, note, promise_amount_cents, promise_date, created_at, email_to, email_subject, email_body, email_status, email_error, whatsapp_to, whatsapp_body, whatsapp_status, whatsapp_error
+`
+
+type MarkCollectionEventEmailDeliveryParams struct {
+	ID          uuid.UUID   `json:"id"`
+	EmailStatus pgtype.Text `json:"email_status"`
+	EmailError  pgtype.Text `json:"email_error"`
+}
+
+func (q *Queries) MarkCollectionEventEmailDelivery(ctx context.Context, arg MarkCollectionEventEmailDeliveryParams) (CollectionEvent, error) {
+	row := q.db.QueryRow(ctx, markCollectionEventEmailDelivery, arg.ID, arg.EmailStatus, arg.EmailError)
+	var i CollectionEvent
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.LevyAccountID,
+		&i.ActorUserID,
+		&i.ActorRole,
+		&i.EventType,
+		&i.Note,
+		&i.PromiseAmountCents,
+		&i.PromiseDate,
+		&i.CreatedAt,
+		&i.EmailTo,
+		&i.EmailSubject,
+		&i.EmailBody,
+		&i.EmailStatus,
+		&i.EmailError,
+		&i.WhatsappTo,
+		&i.WhatsappBody,
+		&i.WhatsappStatus,
+		&i.WhatsappError,
+	)
+	return i, err
+}
+
+const markCollectionEventWhatsAppDelivery = `-- name: MarkCollectionEventWhatsAppDelivery :one
+UPDATE collection_events
+SET whatsapp_status = $2,
+    whatsapp_error = $3
+WHERE id = $1
+RETURNING id, scheme_id, levy_account_id, actor_user_id, actor_role, event_type, note, promise_amount_cents, promise_date, created_at, email_to, email_subject, email_body, email_status, email_error, whatsapp_to, whatsapp_body, whatsapp_status, whatsapp_error
+`
+
+type MarkCollectionEventWhatsAppDeliveryParams struct {
+	ID             uuid.UUID   `json:"id"`
+	WhatsappStatus pgtype.Text `json:"whatsapp_status"`
+	WhatsappError  pgtype.Text `json:"whatsapp_error"`
+}
+
+func (q *Queries) MarkCollectionEventWhatsAppDelivery(ctx context.Context, arg MarkCollectionEventWhatsAppDeliveryParams) (CollectionEvent, error) {
+	row := q.db.QueryRow(ctx, markCollectionEventWhatsAppDelivery, arg.ID, arg.WhatsappStatus, arg.WhatsappError)
+	var i CollectionEvent
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.LevyAccountID,
+		&i.ActorUserID,
+		&i.ActorRole,
+		&i.EventType,
+		&i.Note,
+		&i.PromiseAmountCents,
+		&i.PromiseDate,
+		&i.CreatedAt,
+		&i.EmailTo,
+		&i.EmailSubject,
+		&i.EmailBody,
+		&i.EmailStatus,
+		&i.EmailError,
+		&i.WhatsappTo,
+		&i.WhatsappBody,
+		&i.WhatsappStatus,
+		&i.WhatsappError,
+	)
+	return i, err
 }

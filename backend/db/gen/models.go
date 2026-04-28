@@ -56,6 +56,50 @@ func (ns NullAgmStatus) Value() (driver.Value, error) {
 	return string(ns.AgmStatus), nil
 }
 
+type BackgroundJobStatus string
+
+const (
+	BackgroundJobStatusQueued    BackgroundJobStatus = "queued"
+	BackgroundJobStatusRunning   BackgroundJobStatus = "running"
+	BackgroundJobStatusSucceeded BackgroundJobStatus = "succeeded"
+	BackgroundJobStatusFailed    BackgroundJobStatus = "failed"
+)
+
+func (e *BackgroundJobStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = BackgroundJobStatus(s)
+	case string:
+		*e = BackgroundJobStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for BackgroundJobStatus: %T", src)
+	}
+	return nil
+}
+
+type NullBackgroundJobStatus struct {
+	BackgroundJobStatus BackgroundJobStatus `json:"background_job_status"`
+	Valid               bool                `json:"valid"` // Valid is true if BackgroundJobStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullBackgroundJobStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.BackgroundJobStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.BackgroundJobStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullBackgroundJobStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.BackgroundJobStatus), nil
+}
+
 type ComplianceCategory string
 
 const (
@@ -627,6 +671,24 @@ type AuditEvent struct {
 	IpAddress    string      `json:"ip_address"`
 	UserAgent    string      `json:"user_agent"`
 	OccurredAt   time.Time   `json:"occurred_at"`
+}
+
+type BackgroundJob struct {
+	ID             uuid.UUID           `json:"id"`
+	Kind           string              `json:"kind"`
+	Status         BackgroundJobStatus `json:"status"`
+	Payload        []byte              `json:"payload"`
+	IdempotencyKey string              `json:"idempotency_key"`
+	Attempts       int32               `json:"attempts"`
+	MaxAttempts    int32               `json:"max_attempts"`
+	RunAfter       time.Time           `json:"run_after"`
+	LockedAt       pgtype.Timestamptz  `json:"locked_at"`
+	LockedBy       pgtype.Text         `json:"locked_by"`
+	LastError      pgtype.Text         `json:"last_error"`
+	CreatedAt      time.Time           `json:"created_at"`
+	UpdatedAt      time.Time           `json:"updated_at"`
+	SucceededAt    pgtype.Timestamptz  `json:"succeeded_at"`
+	FailedAt       pgtype.Timestamptz  `json:"failed_at"`
 }
 
 type BudgetLine struct {

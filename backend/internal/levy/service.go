@@ -15,6 +15,7 @@ import (
 	dbgen "github.com/stratahq/backend/db/gen"
 	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/jobs"
 	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -132,11 +133,17 @@ type resourceAuditor interface {
 	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
 }
 
+type jobEnqueuer interface {
+	Enqueue(ctx context.Context, input jobs.EnqueueInput) (dbgen.BackgroundJob, error)
+}
+
 type Service struct {
 	db             *database.Pool
 	emailSender    reminderEmailSender
 	whatsAppSender reminderWhatsAppSender
 	auditor        resourceAuditor
+	jobs           jobEnqueuer
+	maxJobAttempts int32
 }
 
 func NewService(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender) *Service {
@@ -149,6 +156,19 @@ func NewServiceWithAudit(db *database.Pool, emailSender reminderEmailSender, wha
 		emailSender:    emailSender,
 		whatsAppSender: whatsAppSender,
 		auditor:        auditor,
+		maxJobAttempts: 5,
+	}
+}
+
+func NewServiceWithAuditAndJobs(db *database.Pool, emailSender reminderEmailSender, whatsAppSender reminderWhatsAppSender, auditor resourceAuditor, jobQueue jobEnqueuer) *Service {
+	s := NewServiceWithAudit(db, emailSender, whatsAppSender, auditor)
+	s.jobs = jobQueue
+	return s
+}
+
+func (s *Service) SetMaxJobAttempts(n int32) {
+	if n > 0 {
+		s.maxJobAttempts = n
 	}
 }
 
@@ -556,6 +576,13 @@ func dateValue(value time.Time) pgtype.Date {
 	return pgtype.Date{Time: value, Valid: true}
 }
 
+func textValue(value string) pgtype.Text {
+	if value == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: value, Valid: true}
+}
+
 func textPointer(value pgtype.Text) *string {
 	if !value.Valid {
 		return nil
@@ -914,6 +941,15 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 		Note:               note,
 		PromiseAmountCents: promiseAmountCents,
 		PromiseDate:        promiseDate,
+		EmailTo:            textValue(input.Email.To),
+		EmailSubject:       textValue(input.Email.Subject),
+		EmailBody:          textValue(input.Email.Body),
+		EmailStatus:        textValue(input.Email.Status),
+		EmailError:         textValue(input.Email.Error),
+		WhatsappTo:         textValue(input.WhatsApp.To),
+		WhatsappBody:       textValue(input.WhatsApp.Body),
+		WhatsappStatus:     textValue(input.WhatsApp.Status),
+		WhatsappError:      textValue(input.WhatsApp.Error),
 	}
 
 	created, err := s.db.Q.CreateCollectionEvent(ctx, params)
@@ -969,24 +1005,21 @@ type reminderContext struct {
 
 func (s *Service) loadReminderContext(ctx context.Context, identity auth.Identity, schemeID, accountID string) (*reminderContext, error) {
 	accountUUID := uuid.MustParse(accountID)
+	schemeUUID := uuid.MustParse(schemeID)
 
-	rows, err := s.db.Q.ListAttentionAccountsByScheme(ctx, uuid.MustParse(schemeID))
+	rows, err := s.db.Q.ListAttentionAccountsByScheme(ctx, schemeUUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load accounts: %w", err)
 	}
 
 	for _, r := range rows {
 		if r.LevyAccountID == accountUUID {
-			var ownerEmail string
-			var whatsappPhone string
-			var whatsappConnected bool
-			err := s.db.QueryRow(ctx, `
-				SELECT email, whatsapp_phone, whatsapp_connected
-				FROM units
-				WHERE id = $1
-			`, r.UnitID).Scan(&ownerEmail, &whatsappPhone, &whatsappConnected)
+			reminder, err := s.db.Q.GetCollectionReminderContext(ctx, dbgen.GetCollectionReminderContextParams{
+				ID:       accountUUID,
+				SchemeID: schemeUUID,
+			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to load unit contact: %w", err)
+				return nil, fmt.Errorf("failed to load reminder context: %w", err)
 			}
 			daysOverdue := int(time.Since(r.DueDate.Time).Hours() / 24)
 			if daysOverdue < 0 {
@@ -1007,9 +1040,9 @@ func (s *Service) loadReminderContext(ctx context.Context, identity auth.Identit
 					OutstandingCents: outstanding,
 					DaysOverdue:      daysOverdue,
 				},
-				ownerEmail:        ownerEmail,
-				whatsAppPhone:     whatsappPhone,
-				whatsAppConnected: whatsappConnected,
+				ownerEmail:        reminder.OwnerEmail,
+				whatsAppPhone:     reminder.WhatsappPhone,
+				whatsAppConnected: reminder.WhatsappConnected,
 			}, nil
 		}
 	}
@@ -1043,25 +1076,60 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 	}
 
 	if input.Email.Enabled {
+		eventInput.Email.Status = "queued"
+	}
+	if input.WhatsApp.Enabled {
+		eventInput.WhatsApp.Status = "queued"
+	}
+
+	event, err := s.RecordCollectionEvent(ctx, identity, schemeID, accountID, eventInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.jobs == nil {
+		return event, nil
+	}
+
+	eventUUID, err := uuid.Parse(event.ID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid collection event id: %w", err)
+	}
+
+	if input.Email.Enabled {
 		_, htmlBody := notification.CollectionReminderEmail(account.attention.OwnerName, account.attention.UnitIdentifier, account.attention.SchemeName, formatCurrency(account.attention.OutstandingCents), strconv.Itoa(account.attention.DaysOverdue), input.Email.Body)
-		if err := s.emailSender.SendCollectionReminder(ctx, account.ownerEmail, input.Email.Subject, htmlBody); err != nil {
-			eventInput.Email.Status = "failed"
-			eventInput.Email.Error = err.Error()
-		} else {
-			eventInput.Email.Status = "sent"
+		if _, enqueueErr := s.jobs.Enqueue(ctx, jobs.EnqueueInput{
+			Kind:           jobs.KindCollectionReminderEmail,
+			Payload:        jobs.CollectionReminderEmailPayload{CollectionEventID: eventUUID, To: account.ownerEmail, Subject: input.Email.Subject, HTMLBody: htmlBody},
+			IdempotencyKey: event.ID + ":email",
+			MaxAttempts:    s.maxJobAttempts,
+		}); enqueueErr != nil {
+			_, _ = s.db.Q.MarkCollectionEventEmailDelivery(ctx, dbgen.MarkCollectionEventEmailDeliveryParams{
+				ID:          eventUUID,
+				EmailStatus: pgtype.Text{String: "failed", Valid: true},
+				EmailError:  pgtype.Text{String: enqueueErr.Error(), Valid: true},
+			})
+			return nil, enqueueErr
 		}
 	}
 
 	if input.WhatsApp.Enabled {
-		if err := s.whatsAppSender.SendWhatsAppMessage(account.whatsAppPhone, input.WhatsApp.Body); err != nil {
-			eventInput.WhatsApp.Status = "failed"
-			eventInput.WhatsApp.Error = err.Error()
-		} else {
-			eventInput.WhatsApp.Status = "sent"
+		if _, enqueueErr := s.jobs.Enqueue(ctx, jobs.EnqueueInput{
+			Kind:           jobs.KindCollectionReminderWhatsApp,
+			Payload:        jobs.CollectionReminderWhatsAppPayload{CollectionEventID: eventUUID, To: account.whatsAppPhone, Body: input.WhatsApp.Body},
+			IdempotencyKey: event.ID + ":whatsapp",
+			MaxAttempts:    s.maxJobAttempts,
+		}); enqueueErr != nil {
+			_, _ = s.db.Q.MarkCollectionEventWhatsAppDelivery(ctx, dbgen.MarkCollectionEventWhatsAppDeliveryParams{
+				ID:             eventUUID,
+				WhatsappStatus: pgtype.Text{String: "failed", Valid: true},
+				WhatsappError:  pgtype.Text{String: enqueueErr.Error(), Valid: true},
+			})
+			return nil, enqueueErr
 		}
 	}
 
-	return s.RecordCollectionEvent(ctx, identity, schemeID, accountID, eventInput)
+	return event, nil
 }
 
 type levyPeriodAuditInput struct {

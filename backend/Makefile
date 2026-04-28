@@ -1,4 +1,4 @@
-.PHONY: run build test test-integration lint generate migrate-up migrate-down migrate-create docker-up docker-down seed clean
+.PHONY: run worker build test test-integration lint generate migrate-up migrate-down migrate-create docker-up docker-down seed clean
 
 # ============================================================================
 # Development
@@ -7,8 +7,12 @@
 run:
 	go run ./cmd/server/
 
+worker:
+	go run ./cmd/worker/
+
 build:
 	go build -ldflags="-s -w" -o bin/server ./cmd/server/
+	go build -ldflags="-s -w" -o bin/worker ./cmd/worker/
 
 clean:
 	rm -rf bin/

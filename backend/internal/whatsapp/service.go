@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,10 +28,12 @@ var (
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type MessageInfo struct {
-	SentAt time.Time `json:"sent_at"`
-	ID     string    `json:"id"`
-	From   string    `json:"from"`
-	Text   string    `json:"text"`
+	SentAt               time.Time   `json:"sent_at"`
+	ID                   string      `json:"id"`
+	From                 string      `json:"from"`
+	Text                 string      `json:"text"`
+	MaintenanceRequestID *string     `json:"maintenance_request_id"`
+	Media                []MediaInfo `json:"media"`
 }
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
@@ -59,19 +62,59 @@ type BroadcastInfo struct {
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
 type DashboardResponse struct {
-	ResidentThread *ThreadInfo     `json:"resident_thread"`
-	Role           string          `json:"role"`
-	PhoneNumber    string          `json:"phone_number"`
-	Threads        []ThreadInfo    `json:"threads"`
-	Broadcasts     []BroadcastInfo `json:"broadcasts"`
-	TotalResidents int             `json:"total_residents"`
-	ConnectedCount int             `json:"connected_count"`
-	UnreadCount    int             `json:"unread_count"`
+	ResidentThread     *ThreadInfo             `json:"resident_thread"`
+	Role               string                  `json:"role"`
+	PhoneNumber        string                  `json:"phone_number"`
+	Threads            []ThreadInfo            `json:"threads"`
+	Broadcasts         []BroadcastInfo         `json:"broadcasts"`
+	TotalResidents     int                     `json:"total_residents"`
+	ConnectedCount     int                     `json:"connected_count"`
+	UnreadCount        int                     `json:"unread_count"`
+	MaintenanceIntakes []MaintenanceIntakeInfo `json:"maintenance_intakes"`
 }
 
 type CreateBroadcastInput struct {
 	Message string
 	Type    string
+}
+
+type MediaInfo struct {
+	ID          string `json:"id"`
+	URL         string `json:"url"`
+	ContentType string `json:"content_type"`
+}
+
+type MaintenanceIntakeInfo struct {
+	CreatedAt            time.Time `json:"created_at"`
+	MaintenanceRequestID *string   `json:"maintenance_request_id"`
+	ID                   string    `json:"id"`
+	SchemeID             string    `json:"scheme_id"`
+	ThreadID             string    `json:"thread_id"`
+	MessageID            string    `json:"message_id"`
+	UnitID               string    `json:"unit_id"`
+	UnitIdentifier       string    `json:"unit_identifier"`
+	OwnerName            string    `json:"owner_name"`
+	Status               string    `json:"status"`
+	Category             string    `json:"category"`
+	Title                string    `json:"title"`
+	Description          string    `json:"description"`
+	MediaCount           int       `json:"media_count"`
+}
+
+type CreateMaintenanceFromMessageInput struct {
+	Title       string
+	Description string
+	Category    string
+}
+
+type maintenanceIntent struct {
+	IsMaintenance bool
+	Category      string
+}
+
+type intakeText struct {
+	Title       string
+	Description string
 }
 
 type accessInfo struct {
@@ -387,6 +430,73 @@ func validBroadcastType(value string) bool {
 	default:
 		return false
 	}
+}
+
+func classifyMaintenanceIntent(body string, mediaCount int) maintenanceIntent {
+	text := strings.ToLower(strings.TrimSpace(body))
+	category := inferMaintenanceCategory(text)
+	intentPrefixes := []string{"2", "request", "maintenance", "repair", "fix", "broken", "leak", "burst", "blocked", "no power", "lights", "plug", "gate", "roof", "crack", "pool", "garden"}
+	for _, prefix := range intentPrefixes {
+		if text == prefix || strings.HasPrefix(text, prefix+" ") {
+			return maintenanceIntent{IsMaintenance: true, Category: category}
+		}
+	}
+	if mediaCount > 0 && category != "other" {
+		return maintenanceIntent{IsMaintenance: true, Category: category}
+	}
+	return maintenanceIntent{IsMaintenance: false, Category: category}
+}
+
+func shouldCreateMaintenanceCandidate(intent maintenanceIntent, mediaCount int) bool {
+	return !intent.IsMaintenance && (mediaCount > 0 || intent.Category != "other")
+}
+
+func inferMaintenanceCategory(text string) string {
+	switch {
+	case containsAny(text, "leak", "water", "tap", "toilet", "drain", "blocked", "burst", "geyser"):
+		return "plumbing"
+	case containsAny(text, "power", "light", "plug", "electric", "gate", "intercom"):
+		return "electrical"
+	case containsAny(text, "roof", "wall", "crack", "ceiling", "door", "window"):
+		return "structural"
+	case containsAny(text, "garden", "tree", "grass", "irrigation"):
+		return "garden"
+	case containsAny(text, "pool", "pump", "chlorine"):
+		return "pool"
+	default:
+		return "other"
+	}
+}
+
+func containsAny(text string, terms ...string) bool {
+	for _, term := range terms {
+		if strings.Contains(text, term) {
+			return true
+		}
+	}
+	return false
+}
+
+func buildMaintenanceIntakeText(body string, mediaCount int) intakeText {
+	clean := strings.TrimSpace(body)
+	if clean == "" && mediaCount > 0 {
+		clean = "Maintenance photo received via WhatsApp"
+	}
+	titleSource := clean
+	if idx := strings.Index(titleSource, "."); idx > 0 {
+		titleSource = titleSource[:idx]
+	}
+	if len(titleSource) > 80 {
+		titleSource = titleSource[:80]
+	}
+	result := intakeText{
+		Title:       "WhatsApp: " + strings.TrimSpace(titleSource),
+		Description: clean,
+	}
+	if mediaCount > 0 {
+		result.Description = strings.TrimSpace(result.Description + "\n\nMedia attached: " + strconv.Itoa(mediaCount) + " item(s)")
+	}
+	return result
 }
 
 type whatsAppAuditInput struct {

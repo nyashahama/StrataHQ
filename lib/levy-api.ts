@@ -7,6 +7,8 @@ import type {
   LevyPeriodInfo,
   ReconcilePaymentInput,
   ReconcileResult,
+  BankStatementImportResponse,
+  BankStatementManualMatchInput,
 } from "@/lib/levy";
 
 async function parse<T>(response: Response, fallback: string): Promise<T> {
@@ -49,4 +51,45 @@ export async function reconcileLevyPayments(
     }),
     "Failed to reconcile levy payments",
   );
+}
+
+export async function importBankStatementCsv(
+  schemeId: string,
+  bank: string,
+  file: File,
+): Promise<BankStatementImportResponse> {
+  const form = new FormData()
+  form.append("bank", bank)
+  form.append("file", file)
+  return parse(
+    await apiFetch(`/api/v1/levies/${schemeId}/reconcile/imports`, {
+      method: "POST",
+      body: form,
+    }),
+    "Failed to import bank statement",
+  )
+}
+
+export async function getBankStatementImport(
+  schemeId: string,
+  importId: string,
+): Promise<BankStatementImportResponse> {
+  return parse(
+    await apiFetch(`/api/v1/levies/${schemeId}/reconcile/imports/${importId}`),
+    "Failed to load bank statement import",
+  )
+}
+
+export async function applyBankStatementImport(
+  schemeId: string,
+  importId: string,
+  manualMatches: BankStatementManualMatchInput[],
+): Promise<BankStatementImportResponse> {
+  return parse(
+    await apiFetch(`/api/v1/levies/${schemeId}/reconcile/imports/${importId}/apply`, {
+      method: "POST",
+      body: JSON.stringify({ manual_matches: manualMatches }),
+    }),
+    "Failed to apply bank statement import",
+  )
 }

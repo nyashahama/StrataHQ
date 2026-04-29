@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
 import ReconcileModal from '@/components/ReconcileModal'
+import BankStatementImportModal from '@/components/BankStatementImportModal'
 import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
 import { invalidateCache } from '@/lib/data-cache'
@@ -47,6 +48,7 @@ export default function LevyPaymentsPage() {
   const schemeId = params.schemeId as string
 
   const [reconcileOpen, setReconcileOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [creatingPeriod, setCreatingPeriod] = useState(false)
   const [reconciling, setReconciling] = useState(false)
@@ -227,6 +229,12 @@ export default function LevyPaymentsPage() {
         {canEdit && (
           <div className="flex flex-col sm:flex-row gap-2">
             <button
+              onClick={() => setImportOpen(true)}
+              className="flex-shrink-0 text-[13px] font-semibold border border-border px-4 py-2 rounded-lg hover:bg-page transition-colors"
+            >
+              Import bank CSV
+            </button>
+            <button
               onClick={() => setCreateOpen(true)}
               className="flex-shrink-0 text-[13px] font-semibold border border-border px-4 py-2 rounded-lg hover:bg-page transition-colors"
             >
@@ -391,6 +399,19 @@ export default function LevyPaymentsPage() {
           periodLabel={currentPeriod.label}
           onConfirm={handleReconcileConfirm}
           onClose={() => !reconciling && setReconcileOpen(false)}
+        />
+      )}
+
+      {importOpen && currentPeriod && (
+        <BankStatementImportModal
+          schemeId={schemeId}
+          levyAccounts={levyRoll}
+          periodLabel={currentPeriod.label}
+          onApplied={() => {
+            setImportOpen(false)
+            refreshDashboard()
+          }}
+          onClose={() => setImportOpen(false)}
         />
       )}
     </div>

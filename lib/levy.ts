@@ -62,3 +62,42 @@ export interface ReconcileResult {
   applied_count: number;
   skipped_count: number;
 }
+
+export type BankStatementImportStatus = "queued" | "processing" | "review_required" | "applied" | "failed";
+export type BankStatementRowStatus = "matched" | "ambiguous" | "unmatched" | "applied" | "skipped" | "failed";
+
+export interface BankStatementImportRow {
+  id: string;
+  row_number: number;
+  transaction_date: string;
+  amount_cents: number;
+  reference: string;
+  description: string;
+  status: BankStatementRowStatus;
+  confidence: number;
+  match_reason?: string | null;
+  matched_levy_account_id?: string | null;
+  unit_identifier?: string | null;
+}
+
+export interface BankStatementImportResponse {
+  id: string;
+  scheme_id: string;
+  bank_name: string;
+  status: BankStatementImportStatus;
+  total_rows: number;
+  matched_rows: number;
+  ambiguous_rows: number;
+  unmatched_rows: number;
+  applied_rows: number;
+  rows: BankStatementImportRow[];
+}
+
+export interface BankStatementManualMatchInput {
+  row_id: string;
+  account_id: string;
+  payment_date: string;
+  amount_cents: number;
+  reference: string;
+  bank_ref?: string | null;
+}

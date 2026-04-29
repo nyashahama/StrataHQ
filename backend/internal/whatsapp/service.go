@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -80,14 +81,23 @@ type accessInfo struct {
 	userID       string
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
-	db     *database.Pool
-	sender MessageSender
-	logger *slog.Logger
+	db      *database.Pool
+	sender  MessageSender
+	logger  *slog.Logger
+	auditor resourceAuditor
 }
 
 func NewService(db *database.Pool, sender MessageSender, logger *slog.Logger) *Service {
-	return &Service{db: db, sender: sender, logger: logger}
+	return NewServiceWithAudit(db, sender, logger, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, sender MessageSender, logger *slog.Logger, auditor resourceAuditor) *Service {
+	return &Service{db: db, sender: sender, logger: logger, auditor: auditor}
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -190,12 +200,27 @@ func (s *Service) CreateBroadcast(ctx context.Context, identity auth.Identity, s
 		return nil, err
 	}
 
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, whatsAppBroadcastCreatedAuditEvent(whatsAppAuditInput{
+			SchemeID:       access.scheme.ID.String(),
+			OrgID:          access.scheme.OrgID.String(),
+			ActorUserID:    access.userID,
+			ActorRole:      access.role,
+			BroadcastID:    created.ID.String(),
+			Message:        created.Message,
+			Type:           string(created.Type),
+			RecipientCount: int(created.RecipientCount),
+			SentAt:         created.SentAt,
+		}))
+	}
+
 	threadRows, err := s.db.Q.ListWhatsAppThreadsDetailedByScheme(ctx, access.scheme.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	now := created.SentAt
+	sendErrors := 0
 	for _, row := range threadRows {
 		if !row.Connected {
 			continue
@@ -222,8 +247,23 @@ func (s *Service) CreateBroadcast(ctx context.Context, identity auth.Identity, s
 		if row.PhoneNumber.Valid && row.PhoneNumber.String != "" {
 			if err := s.sender.SendWhatsAppMessage(row.PhoneNumber.String, message); err != nil {
 				s.logger.Error("failed to send WhatsApp broadcast", "phone", row.PhoneNumber.String, "error", err)
+				sendErrors++
 			}
 		}
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, whatsAppBroadcastSentAuditEvent(whatsAppAuditInput{
+			SchemeID:       access.scheme.ID.String(),
+			OrgID:          access.scheme.OrgID.String(),
+			ActorUserID:    access.userID,
+			ActorRole:      access.role,
+			BroadcastID:    created.ID.String(),
+			Message:        created.Message,
+			Type:           string(created.Type),
+			RecipientCount: int(created.RecipientCount),
+			SentAt:         created.SentAt,
+		}, sendErrors))
 	}
 
 	var senderName *string
@@ -346,5 +386,56 @@ func validBroadcastType(value string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+type whatsAppAuditInput struct {
+	SchemeID       string
+	OrgID          string
+	ActorUserID    string
+	ActorRole      string
+	BroadcastID    string
+	Message        string
+	Type           string
+	RecipientCount int
+	SentAt         time.Time
+}
+
+func whatsAppBroadcastCreatedAuditEvent(input whatsAppAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "whatsapp_broadcast",
+		ResourceID:   input.BroadcastID,
+		Action:       "whatsapp.broadcast_created",
+		AfterState: map[string]any{
+			"message":         input.Message,
+			"type":            input.Type,
+			"recipient_count": input.RecipientCount,
+			"sent_at":         input.SentAt.Format(time.RFC3339),
+		},
+	}
+}
+
+func whatsAppBroadcastSentAuditEvent(input whatsAppAuditInput, sendErrors int) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "whatsapp_broadcast",
+		ResourceID:   input.BroadcastID,
+		Action:       "whatsapp.broadcast_sent",
+		AfterState: map[string]any{
+			"message":         input.Message,
+			"type":            input.Type,
+			"recipient_count": input.RecipientCount,
+			"sent_at":         input.SentAt.Format(time.RFC3339),
+		},
+		Metadata: map[string]any{
+			"send_errors": sendErrors,
+		},
 	}
 }

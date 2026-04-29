@@ -88,12 +88,12 @@ func main() {
 		APIKey:  cfg.AIAPIKey,
 		Model:   cfg.AIModel,
 	}))
-	schemeService := scheme.NewService(db)
+	schemeService := scheme.NewServiceWithAudit(db, resourceAuditService)
 	complianceService := compliance.NewService(db)
-	communicationsService := communications.NewService(db)
+	communicationsService := communications.NewServiceWithAudit(db, resourceAuditService)
 	documentsService := documents.NewServiceWithAudit(db, resourceAuditService)
 	financialsService := financials.NewService(db)
-	maintenanceService := maintenance.NewService(db)
+	maintenanceService := maintenance.NewServiceWithAudit(db, resourceAuditService)
 	var sender whatsapp.MessageSender
 	if cfg.TwilioAccountSID != "" && cfg.TwilioAuthToken != "" && cfg.TwilioWhatsAppNumber != "" {
 		sender = twilio.NewClient(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioWhatsAppNumber)
@@ -110,12 +110,12 @@ func main() {
 	levyService := levy.NewServiceWithAuditAndJobs(db, emailClient, sender, resourceAuditService, jobService)
 	levyService.SetMaxJobAttempts(cfg.WorkerMaxAttempts)
 
-	whatsAppService := whatsapp.NewService(db, sender, logger)
+	whatsAppService := whatsapp.NewServiceWithAudit(db, sender, logger, resourceAuditService)
 	whatsAppBot := whatsapp.NewBot(db)
 	whatsAppWebhook := whatsapp.NewWebhookHandler(db, sender, whatsAppBot, logger, cfg.TwilioAuthToken)
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
-	invitationService := invitation.NewService(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry)
+	invitationService := invitation.NewServiceWithAudit(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry, resourceAuditService)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
 
 	// Handlers

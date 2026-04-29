@@ -8,11 +8,18 @@ import (
 	"github.com/google/uuid"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/auth"
 )
 
 type fakeResourceAuditQueries struct {
-	params dbgen.CreateResourceAuditEventParams
-	err    error
+	params               dbgen.CreateResourceAuditEventParams
+	err                  error
+	scheme               dbgen.Scheme
+	schemeErr            error
+	membership           dbgen.SchemeMembership
+	membershipErr        error
+	events               []dbgen.ResourceAuditEvent
+	count                int64
 }
 
 func (f *fakeResourceAuditQueries) CreateResourceAuditEvent(_ context.Context, params dbgen.CreateResourceAuditEventParams) (dbgen.ResourceAuditEvent, error) {
@@ -32,8 +39,12 @@ func (f *fakeResourceAuditQueries) CreateResourceAuditEvent(_ context.Context, p
 	}, f.err
 }
 
-func (f *fakeResourceAuditQueries) ListResourceAuditEventsByScheme(context.Context, dbgen.ListResourceAuditEventsBySchemeParams) ([]dbgen.ResourceAuditEvent, error) {
-	return nil, nil
+func (f *fakeResourceAuditQueries) ListResourceAuditEventsByScheme(_ context.Context, arg dbgen.ListResourceAuditEventsBySchemeParams) ([]dbgen.ResourceAuditEvent, error) {
+	limit := int(arg.Limit)
+	if limit <= 0 || limit > len(f.events) {
+		limit = len(f.events)
+	}
+	return f.events[:limit], nil
 }
 
 func (f *fakeResourceAuditQueries) ListResourceAuditEventsBySchemeAndAction(context.Context, dbgen.ListResourceAuditEventsBySchemeAndActionParams) ([]dbgen.ResourceAuditEvent, error) {
@@ -41,15 +52,15 @@ func (f *fakeResourceAuditQueries) ListResourceAuditEventsBySchemeAndAction(cont
 }
 
 func (f *fakeResourceAuditQueries) CountResourceAuditEventsByScheme(context.Context, uuid.UUID) (int64, error) {
-	return 0, nil
+	return f.count, nil
 }
 
 func (f *fakeResourceAuditQueries) GetScheme(context.Context, uuid.UUID) (dbgen.Scheme, error) {
-	return dbgen.Scheme{}, nil
+	return f.scheme, f.schemeErr
 }
 
 func (f *fakeResourceAuditQueries) GetSchemeMembership(context.Context, dbgen.GetSchemeMembershipParams) (dbgen.SchemeMembership, error) {
-	return dbgen.SchemeMembership{}, nil
+	return f.membership, f.membershipErr
 }
 
 func TestResourceRecorderNoopsWhenNil(t *testing.T) {
@@ -115,5 +126,75 @@ func TestRecordResourceEventRejectsMissingRequiredFields(t *testing.T) {
 	})
 	if err != ErrInvalidResourceEvent {
 		t.Fatalf("error = %v, want ErrInvalidResourceEvent", err)
+	}
+}
+
+func TestListSchemeEventsDefaultsLimitTo50(t *testing.T) {
+	schemeID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+	queries := &fakeResourceAuditQueries{
+		scheme: dbgen.Scheme{ID: schemeID, OrgID: orgID},
+		events: make([]dbgen.ResourceAuditEvent, 60),
+		count:  60,
+	}
+	service := NewResourceService(queries)
+
+	resp, err := service.ListSchemeEvents(context.Background(), auth.Identity{
+		UserID: "00000000-0000-0000-0000-000000000003",
+		OrgID:  orgID.String(),
+		Role:   "admin",
+	}, schemeID.String(), 0)
+	if err != nil {
+		t.Fatalf("list scheme events: %v", err)
+	}
+	if resp.Limit != 50 {
+		t.Fatalf("limit = %d, want 50", resp.Limit)
+	}
+	if len(resp.Events) != 50 {
+		t.Fatalf("events len = %d, want 50", len(resp.Events))
+	}
+}
+
+func TestListSchemeEventsRejectsResidents(t *testing.T) {
+	schemeID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+	userID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+
+	queries := &fakeResourceAuditQueries{
+		scheme: dbgen.Scheme{ID: schemeID, OrgID: orgID},
+		membership: dbgen.SchemeMembership{
+			UserID:   userID,
+			SchemeID: schemeID,
+			Role:     "resident",
+		},
+	}
+	service := NewResourceService(queries)
+
+	_, err := service.ListSchemeEvents(context.Background(), auth.Identity{
+		UserID: userID.String(),
+		Role:   "resident",
+	}, schemeID.String(), 50)
+	if err != ErrForbidden {
+		t.Fatalf("error = %v, want ErrForbidden", err)
+	}
+}
+
+func TestListSchemeEventsRejectsNonMatchingOrg(t *testing.T) {
+	schemeID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	orgID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+
+	queries := &fakeResourceAuditQueries{
+		scheme: dbgen.Scheme{ID: schemeID, OrgID: orgID},
+	}
+	service := NewResourceService(queries)
+
+	_, err := service.ListSchemeEvents(context.Background(), auth.Identity{
+		UserID: "00000000-0000-0000-0000-000000000003",
+		OrgID:  "00000000-0000-0000-0000-000000000099",
+		Role:   "admin",
+	}, schemeID.String(), 50)
+	if err != ErrForbidden {
+		t.Fatalf("error = %v, want ErrForbidden", err)
 	}
 }

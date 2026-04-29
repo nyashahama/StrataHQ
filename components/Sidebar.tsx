@@ -140,6 +140,15 @@ function ShieldIcon() {
   )
 }
 
+function ClipboardIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 2h8a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+      <path d="M5 1h4" />
+    </svg>
+  )
+}
+
 // --- Nav item type ---
 
 interface NavItem {
@@ -174,6 +183,7 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
       { icon: <UsersIcon />, label: 'Members', href: `${base}/members` },
       { icon: <WhatsAppIcon />, label: 'WhatsApp', href: `${base}/whatsapp` },
       { icon: <ShieldIcon />, label: 'Compliance', href: `${base}/compliance` },
+      { icon: <ClipboardIcon />, label: 'Audit log', href: `${base}/audit` },
     ]
   }
 
@@ -189,6 +199,7 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
       { icon: <UsersIcon />, label: 'Members', href: `${base}/members` },
       { icon: <WhatsAppIcon />, label: 'WhatsApp', href: `${base}/whatsapp` },
       { icon: <ShieldIcon />, label: 'Compliance', href: `${base}/compliance` },
+      { icon: <ClipboardIcon />, label: 'Audit log', href: `${base}/audit` },
     ]
   }
 

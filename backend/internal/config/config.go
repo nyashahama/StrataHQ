@@ -39,6 +39,7 @@ type ConfigStrings struct {
 	TwilioWhatsAppNumber string
 	AllowedOrigins       []string
 	TrustedProxyCIDRs    []string
+	MetricsToken         string
 }
 
 type ConfigDurations struct {
@@ -78,6 +79,7 @@ func Load() (*Config, error) {
 			TwilioAccountSID:     os.Getenv("TWILIO_ACCOUNT_SID"),
 			TwilioAuthToken:      os.Getenv("TWILIO_AUTH_TOKEN"),
 			TwilioWhatsAppNumber: os.Getenv("TWILIO_WHATSAPP_NUMBER"),
+			MetricsToken:         os.Getenv("METRICS_TOKEN"),
 		},
 	}
 

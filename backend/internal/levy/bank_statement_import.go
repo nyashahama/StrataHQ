@@ -770,6 +770,10 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 		return commitErr
 	}
 
+	if clearErr := s.db.Q.ClearBankStatementImportRawCsv(ctx, importUUID); clearErr != nil {
+		return fmt.Errorf("clear raw csv: %w", clearErr)
+	}
+
 	return nil
 }
 

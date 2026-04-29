@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -152,6 +154,122 @@ func TestWhatsAppDashboardAndBroadcast(t *testing.T) {
 	h.CreateBroadcast(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("resident create broadcast should be forbidden: status=%d body=%s", w.Code, w.Body)
+	}
+}
+
+func newWhatsAppWebhookHandler(t *testing.T) *whatsapp.WebhookHandler {
+	t.Helper()
+	svc := whatsapp.NewService(testPool, whatsapp.NewNoOpSender(), slog.Default())
+	bot := whatsapp.NewBot(testPool)
+	h := whatsapp.NewWebhookHandler(testPool, whatsapp.NewNoOpSender(), bot, svc, slog.Default(), "twilio-token")
+	h.SetSkipSigVerify(true)
+	return h
+}
+
+func TestWhatsAppWebhookCreatesMaintenanceTicketWithMedia(t *testing.T) {
+	h := newWhatsAppWebhookHandler(t)
+	accessToken, orgID := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+
+	unitID := createUnitRecord(t, schemeID, "5A")
+	residentEmail := uniqueEmail(t)
+	residentUserID := createMemberRecord(t, orgID, schemeID, residentEmail, "Resident User", string(auth.RoleResident), &unitID)
+
+	schemeUUID := mustParseUUID(schemeID)
+	residentUnitUUID := mustParseUUID(unitID)
+	residentUserUUID := mustParseUUID(residentUserID)
+	now := time.Now().UTC()
+
+	if _, err := testQ.CreateWhatsAppThread(t.Context(), dbgen.CreateWhatsAppThreadParams{
+		SchemeID:       schemeUUID,
+		UnitID:         residentUnitUUID,
+		ResidentUserID: pgtype.UUID{Bytes: residentUserUUID, Valid: true},
+		PhoneNumber:    pgtype.Text{String: "+27715550404", Valid: true},
+		Connected:      true,
+		ConsentedAt:    pgtype.Timestamptz{Time: now.Add(-24 * time.Hour), Valid: true},
+		UnreadCount:    0,
+		LastActiveAt:   now,
+	}); err != nil {
+		t.Fatalf("create connected thread: %v", err)
+	}
+
+	threads, err := testQ.GetConnectedWhatsAppThreadByPhone(t.Context(), pgtype.Text{String: "+27715550404", Valid: true})
+	if err != nil || len(threads) == 0 {
+		t.Fatalf("find thread by phone: err=%v count=%d", err, len(threads))
+	}
+	threadID := threads[0].ID
+
+	form := url.Values{}
+	form.Set("From", "whatsapp:+27715550404")
+	form.Set("Body", "leaking tap in bathroom")
+	form.Set("NumMedia", "1")
+	form.Set("MediaUrl0", "https://api.twilio.com/media/ME123")
+	form.Set("MediaContentType0", "image/jpeg")
+	form.Set("MediaSid0", "ME123")
+
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/whatsapp/webhooks", strings.NewReader(form.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.Inbound(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("webhook: status=%d body=%s", w.Code, w.Body)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	requests, err := testQ.ListMaintenanceRequestsByScheme(t.Context(), schemeUUID)
+	if err != nil {
+		t.Fatalf("list maintenance requests: %v", err)
+	}
+	var pending *dbgen.MaintenanceRequest
+	for i := range requests {
+		if requests[i].Status == dbgen.MaintenanceStatusPendingApproval {
+			pending = &requests[i]
+			break
+		}
+	}
+	if pending == nil {
+		t.Fatalf("expected pending maintenance request, got %d total requests", len(requests))
+	}
+
+	messages, err := testQ.ListWhatsAppMessagesByThread(t.Context(), threadID)
+	if err != nil {
+		t.Fatalf("list messages: %v", err)
+	}
+	var linkedMsg *dbgen.WhatsappMessage
+	for i := range messages {
+		msg := &messages[i]
+		if msg.MaintenanceRequestID.Valid {
+			linkedMsg = msg
+			break
+		}
+	}
+	if linkedMsg == nil {
+		t.Fatalf("expected message with maintenance_request_id, got %d messages", len(messages))
+	}
+
+	mediaCount, err := testQ.CountWhatsAppMessageMediaByMessage(t.Context(), linkedMsg.ID)
+	if err != nil {
+		t.Fatalf("count media: %v", err)
+	}
+	if mediaCount != 1 {
+		t.Fatalf("expected 1 media row, got %d", mediaCount)
+	}
+
+	intakes, err := testQ.ListWhatsAppMaintenanceIntakesByScheme(t.Context(), schemeUUID)
+	if err != nil {
+		t.Fatalf("list intakes: %v", err)
+	}
+	var ticketIntake *dbgen.ListWhatsAppMaintenanceIntakesBySchemeRow
+	for i := range intakes {
+		if intakes[i].Status == "ticket_created" {
+			ticketIntake = &intakes[i]
+			break
+		}
+	}
+	if ticketIntake == nil {
+		t.Fatalf("expected intake with ticket_created status, got %d intakes", len(intakes))
 	}
 }
 

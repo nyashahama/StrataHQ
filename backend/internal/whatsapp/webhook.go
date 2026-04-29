@@ -2,8 +2,11 @@ package whatsapp
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,19 +22,25 @@ type WebhookHandler struct {
 	db            *database.Pool
 	sender        MessageSender
 	bot           *Bot
+	service       *Service
 	logger        *slog.Logger
 	authToken     string
 	skipSigVerify bool
 }
 
-func NewWebhookHandler(db *database.Pool, sender MessageSender, bot *Bot, logger *slog.Logger, authToken string) *WebhookHandler {
+func NewWebhookHandler(db *database.Pool, sender MessageSender, bot *Bot, service *Service, logger *slog.Logger, authToken string) *WebhookHandler {
 	return &WebhookHandler{
 		db:        db,
 		sender:    sender,
 		bot:       bot,
+		service:   service,
 		logger:    logger,
 		authToken: authToken,
 	}
+}
+
+func (h *WebhookHandler) SetSkipSigVerify(v bool) {
+	h.skipSigVerify = v
 }
 
 func (h *WebhookHandler) Routes() *chi.Mux {
@@ -103,12 +112,13 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 
 	phoneNumber := strings.TrimPrefix(from, "whatsapp:")
 
-	go h.processMessage(phoneNumber, body, profileName)
+	media := parseInboundMedia(r.Form)
+	go h.processMessage(phoneNumber, body, profileName, media)
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string) {
+func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string, media []inboundMedia) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -124,25 +134,81 @@ func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string) {
 		return
 	}
 
-	if _, saveErr := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
+	incoming, saveErr := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
 		ThreadID:             thread.ID,
 		Sender:               dbgen.WhatsappMessageSenderResident,
 		Body:                 body,
 		MaintenanceRequestID: pgtype.UUID{},
 		NoticeID:             pgtype.UUID{},
-	}); saveErr != nil {
+	})
+	if saveErr != nil {
 		h.logger.Error("failed to save incoming message", "error", saveErr)
 		return
+	}
+
+	for _, item := range media {
+		if _, err := h.db.Q.CreateWhatsAppMessageMedia(ctx, dbgen.CreateWhatsAppMessageMediaParams{
+			MessageID:        incoming.ID,
+			Provider:         "twilio",
+			ProviderMediaSid: item.ProviderMediaSID,
+			MediaUrl:         item.URL,
+			ContentType:      item.ContentType,
+		}); err != nil {
+			h.logger.Error("failed to save whatsapp media", "error", err)
+		}
 	}
 
 	if incrErr := h.db.Q.IncrementWhatsAppThreadUnread(ctx, thread.ID); incrErr != nil {
 		h.logger.Error("failed to increment unread count", "error", incrErr)
 	}
 
-	reply, botErr := h.bot.Respond(ctx, thread.SchemeID, thread.UnitID, body)
-	if botErr != nil {
-		h.logger.Error("failed to generate bot response", "error", botErr)
-		return
+	var reply string
+
+	classification := classifyMaintenanceIntent(body, len(media))
+	if classification.IsMaintenance {
+		text := buildMaintenanceIntakeText(body, len(media))
+		intake, err := h.service.createMaintenanceTicketForMessage(
+			ctx,
+			thread.SchemeID,
+			thread.ID,
+			incoming.ID,
+			thread.UnitID,
+			text.Title,
+			text.Description,
+			classification.Category,
+			len(media),
+		)
+		if err != nil {
+			h.logger.Error("failed to create whatsapp maintenance ticket", "message_id", incoming.ID, "error", err)
+			reply = "I received your maintenance message, but could not create the ticket automatically. Please try again or contact your managing agent."
+		} else if intake.MaintenanceRequestID != nil {
+			reply = fmt.Sprintf("Thanks. I've logged a maintenance request from your WhatsApp message.\n\nRef: %s\nStatus: Pending approval", (*intake.MaintenanceRequestID)[:8])
+		}
+	} else if shouldCreateMaintenanceCandidate(classification, len(media)) {
+		text := buildMaintenanceIntakeText(body, len(media))
+		if _, err := h.db.Q.CreateWhatsAppMaintenanceIntake(ctx, dbgen.CreateWhatsAppMaintenanceIntakeParams{
+			SchemeID:             thread.SchemeID,
+			ThreadID:             thread.ID,
+			MessageID:            incoming.ID,
+			UnitID:               thread.UnitID,
+			MaintenanceRequestID: pgtype.UUID{},
+			Status:               "candidate",
+			Category:             dbgen.MaintenanceCategory(classification.Category),
+			Title:                text.Title,
+			Description:          text.Description,
+			MediaCount:           int32(len(media)),
+		}); err != nil {
+			h.logger.Error("failed to create whatsapp maintenance candidate", "message_id", incoming.ID, "error", err)
+		}
+	}
+
+	if reply == "" {
+		var botErr error
+		reply, botErr = h.bot.Respond(ctx, thread.SchemeID, thread.UnitID, body)
+		if botErr != nil {
+			h.logger.Error("failed to generate bot response", "error", botErr)
+			return
+		}
 	}
 
 	if _, replyErr := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
@@ -172,4 +238,30 @@ func findBestThread(threads []dbgen.WhatsappThread) *dbgen.WhatsappThread {
 		}
 	}
 	return best
+}
+
+type inboundMedia struct {
+	ProviderMediaSID pgtype.Text
+	ContentType      pgtype.Text
+	URL              string
+}
+
+func parseInboundMedia(form url.Values) []inboundMedia {
+	count, _ := strconv.Atoi(form.Get("NumMedia"))
+	media := make([]inboundMedia, 0, count)
+	for i := 0; i < count; i++ {
+		urlValue := strings.TrimSpace(form.Get(fmt.Sprintf("MediaUrl%d", i)))
+		if urlValue == "" {
+			continue
+		}
+		item := inboundMedia{URL: urlValue}
+		if sid := strings.TrimSpace(form.Get(fmt.Sprintf("MediaSid%d", i))); sid != "" {
+			item.ProviderMediaSID = pgtype.Text{String: sid, Valid: true}
+		}
+		if contentType := strings.TrimSpace(form.Get(fmt.Sprintf("MediaContentType%d", i))); contentType != "" {
+			item.ContentType = pgtype.Text{String: contentType, Valid: true}
+		}
+		media = append(media, item)
+	}
+	return media
 }

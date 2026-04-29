@@ -30,8 +30,8 @@ func TestBankStatementImportHandlerRejectsMalformedPayload(t *testing.T) {
 	svc := &fakeImportProcessor{}
 	handler := NewBankStatementImportHandler(svc)
 	err := handler.Handle(context.Background(), json.RawMessage(`{invalid`))
-	if !errors.Is(err, ErrBadPayload) {
-		t.Fatalf("expected ErrBadPayload, got: %v", err)
+	if !errors.Is(err, ErrNonRetryable) {
+		t.Fatalf("expected ErrNonRetryable, got: %v", err)
 	}
 }
 
@@ -50,7 +50,7 @@ func TestBankStatementImportHandlerRejectsEmptyImportID(t *testing.T) {
 	svc := &fakeImportProcessor{}
 	handler := NewBankStatementImportHandler(svc)
 	err := handler.Handle(context.Background(), json.RawMessage(`{"importId":""}`))
-	if !errors.Is(err, ErrBadPayload) {
-		t.Fatalf("expected ErrBadPayload, got: %v", err)
+	if !errors.Is(err, ErrNonRetryable) {
+		t.Fatalf("expected ErrNonRetryable, got: %v", err)
 	}
 }

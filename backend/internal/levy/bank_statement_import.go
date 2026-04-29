@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/csv"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
@@ -229,26 +231,6 @@ func matchBankStatementRow(row ParsedBankStatementRow, accounts []candidateLevyA
 				strength int
 			}{acct, 1})
 		} else if refContainsUnitUpper || descContainsUnitUpper {
-			candidates = append(candidates, struct {
-				account  candidateLevyAccount
-				strength int
-			}{acct, 2})
-		}
-	}
-	for _, acct := range accounts {
-		unitUpper := strings.ToUpper(acct.UnitIdentifier)
-		normalUnit := normalizeBankStatementReference(unitUpper)
-		if normalUnit == "" {
-			continue
-		}
-		if strings.Contains(row.NormalizedRef, normalUnit) || strings.Contains(normalDesc, normalUnit) {
-			candidates = append(candidates, struct {
-				account  candidateLevyAccount
-				strength int
-			}{acct, 1})
-			continue
-		}
-		if strings.Contains(row.NormalizedRef, unitUpper) || strings.Contains(normalDesc, unitUpper) {
 			candidates = append(candidates, struct {
 				account  candidateLevyAccount
 				strength int
@@ -645,10 +627,25 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 		return err
 	}
 
-	var matchedCount, ambiguousCount, unmatchedCount int32
-	var row dbgen.BankStatementRow
-	var acct dbgen.LevyAccount
-	var payment dbgen.LevyPayment
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	q := s.db.Q.WithTx(tx)
+
+	type pendingAutoMatch struct {
+		row          dbgen.BankStatementRow
+		parsed       ParsedBankStatementRow
+		matchedAcct  uuid.UUID
+	}
+
+	var matchedCount, ambiguousCount, unmatchedCount, skippedDuplicateCount int32
+	var autoApplied []pendingAutoMatch
+
 	for _, parsed := range parsedRows {
 		rawDataJSON, _ := json.Marshal(parsed.RawData)
 		match := matchBankStatementRow(parsed, accounts)
@@ -663,7 +660,7 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 			matchReason = pgtype.Text{String: match.Reason, Valid: true}
 		}
 
-		row, err = s.db.Q.CreateBankStatementRow(ctx, dbgen.CreateBankStatementRowParams{
+		row, createErr := q.CreateBankStatementRow(ctx, dbgen.CreateBankStatementRowParams{
 			ImportID:             importUUID,
 			RowNumber:            int32(parsed.RowNumber),
 			TransactionDate:      dateValue(parsed.TransactionDate),
@@ -679,42 +676,66 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 			MatchedLevyPaymentID: pgtype.UUID{},
 			RawData:              rawDataJSON,
 		})
-		if err != nil {
-			return err
+		if createErr != nil {
+			var pgErr *pgconn.PgError
+			if errors.As(createErr, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "fingerprint") {
+				skippedDuplicateCount++
+				continue
+			}
+			return createErr
 		}
 
 		switch match.Status {
 		case dbgen.BankStatementRowStatusMatched:
 			matchedCount++
 			if match.MatchedLevyAccountID != nil {
-				acct, err = s.db.Q.GetLevyAccount(ctx, *match.MatchedLevyAccountID)
-				if err == nil {
-					newPaid := acct.PaidCents + parsed.AmountCents
-					payment, err = s.db.Q.CreateLevyPayment(ctx, dbgen.CreateLevyPaymentParams{
-						LevyAccountID: acct.ID,
-						AmountCents:   parsed.AmountCents,
-						PaymentDate:   dateValue(parsed.TransactionDate),
-						Reference:     parsed.RowFingerprint,
-						BankRef:       pgtype.Text{String: parsed.Reference, Valid: true},
-					})
-					if err == nil {
-						_, _ = s.db.Q.UpdateBankStatementRowApplied(ctx, dbgen.UpdateBankStatementRowAppliedParams{
-							ID:                   row.ID,
-							MatchedLevyPaymentID: pgtype.UUID{Bytes: payment.ID, Valid: true},
-						})
-						_, _ = s.db.Q.UpdateLevyAccountPaid(ctx, dbgen.UpdateLevyAccountPaidParams{
-							ID:        acct.ID,
-							PaidCents: newPaid,
-							Status:    statusFor(newPaid, acct.AmountCents, acct.DueDate),
-							PaidDate:  dateValue(parsed.TransactionDate),
-						})
-					}
-				}
+				autoApplied = append(autoApplied, pendingAutoMatch{
+					row:         row,
+					parsed:      parsed,
+					matchedAcct: *match.MatchedLevyAccountID,
+				})
+				continue
 			}
 		case dbgen.BankStatementRowStatusAmbiguous:
 			ambiguousCount++
 		case dbgen.BankStatementRowStatusUnmatched:
 			unmatchedCount++
+		}
+	}
+
+	for _, am := range autoApplied {
+		acct, acctErr := q.GetLevyAccount(ctx, am.matchedAcct)
+		if acctErr != nil {
+			return acctErr
+		}
+
+		newPaid := acct.PaidCents + am.parsed.AmountCents
+
+		payment, payErr := q.CreateLevyPayment(ctx, dbgen.CreateLevyPaymentParams{
+			LevyAccountID: acct.ID,
+			AmountCents:   am.parsed.AmountCents,
+			PaymentDate:   dateValue(am.parsed.TransactionDate),
+			Reference:     am.parsed.RowFingerprint,
+			BankRef:       pgtype.Text{String: am.parsed.Reference, Valid: true},
+		})
+		if payErr != nil {
+			return payErr
+		}
+
+		if _, updErr := q.UpdateBankStatementRowApplied(ctx, dbgen.UpdateBankStatementRowAppliedParams{
+			ID:                   am.row.ID,
+			MatchedLevyPaymentID: pgtype.UUID{Bytes: payment.ID, Valid: true},
+		}); updErr != nil {
+			return updErr
+		}
+
+		if _, updErr := q.UpdateLevyAccountPaid(ctx, dbgen.UpdateLevyAccountPaidParams{
+			ID:        acct.ID,
+			PaidCents: newPaid,
+			Status:    statusFor(newPaid, acct.AmountCents, acct.DueDate),
+			PaidDate:  dateValue(am.parsed.TransactionDate),
+		}); updErr != nil {
+			return updErr
 		}
 	}
 
@@ -726,10 +747,10 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 		status = dbgen.BankStatementImportStatusApplied
 	}
 
-	_, err = s.db.Q.UpdateBankStatementImportStatus(ctx, dbgen.UpdateBankStatementImportStatusParams{
+	_, err = q.UpdateBankStatementImportStatus(ctx, dbgen.UpdateBankStatementImportStatusParams{
 		ID:            importUUID,
 		Status:        status,
-		TotalRows:     int32(len(parsedRows)),
+		TotalRows:     int32(len(parsedRows) - int(skippedDuplicateCount)),
 		MatchedRows:   matchedCount,
 		AmbiguousRows: ambiguousCount,
 		UnmatchedRows: unmatchedCount,
@@ -740,6 +761,10 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 	})
 	if err != nil {
 		return err
+	}
+
+	if commitErr := tx.Commit(ctx); commitErr != nil {
+		return commitErr
 	}
 
 	return nil

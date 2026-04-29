@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -144,7 +145,7 @@ func (s *Service) handleJob(ctx context.Context, job dbgen.BackgroundJob) {
 		return
 	}
 
-	if shouldFailPermanently(job) {
+	if isNonRetryable(err) || shouldFailPermanently(job) {
 		if _, markErr := s.q.MarkBackgroundJobFailed(ctx, dbgen.MarkBackgroundJobFailedParams{
 			ID:        job.ID,
 			LastError: pgtype.Text{String: jobErrorString(err), Valid: true},
@@ -177,6 +178,10 @@ func nextRunAfter(now time.Time, attempts int32) time.Time {
 
 func shouldFailPermanently(job dbgen.BackgroundJob) bool {
 	return job.Attempts+1 >= job.MaxAttempts
+}
+
+func isNonRetryable(err error) bool {
+	return errors.Is(err, ErrNonRetryable)
 }
 
 func decodePayload(raw json.RawMessage, dest any) error {

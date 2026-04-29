@@ -487,7 +487,8 @@ func buildMaintenanceIntakeText(body string, mediaCount int) intakeText {
 		titleSource = titleSource[:idx]
 	}
 	if len(titleSource) > 80 {
-		titleSource = titleSource[:80]
+		runes := []rune(titleSource)
+		titleSource = string(runes[:80])
 	}
 	result := intakeText{
 		Title:       "WhatsApp: " + strings.TrimSpace(titleSource),

@@ -13,6 +13,60 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countUpcomingDeadlinesByScheme = `-- name: CountUpcomingDeadlinesByScheme :one
+SELECT COUNT(*) FROM compliance_items
+WHERE scheme_id = $1
+  AND due_date IS NOT NULL
+  AND due_date >= CURRENT_DATE
+  AND due_date <= CURRENT_DATE + INTERVAL '30 days'
+  AND status != 'compliant'
+`
+
+func (q *Queries) CountUpcomingDeadlinesByScheme(ctx context.Context, schemeID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUpcomingDeadlinesByScheme, schemeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createComplianceAssessment = `-- name: CreateComplianceAssessment :one
+INSERT INTO compliance_assessments (scheme_id, score, total_items, compliant_count, at_risk_count, non_compliant_count)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, scheme_id, score, total_items, compliant_count, at_risk_count, non_compliant_count, assessed_at
+`
+
+type CreateComplianceAssessmentParams struct {
+	SchemeID          uuid.UUID `json:"scheme_id"`
+	Score             int32     `json:"score"`
+	TotalItems        int32     `json:"total_items"`
+	CompliantCount    int32     `json:"compliant_count"`
+	AtRiskCount       int32     `json:"at_risk_count"`
+	NonCompliantCount int32     `json:"non_compliant_count"`
+}
+
+func (q *Queries) CreateComplianceAssessment(ctx context.Context, arg CreateComplianceAssessmentParams) (ComplianceAssessment, error) {
+	row := q.db.QueryRow(ctx, createComplianceAssessment,
+		arg.SchemeID,
+		arg.Score,
+		arg.TotalItems,
+		arg.CompliantCount,
+		arg.AtRiskCount,
+		arg.NonCompliantCount,
+	)
+	var i ComplianceAssessment
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.Score,
+		&i.TotalItems,
+		&i.CompliantCount,
+		&i.AtRiskCount,
+		&i.NonCompliantCount,
+		&i.AssessedAt,
+	)
+	return i, err
+}
+
 const createComplianceItem = `-- name: CreateComplianceItem :one
 INSERT INTO compliance_items (
     scheme_id, category, title, requirement, status, detail, action, due_date, assessed_at
@@ -63,6 +117,80 @@ func (q *Queries) CreateComplianceItem(ctx context.Context, arg CreateCompliance
 	return i, err
 }
 
+const deleteComplianceItem = `-- name: DeleteComplianceItem :exec
+DELETE FROM compliance_items WHERE id = $1
+`
+
+func (q *Queries) DeleteComplianceItem(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteComplianceItem, id)
+	return err
+}
+
+const getComplianceItem = `-- name: GetComplianceItem :one
+SELECT id, scheme_id, category, title, requirement, status, detail, action, due_date, assessed_at, created_at, updated_at FROM compliance_items WHERE id = $1 LIMIT 1
+`
+
+func (q *Queries) GetComplianceItem(ctx context.Context, id uuid.UUID) (ComplianceItem, error) {
+	row := q.db.QueryRow(ctx, getComplianceItem, id)
+	var i ComplianceItem
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.Category,
+		&i.Title,
+		&i.Requirement,
+		&i.Status,
+		&i.Detail,
+		&i.Action,
+		&i.DueDate,
+		&i.AssessedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listComplianceAssessmentsByScheme = `-- name: ListComplianceAssessmentsByScheme :many
+SELECT id, scheme_id, score, total_items, compliant_count, at_risk_count, non_compliant_count, assessed_at FROM compliance_assessments
+WHERE scheme_id = $1
+ORDER BY assessed_at DESC
+LIMIT $2
+`
+
+type ListComplianceAssessmentsBySchemeParams struct {
+	SchemeID uuid.UUID `json:"scheme_id"`
+	Limit    int32     `json:"limit"`
+}
+
+func (q *Queries) ListComplianceAssessmentsByScheme(ctx context.Context, arg ListComplianceAssessmentsBySchemeParams) ([]ComplianceAssessment, error) {
+	rows, err := q.db.Query(ctx, listComplianceAssessmentsByScheme, arg.SchemeID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ComplianceAssessment{}
+	for rows.Next() {
+		var i ComplianceAssessment
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.Score,
+			&i.TotalItems,
+			&i.CompliantCount,
+			&i.AtRiskCount,
+			&i.NonCompliantCount,
+			&i.AssessedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listComplianceItemsByScheme = `-- name: ListComplianceItemsByScheme :many
 SELECT id, scheme_id, category, title, requirement, status, detail, action, due_date, assessed_at, created_at, updated_at
 FROM compliance_items
@@ -101,4 +229,45 @@ func (q *Queries) ListComplianceItemsByScheme(ctx context.Context, schemeID uuid
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateComplianceItem = `-- name: UpdateComplianceItem :one
+UPDATE compliance_items
+SET status = $2, detail = $3, action = $4, due_date = $5, assessed_at = NOW(), updated_at = NOW()
+WHERE id = $1
+RETURNING id, scheme_id, category, title, requirement, status, detail, action, due_date, assessed_at, created_at, updated_at
+`
+
+type UpdateComplianceItemParams struct {
+	ID      uuid.UUID        `json:"id"`
+	Status  ComplianceStatus `json:"status"`
+	Detail  string           `json:"detail"`
+	Action  string           `json:"action"`
+	DueDate pgtype.Date      `json:"due_date"`
+}
+
+func (q *Queries) UpdateComplianceItem(ctx context.Context, arg UpdateComplianceItemParams) (ComplianceItem, error) {
+	row := q.db.QueryRow(ctx, updateComplianceItem,
+		arg.ID,
+		arg.Status,
+		arg.Detail,
+		arg.Action,
+		arg.DueDate,
+	)
+	var i ComplianceItem
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.Category,
+		&i.Title,
+		&i.Requirement,
+		&i.Status,
+		&i.Detail,
+		&i.Action,
+		&i.DueDate,
+		&i.AssessedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

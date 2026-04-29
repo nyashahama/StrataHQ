@@ -898,6 +898,17 @@ type CollectionEvent struct {
 	WhatsappError      pgtype.Text `json:"whatsapp_error"`
 }
 
+type ComplianceAssessment struct {
+	ID                uuid.UUID `json:"id"`
+	SchemeID          uuid.UUID `json:"scheme_id"`
+	Score             int32     `json:"score"`
+	TotalItems        int32     `json:"total_items"`
+	CompliantCount    int32     `json:"compliant_count"`
+	AtRiskCount       int32     `json:"at_risk_count"`
+	NonCompliantCount int32     `json:"non_compliant_count"`
+	AssessedAt        time.Time `json:"assessed_at"`
+}
+
 type ComplianceItem struct {
 	ID          uuid.UUID          `json:"id"`
 	SchemeID    uuid.UUID          `json:"scheme_id"`

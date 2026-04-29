@@ -179,7 +179,7 @@ func mustParseUUID(value string) uuid.UUID {
 func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 	ctx := context.Background()
 	accessToken, orgID := setupAgent(t)
-	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey)
+	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey, "", "")
 	if err != nil {
 		t.Fatalf("validate access token: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 func TestLevy_BankStatementImportLifecycle(t *testing.T) {
 	ctx := context.Background()
 	accessToken, orgID := setupAgent(t)
-	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey)
+	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey, "", "")
 	if err != nil {
 		t.Fatalf("validate access token: %v", err)
 	}
@@ -452,7 +452,7 @@ func TestLevy_BankStatementImportCrossSchemeForbidden(t *testing.T) {
 	ctx := context.Background()
 
 	accessTokenA, orgID := setupAgent(t)
-	claimsA, err := auth.ValidateAccessToken(accessTokenA, testJWTSigningKey)
+	claimsA, err := auth.ValidateAccessToken(accessTokenA, testJWTSigningKey, "", "")
 	if err != nil {
 		t.Fatalf("validate access token A: %v", err)
 	}
@@ -466,7 +466,7 @@ func TestLevy_BankStatementImportCrossSchemeForbidden(t *testing.T) {
 	_ = unitA
 
 	accessTokenB, _ := setupAgent(t)
-	claimsB, err := auth.ValidateAccessToken(accessTokenB, testJWTSigningKey)
+	claimsB, err := auth.ValidateAccessToken(accessTokenB, testJWTSigningKey, "", "")
 	if err != nil {
 		t.Fatalf("validate access token B: %v", err)
 	}

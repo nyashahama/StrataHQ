@@ -104,7 +104,7 @@ func decodeError(t *testing.T, recorder *httptest.ResponseRecorder) errorEnvelop
 }
 
 func withAuthContext(r *http.Request, accessToken, jwtSecret string) *http.Request {
-	tClaims, err := auth.ValidateAccessToken(accessToken, jwtSecret)
+	tClaims, err := auth.ValidateAccessToken(accessToken, jwtSecret, "", "")
 	if err != nil {
 		panic("withAuthContext: invalid token: " + err.Error())
 	}

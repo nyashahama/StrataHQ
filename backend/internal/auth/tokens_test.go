@@ -15,7 +15,7 @@ func TestGenerateAccessToken_ValidClaims(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	claims, err := ValidateAccessToken(tok, testSecret)
+	claims, err := ValidateAccessToken(tok, testSecret, "https://localhost:3000", "stratahq-api")
 	if err != nil {
 		t.Fatalf("expected valid token, got: %v", err)
 	}
@@ -32,7 +32,7 @@ func TestGenerateAccessToken_ValidClaims(t *testing.T) {
 
 func TestValidateAccessToken_WrongSecret(t *testing.T) {
 	tok, _ := GenerateAccessToken("user-1", "org-1", "admin", "https://localhost:3000", "stratahq-api", "secret-a", 15*time.Minute)
-	_, err := ValidateAccessToken(tok, "secret-b")
+	_, err := ValidateAccessToken(tok, "secret-b", "", "")
 	if err == nil {
 		t.Fatal("expected error for wrong secret, got nil")
 	}
@@ -52,7 +52,7 @@ func TestValidateAccessToken_Expired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to build expired token: %v", err)
 	}
-	_, err = ValidateAccessToken(tok, testSecret)
+	_, err = ValidateAccessToken(tok, testSecret, "", "")
 	if err == nil {
 		t.Fatal("expected error for expired token, got nil")
 	}
@@ -61,7 +61,7 @@ func TestValidateAccessToken_Expired(t *testing.T) {
 func TestValidateAccessToken_TamperedSignature(t *testing.T) {
 	tok, _ := GenerateAccessToken("user-1", "org-1", "admin", "https://localhost:3000", "stratahq-api", testSecret, 15*time.Minute)
 	tampered := tok[:len(tok)-4] + "xxxx"
-	_, err := ValidateAccessToken(tampered, testSecret)
+	_, err := ValidateAccessToken(tampered, testSecret, "", "")
 	if err == nil {
 		t.Fatal("expected error for tampered token, got nil")
 	}

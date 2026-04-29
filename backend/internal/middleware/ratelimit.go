@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -136,6 +138,32 @@ func remoteHost(remoteAddr string) string {
 	return trimmed
 }
 
+var (
+	trustedCIDRs     []*net.IPNet
+	trustedCIDRsOnce sync.Once
+)
+
+func loadTrustedCIDRs() []*net.IPNet {
+	trustedCIDRsOnce.Do(func() {
+		cidrEnv := os.Getenv("TRUSTED_PROXY_CIDRS")
+		if cidrEnv == "" {
+			return
+		}
+		for _, s := range strings.Split(cidrEnv, ",") {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				continue
+			}
+			_, cidr, err := net.ParseCIDR(s)
+			if err != nil {
+				continue
+			}
+			trustedCIDRs = append(trustedCIDRs, cidr)
+		}
+	})
+	return trustedCIDRs
+}
+
 func isTrustedProxy(host string) bool {
 	if strings.EqualFold(host, "localhost") {
 		return true
@@ -144,5 +172,16 @@ func isTrustedProxy(host string) bool {
 	if ip == nil {
 		return false
 	}
+
+	cidrs := loadTrustedCIDRs()
+	if len(cidrs) > 0 {
+		for _, cidr := range cidrs {
+			if cidr.Contains(ip) {
+				return true
+			}
+		}
+		return false
+	}
+
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }

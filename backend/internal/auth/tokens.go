@@ -54,13 +54,23 @@ func GenerateRefreshToken() (string, error) {
 }
 
 // ValidateAccessToken parses and validates a JWT, returning its claims.
-func ValidateAccessToken(tokenStr, secret string) (*Claims, error) {
+func ValidateAccessToken(tokenStr, secret string, issuer, audience string) (*Claims, error) {
+	opts := []jwt.ParserOption{
+		jwt.WithValidMethods([]string{"HS256"}),
+	}
+	if issuer != "" {
+		opts = append(opts, jwt.WithIssuer(issuer))
+	}
+	if audience != "" {
+		opts = append(opts, jwt.WithAudience(audience))
+	}
+
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (any, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
 		return []byte(secret), nil
-	})
+	}, opts...)
 	if err != nil {
 		return nil, err
 	}

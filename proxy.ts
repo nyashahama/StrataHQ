@@ -25,6 +25,10 @@ export function proxy(request: NextRequest) {
   const method = request.method.toUpperCase();
   if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
     const origin = request.headers.get("origin");
+    const referer = request.headers.get("referer");
+    if (!origin && !referer) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
     if (origin) {
       const allowedOrigins = [
         request.nextUrl.origin,

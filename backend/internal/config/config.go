@@ -20,6 +20,8 @@ type ConfigStrings struct {
 	DatabaseURL          string
 	RedisURL             string
 	JWTSecret            string
+	JWTIssuer            string
+	JWTAudience          string
 	StripeSecretKey      string
 	StripeWebhookSecret  string
 	StripePriceID        string
@@ -36,6 +38,7 @@ type ConfigStrings struct {
 	TwilioAuthToken      string
 	TwilioWhatsAppNumber string
 	AllowedOrigins       []string
+	TrustedProxyCIDRs    []string
 }
 
 type ConfigDurations struct {
@@ -58,6 +61,8 @@ func Load() (*Config, error) {
 			DatabaseURL:          os.Getenv("DATABASE_URL"),
 			RedisURL:             os.Getenv("REDIS_URL"),
 			JWTSecret:            os.Getenv("JWT_SECRET"),
+			JWTIssuer:            getEnv("JWT_ISSUER", os.Getenv("APP_BASE_URL")),
+			JWTAudience:          getEnv("JWT_AUDIENCE", "stratahq-api"),
 			StripeSecretKey:      os.Getenv("STRIPE_SECRET_KEY"),
 			StripeWebhookSecret:  os.Getenv("STRIPE_WEBHOOK_SECRET"),
 			StripePriceID:        os.Getenv("STRIPE_PRICE_ID"),
@@ -107,6 +112,14 @@ func Load() (*Config, error) {
 		cfg.AllowedOrigins = strings.Split(origins, ",")
 		for i := range cfg.AllowedOrigins {
 			cfg.AllowedOrigins[i] = strings.TrimSpace(cfg.AllowedOrigins[i])
+		}
+	}
+
+	proxyCIDRs := os.Getenv("TRUSTED_PROXY_CIDRS")
+	if proxyCIDRs != "" {
+		cfg.TrustedProxyCIDRs = strings.Split(proxyCIDRs, ",")
+		for i := range cfg.TrustedProxyCIDRs {
+			cfg.TrustedProxyCIDRs[i] = strings.TrimSpace(cfg.TrustedProxyCIDRs[i])
 		}
 	}
 

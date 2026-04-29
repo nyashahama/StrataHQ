@@ -19,8 +19,6 @@ const PROXY_HEADERS = [
 ] as const;
 
 const IDENTITY_HEADERS = [
-  "x-forwarded-for",
-  "x-real-ip",
   "user-agent",
   "x-request-id",
 ] as const;

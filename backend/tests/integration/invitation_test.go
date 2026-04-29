@@ -44,7 +44,7 @@ func setupAgent(t *testing.T) (accessToken, orgID string) {
 	}
 	json.NewDecoder(w.Body).Decode(&resp)
 	// Extract orgID from JWT claims
-	claims, err := auth.ValidateAccessToken(resp.Data.AccessToken, testJWTSigningKey)
+	claims, err := auth.ValidateAccessToken(resp.Data.AccessToken, testJWTSigningKey, "", "")
 	if err != nil {
 		t.Fatalf("setupAgent: invalid token: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestInvitation_AcceptFlow(t *testing.T) {
 	}
 
 	// Validate JWT — role must be trustee
-	claims, err := auth.ValidateAccessToken(authResp.Data.AccessToken, testJWTSigningKey)
+	claims, err := auth.ValidateAccessToken(authResp.Data.AccessToken, testJWTSigningKey, "", "")
 	if err != nil {
 		t.Fatalf("accept: invalid token: %v", err)
 	}

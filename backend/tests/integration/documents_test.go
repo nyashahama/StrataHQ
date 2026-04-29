@@ -104,7 +104,7 @@ func TestDocuments_VisibilityFiltering(t *testing.T) {
 	schemeID := setupScheme(t, accessToken)
 	schemeUUID := uuid.MustParse(schemeID)
 
-	adminUserID, adminClaims := auth.ValidateAccessToken(accessToken, testJWTSigningKey)
+	adminUserID, adminClaims := auth.ValidateAccessToken(accessToken, testJWTSigningKey, "", "")
 	if adminClaims == nil {
 		t.Fatal("validate admin token")
 	}

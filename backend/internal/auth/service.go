@@ -482,7 +482,7 @@ func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 	}
 	token := hex.EncodeToString(b)
 
-	key := "pwreset:" + token
+	key := "pwreset:" + HashRefreshToken(token)
 	if err := s.cache.Set(ctx, key, user.ID.String(), time.Hour).Err(); err != nil {
 		return err
 	}
@@ -503,7 +503,7 @@ func (s *Service) IssuePasswordResetURL(ctx context.Context, email, appBaseURL s
 		return "", err
 	}
 	token := hex.EncodeToString(tokenBytes)
-	key := "pwreset:" + token
+	key := "pwreset:" + HashRefreshToken(token)
 	if err := s.cache.Set(ctx, key, user.ID.String(), 24*time.Hour).Err(); err != nil {
 		return "", err
 	}
@@ -511,7 +511,7 @@ func (s *Service) IssuePasswordResetURL(ctx context.Context, email, appBaseURL s
 }
 
 func (s *Service) ResetPassword(ctx context.Context, token, password string) error {
-	key := "pwreset:" + token
+	key := "pwreset:" + HashRefreshToken(token)
 	userIDStr, err := s.cache.Get(ctx, key).Result()
 	if err != nil {
 		return ErrInvalidToken

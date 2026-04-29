@@ -102,14 +102,14 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 		// AI routes with dedicated rate limit (rate limited before auth)
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.PerEndpointRateLimit(rdb, "ai-copilot", 30, 1*time.Minute))
-			r.Use(middleware.Auth(cfg.JWTSecret))
+			r.Use(middleware.Auth(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience))
 			r.Use(middleware.AuditEvents(auditRecorder, logger))
 			r.Mount("/ai", h.AI.Routes())
 		})
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(cfg.JWTSecret))
+			r.Use(middleware.Auth(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience))
 			r.Use(middleware.AuditEvents(auditRecorder, logger))
 			r.Get("/auth/me", h.Auth.Me)
 			r.Patch("/auth/profile", h.Auth.UpdateProfile)

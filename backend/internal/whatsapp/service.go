@@ -192,9 +192,9 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 	}
 
 	if !auth.IsResidentRole(access.role) {
-		intakes, err := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
-		if err != nil {
-			return nil, err
+		intakes, intakeErr := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
+		if intakeErr != nil {
+			return nil, intakeErr
 		}
 		for _, intake := range intakes {
 			response.MaintenanceIntakes = append(response.MaintenanceIntakes, mapMaintenanceIntake(intake))
@@ -632,9 +632,9 @@ func (s *Service) CreateMaintenanceFromMessage(ctx context.Context, identity aut
 		return nil, ErrForbidden
 	}
 	if msg.MaintenanceRequestID.Valid {
-		intakes, err := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
-		if err != nil {
-			return nil, err
+		intakes, intakeErr := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
+		if intakeErr != nil {
+			return nil, intakeErr
 		}
 		for _, row := range intakes {
 			if row.MessageID == mid {

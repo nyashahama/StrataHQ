@@ -24,6 +24,7 @@ type createDocumentRequest struct {
 	FileType   string `json:"file_type"`
 	Category   string `json:"category"`
 	SizeBytes  int64  `json:"size_bytes"`
+	Visibility string `json:"visibility"`
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +62,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		FileType:   strings.TrimSpace(req.FileType),
 		Category:   strings.TrimSpace(req.Category),
 		SizeBytes:  req.SizeBytes,
+		Visibility: strings.TrimSpace(req.Visibility),
 	})
 	if err != nil {
 		writeDocumentsError(w, err, "failed to create document")

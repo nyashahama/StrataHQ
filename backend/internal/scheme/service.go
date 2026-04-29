@@ -225,6 +225,17 @@ func (s *Service) Get(ctx context.Context, identity auth.Identity, schemeID stri
 		return nil, err
 	}
 
+	if auth.IsResidentRole(role) && unitID != nil {
+		filtered := make([]dbgen.Unit, 0, 1)
+		for _, u := range units {
+			if u.ID.String() == *unitID {
+				filtered = append(filtered, u)
+				break
+			}
+		}
+		units = filtered
+	}
+
 	notices, err := s.db.Q.ListNoticesByScheme(ctx, scheme.ID)
 	if err != nil {
 		return nil, err
@@ -363,7 +374,7 @@ func (s *Service) Delete(ctx context.Context, identity auth.Identity, schemeID s
 }
 
 func (s *Service) ListUnits(ctx context.Context, identity auth.Identity, schemeID string) ([]UnitInfo, error) {
-	scheme, _, _, _, err := s.resolveSchemeAccess(ctx, identity, schemeID)
+	scheme, role, unitID, _, err := s.resolveSchemeAccess(ctx, identity, schemeID)
 	if err != nil {
 		return nil, err
 	}
@@ -371,6 +382,17 @@ func (s *Service) ListUnits(ctx context.Context, identity auth.Identity, schemeI
 	units, err := s.db.Q.ListUnitsByScheme(ctx, scheme.ID)
 	if err != nil {
 		return nil, err
+	}
+
+	if auth.IsResidentRole(role) && unitID != nil {
+		filtered := make([]dbgen.Unit, 0, 1)
+		for _, u := range units {
+			if u.ID.String() == *unitID {
+				filtered = append(filtered, u)
+				break
+			}
+		}
+		units = filtered
 	}
 
 	result := make([]UnitInfo, 0, len(units))

@@ -368,6 +368,49 @@ func (ns NullDocumentFileType) Value() (driver.Value, error) {
 	return string(ns.DocumentFileType), nil
 }
 
+type DocumentVisibility string
+
+const (
+	DocumentVisibilityAll     DocumentVisibility = "all"
+	DocumentVisibilityTrustee DocumentVisibility = "trustee"
+	DocumentVisibilityAdmin   DocumentVisibility = "admin"
+)
+
+func (e *DocumentVisibility) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DocumentVisibility(s)
+	case string:
+		*e = DocumentVisibility(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DocumentVisibility: %T", src)
+	}
+	return nil
+}
+
+type NullDocumentVisibility struct {
+	DocumentVisibility DocumentVisibility `json:"document_visibility"`
+	Valid              bool               `json:"valid"` // Valid is true if DocumentVisibility is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDocumentVisibility) Scan(value interface{}) error {
+	if value == nil {
+		ns.DocumentVisibility, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DocumentVisibility.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDocumentVisibility) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DocumentVisibility), nil
+}
+
 type EarlyAccessStatus string
 
 const (
@@ -1034,15 +1077,16 @@ type Scheme struct {
 }
 
 type SchemeDocument struct {
-	ID               uuid.UUID        `json:"id"`
-	SchemeID         uuid.UUID        `json:"scheme_id"`
-	Name             string           `json:"name"`
-	StorageKey       string           `json:"storage_key"`
-	FileType         DocumentFileType `json:"file_type"`
-	Category         DocumentCategory `json:"category"`
-	SizeBytes        int64            `json:"size_bytes"`
-	UploadedByUserID pgtype.UUID      `json:"uploaded_by_user_id"`
-	CreatedAt        time.Time        `json:"created_at"`
+	ID               uuid.UUID          `json:"id"`
+	SchemeID         uuid.UUID          `json:"scheme_id"`
+	Name             string             `json:"name"`
+	StorageKey       string             `json:"storage_key"`
+	FileType         DocumentFileType   `json:"file_type"`
+	Category         DocumentCategory   `json:"category"`
+	SizeBytes        int64              `json:"size_bytes"`
+	UploadedByUserID pgtype.UUID        `json:"uploaded_by_user_id"`
+	CreatedAt        time.Time          `json:"created_at"`
+	Visibility       DocumentVisibility `json:"visibility"`
 }
 
 type SchemeMembership struct {

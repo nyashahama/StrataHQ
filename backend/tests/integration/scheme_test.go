@@ -9,9 +9,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
+	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/scheme"
 )
 
@@ -153,4 +158,112 @@ func TestScheme_AdminCoreFlow(t *testing.T) {
 	if w.Code != http.StatusNoContent {
 		t.Fatalf("delete scheme: status=%d body=%s", w.Code, w.Body)
 	}
+}
+
+func TestScheme_ResidentDetailSeesOnlyOwnUnit(t *testing.T) {
+	ctx := context.Background()
+	accessToken, orgID := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+	schemeUUID := uuid.MustParse(schemeID)
+
+	unitA, err := testQ.CreateUnit(ctx, createUnitParams(schemeID, "1A", "Alice Adams"))
+	if err != nil {
+		t.Fatalf("create unit A: %v", err)
+	}
+	unitB, err := testQ.CreateUnit(ctx, createUnitParams(schemeID, "2B", "Bob Brown"))
+	if err != nil {
+		t.Fatalf("create unit B: %v", err)
+	}
+
+	residentEmail := uniqueEmail(t)
+	residentUser, err := testQ.CreateUser(ctx, dbgen.CreateUserParams{
+		Email:        residentEmail,
+		PasswordHash: "test-hash",
+		FullName:     "Resident User",
+	})
+	if err != nil {
+		t.Fatalf("create resident user: %v", err)
+	}
+	_, err = testQ.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+		UserID:   residentUser.ID,
+		SchemeID: schemeUUID,
+		UnitID:   pgtype.UUID{Bytes: unitA.ID, Valid: true},
+		Role:     string(auth.RoleResident),
+	})
+	if err != nil {
+		t.Fatalf("create resident membership: %v", err)
+	}
+
+	residentToken, err := auth.GenerateAccessToken(
+		residentUser.ID.String(), orgID, string(auth.RoleResident),
+		"http://localhost:3000", "stratahq-api",
+		testJWTSigningKey, 15*time.Minute,
+	)
+	if err != nil {
+		t.Fatalf("generate resident token: %v", err)
+	}
+
+	h := newSchemeHandler(t)
+	req := httptest.NewRequest(http.MethodGet, "/schemes/"+schemeID, nil)
+	req = withRouteParams(req, map[string]string{"id": schemeID})
+	req = withAuthContext(req, residentToken, testJWTSigningKey)
+	w := httptest.NewRecorder()
+	h.Get(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("resident detail: status=%d body=%s", w.Code, w.Body)
+	}
+	detail := decodeSuccess[scheme.SchemeDetail](t, w)
+
+	if len(detail.Units) != 1 {
+		t.Fatalf("resident sees %d units, want 1", len(detail.Units))
+	}
+	if detail.Units[0].Identifier != "1A" {
+		t.Fatalf("resident sees unit %q, want 1A", detail.Units[0].Identifier)
+	}
+
+	// Trustee should see all units
+	trusteeEmail := uniqueEmail(t)
+	trusteeUser, err := testQ.CreateUser(ctx, dbgen.CreateUserParams{
+		Email:        trusteeEmail,
+		PasswordHash: "test-hash",
+		FullName:     "Trustee User",
+	})
+	if err != nil {
+		t.Fatalf("create trustee user: %v", err)
+	}
+	_, err = testQ.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+		UserID:   trusteeUser.ID,
+		SchemeID: schemeUUID,
+		UnitID:   pgtype.UUID{},
+		Role:     string(auth.RoleTrustee),
+	})
+	if err != nil {
+		t.Fatalf("create trustee membership: %v", err)
+	}
+
+	trusteeToken, err := auth.GenerateAccessToken(
+		trusteeUser.ID.String(), orgID, string(auth.RoleTrustee),
+		"http://localhost:3000", "stratahq-api",
+		testJWTSigningKey, 15*time.Minute,
+	)
+	if err != nil {
+		t.Fatalf("generate trustee token: %v", err)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/schemes/"+schemeID, nil)
+	req = withRouteParams(req, map[string]string{"id": schemeID})
+	req = withAuthContext(req, trusteeToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.Get(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("trustee detail: status=%d body=%s", w.Code, w.Body)
+	}
+	trusteeDetail := decodeSuccess[scheme.SchemeDetail](t, w)
+	if len(trusteeDetail.Units) < 2 {
+		t.Fatalf("trustee sees %d units, want >= 2", len(trusteeDetail.Units))
+	}
+
+	_ = unitB
+	_ = unitA
+	_ = residentEmail
 }

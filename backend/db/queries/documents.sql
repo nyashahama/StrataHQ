@@ -1,8 +1,8 @@
 -- name: CreateSchemeDocument :one
 INSERT INTO scheme_documents (
-    scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id
+    scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, visibility
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: GetSchemeDocument :one
@@ -37,3 +37,15 @@ ORDER BY sd.created_at DESC;
 -- name: DeleteSchemeDocument :exec
 DELETE FROM scheme_documents
 WHERE id = $1;
+
+-- name: ListSchemeDocumentsByVisibility :many
+SELECT * FROM scheme_documents
+WHERE scheme_id = $1 AND visibility = ANY($2::document_visibility[])
+ORDER BY created_at DESC;
+
+-- name: ListSchemeDocumentsDetailedByVisibility :many
+SELECT sd.*, u.full_name AS uploaded_by_name
+FROM scheme_documents sd
+LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
+WHERE sd.scheme_id = $1 AND sd.visibility = ANY($2::document_visibility[])
+ORDER BY sd.created_at DESC;

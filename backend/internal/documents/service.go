@@ -49,6 +49,7 @@ type CreateDocumentInput struct {
 	FileType   string
 	Category   string
 	SizeBytes  int64
+	Visibility string
 }
 
 type accessInfo struct {
@@ -85,28 +86,21 @@ func (s *Service) List(ctx context.Context, identity auth.Identity, schemeID, ca
 		return nil, ErrInvalidInput
 	}
 
-	var documents []DocumentInfo
-	if filter == "" {
-		rows, err := s.db.Q.ListSchemeDocumentsDetailed(ctx, access.scheme.ID)
-		if err != nil {
-			return nil, err
+	visibilities := determineVisibilities(access.role)
+	rows, err := s.db.Q.ListSchemeDocumentsDetailedByVisibility(ctx, dbgen.ListSchemeDocumentsDetailedByVisibilityParams{
+		SchemeID: access.scheme.ID,
+		Column2:  visibilities,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	documents := make([]DocumentInfo, 0, len(rows))
+	for _, row := range rows {
+		if filter != "" && string(row.Category) != filter {
+			continue
 		}
-		documents = make([]DocumentInfo, 0, len(rows))
-		for _, row := range rows {
-			documents = append(documents, mapDocumentRow(row))
-		}
-	} else {
-		rows, err := s.db.Q.ListSchemeDocumentsDetailedByCategory(ctx, dbgen.ListSchemeDocumentsDetailedByCategoryParams{
-			SchemeID: access.scheme.ID,
-			Category: dbgen.DocumentCategory(filter),
-		})
-		if err != nil {
-			return nil, err
-		}
-		documents = make([]DocumentInfo, 0, len(rows))
-		for _, row := range rows {
-			documents = append(documents, mapDocumentCategoryRow(row))
-		}
+		documents = append(documents, mapVisibilityDocumentRow(row))
 	}
 
 	return &DashboardResponse{
@@ -141,6 +135,14 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		uploadedBy = pgtype.UUID{Bytes: parsed, Valid: true}
 	}
 
+	visibility := dbgen.DocumentVisibilityAdmin
+	if input.Visibility != "" {
+		switch dbgen.DocumentVisibility(input.Visibility) {
+		case dbgen.DocumentVisibilityAll, dbgen.DocumentVisibilityTrustee, dbgen.DocumentVisibilityAdmin:
+			visibility = dbgen.DocumentVisibility(input.Visibility)
+		}
+	}
+
 	created, err := s.db.Q.CreateSchemeDocument(ctx, dbgen.CreateSchemeDocumentParams{
 		SchemeID:         access.scheme.ID,
 		Name:             strings.TrimSpace(input.Name),
@@ -149,6 +151,7 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		Category:         dbgen.DocumentCategory(input.Category),
 		SizeBytes:        input.SizeBytes,
 		UploadedByUserID: uploadedBy,
+		Visibility:       visibility,
 	})
 	if err != nil {
 		return nil, err
@@ -439,5 +442,39 @@ func documentAuditState(input documentAuditInput) map[string]any {
 		"file_type":   input.FileType,
 		"size_bytes":  input.SizeBytes,
 		"storage_key": input.StorageKey,
+	}
+}
+
+func determineVisibilities(role string) []dbgen.DocumentVisibility {
+	switch {
+	case auth.IsAdminRole(role):
+		return []dbgen.DocumentVisibility{
+			dbgen.DocumentVisibilityAll,
+			dbgen.DocumentVisibilityTrustee,
+			dbgen.DocumentVisibilityAdmin,
+		}
+	case role == string(auth.RoleTrustee):
+		return []dbgen.DocumentVisibility{
+			dbgen.DocumentVisibilityAll,
+			dbgen.DocumentVisibilityTrustee,
+		}
+	default:
+		return []dbgen.DocumentVisibility{
+			dbgen.DocumentVisibilityAll,
+		}
+	}
+}
+
+func mapVisibilityDocumentRow(row dbgen.ListSchemeDocumentsDetailedByVisibilityRow) DocumentInfo {
+	return DocumentInfo{
+		UploadedByName: textPointer(row.UploadedByName),
+		ID:             row.ID.String(),
+		SchemeID:       row.SchemeID.String(),
+		Name:           row.Name,
+		StorageKey:     safeListedStorageKey(row.StorageKey, string(row.FileType)),
+		FileType:       string(row.FileType),
+		Category:       string(row.Category),
+		SizeBytes:      row.SizeBytes,
+		CreatedAt:      row.CreatedAt,
 	}
 }

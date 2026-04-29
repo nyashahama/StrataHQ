@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -107,12 +108,21 @@ type UpdateMemberInput struct {
 	Role   string
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
-	db *database.Pool
+	db      *database.Pool
+	auditor resourceAuditor
 }
 
 func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+	return NewServiceWithAudit(db, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, auditor resourceAuditor) *Service {
+	return &Service{db: db, auditor: auditor}
 }
 
 func (s *Service) List(ctx context.Context, identity auth.Identity) ([]SchemeSummary, error) {
@@ -269,6 +279,19 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, input Crea
 	if err != nil {
 		return nil, err
 	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, schemeCreatedAuditEvent(schemeAuditInput{
+			SchemeID:    scheme.ID.String(),
+			OrgID:       scheme.OrgID.String(),
+			ActorUserID: identity.UserID,
+			ActorRole:   string(auth.RoleAdmin),
+			Name:        scheme.Name,
+			Address:     scheme.Address,
+			UnitCount:   scheme.UnitCount,
+		}))
+	}
+
 	return &summary, nil
 }
 
@@ -295,6 +318,19 @@ func (s *Service) Update(ctx context.Context, identity auth.Identity, schemeID s
 	if err != nil {
 		return nil, err
 	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, schemeUpdatedAuditEvent(schemeAuditInput{
+			SchemeID:    updated.ID.String(),
+			OrgID:       updated.OrgID.String(),
+			ActorUserID: identity.UserID,
+			ActorRole:   role,
+			Name:        updated.Name,
+			Address:     updated.Address,
+			UnitCount:   updated.UnitCount,
+		}, scheme.Name, scheme.Address, scheme.UnitCount))
+	}
+
 	return &summary, nil
 }
 
@@ -306,6 +342,19 @@ func (s *Service) Delete(ctx context.Context, identity auth.Identity, schemeID s
 	if !auth.IsAdminRole(role) {
 		return ErrForbidden
 	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, schemeDeletedAuditEvent(schemeAuditInput{
+			SchemeID:    scheme.ID.String(),
+			OrgID:       scheme.OrgID.String(),
+			ActorUserID: identity.UserID,
+			ActorRole:   role,
+			Name:        scheme.Name,
+			Address:     scheme.Address,
+			UnitCount:   scheme.UnitCount,
+		}))
+	}
+
 	return s.db.Q.DeleteScheme(ctx, scheme.ID)
 }
 
@@ -347,7 +396,23 @@ func (s *Service) CreateUnit(ctx context.Context, identity auth.Identity, scheme
 		return nil, err
 	}
 
-	return pointerToUnit(mapUnit(unit)), nil
+	info := mapUnit(unit)
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, unitCreatedAuditEvent(unitAuditInput{
+			SchemeID:        scheme.ID.String(),
+			OrgID:           scheme.OrgID.String(),
+			ActorUserID:     identity.UserID,
+			ActorRole:       role,
+			UnitID:          unit.ID.String(),
+			Identifier:      info.Identifier,
+			OwnerName:       info.OwnerName,
+			Floor:           info.Floor,
+			SectionValuePct: info.SectionValuePct,
+		}))
+	}
+
+	return pointerToUnit(info), nil
 }
 
 func (s *Service) UpdateUnit(ctx context.Context, identity auth.Identity, schemeID, unitID string, input UpdateUnitInput) (*UnitInfo, error) {
@@ -375,6 +440,8 @@ func (s *Service) UpdateUnit(ctx context.Context, identity auth.Identity, scheme
 		return nil, ErrForbidden
 	}
 
+	beforeInfo := mapUnit(current)
+
 	unit, err := s.db.Q.UpdateUnit(ctx, dbgen.UpdateUnitParams{
 		ID:              uid,
 		Identifier:      input.Identifier,
@@ -386,7 +453,23 @@ func (s *Service) UpdateUnit(ctx context.Context, identity auth.Identity, scheme
 		return nil, err
 	}
 
-	return pointerToUnit(mapUnit(unit)), nil
+	afterInfo := mapUnit(unit)
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, unitUpdatedAuditEvent(unitAuditInput{
+			SchemeID:        scheme.ID.String(),
+			OrgID:           scheme.OrgID.String(),
+			ActorUserID:     identity.UserID,
+			ActorRole:       role,
+			UnitID:          unit.ID.String(),
+			Identifier:      afterInfo.Identifier,
+			OwnerName:       afterInfo.OwnerName,
+			Floor:           afterInfo.Floor,
+			SectionValuePct: afterInfo.SectionValuePct,
+		}, beforeInfo.Identifier, beforeInfo.OwnerName, beforeInfo.Floor, beforeInfo.SectionValuePct))
+	}
+
+	return pointerToUnit(afterInfo), nil
 }
 
 func (s *Service) ListMembers(ctx context.Context, identity auth.Identity, schemeID string) ([]MemberInfo, error) {
@@ -428,7 +511,7 @@ func (s *Service) UpdateMember(ctx context.Context, identity auth.Identity, sche
 		return nil, ErrInvalidInput
 	}
 
-	_, err = s.db.Q.GetSchemeMembership(ctx, dbgen.GetSchemeMembershipParams{
+	membership, err := s.db.Q.GetSchemeMembership(ctx, dbgen.GetSchemeMembershipParams{
 		UserID:   memberUserID,
 		SchemeID: scheme.ID,
 	})
@@ -437,6 +520,11 @@ func (s *Service) UpdateMember(ctx context.Context, identity auth.Identity, sche
 			return nil, ErrNotFound
 		}
 		return nil, err
+	}
+
+	beforeUnitID := ""
+	if membership.UnitID.Valid {
+		beforeUnitID = uuid.UUID(membership.UnitID.Bytes).String()
 	}
 
 	unitValue := pgtype.UUID{}
@@ -490,6 +578,25 @@ func (s *Service) UpdateMember(ctx context.Context, identity auth.Identity, sche
 	for _, row := range rows {
 		if row.UserID == memberUserID {
 			member := mapMember(row)
+
+			if s.auditor != nil {
+				afterUnitID := ""
+				if member.UnitID != nil {
+					afterUnitID = *member.UnitID
+				}
+				_ = s.auditor.RecordResourceEvent(ctx, memberUpdatedAuditEvent(memberAuditInput{
+					SchemeID:     scheme.ID.String(),
+					OrgID:        scheme.OrgID.String(),
+					ActorUserID:  identity.UserID,
+					ActorRole:    role,
+					UserID:       member.UserID,
+					Role:         member.Role,
+					UnitID:       afterUnitID,
+					BeforeRole:   membership.Role,
+					BeforeUnitID: beforeUnitID,
+				}))
+			}
+
 			return &member, nil
 		}
 	}
@@ -731,4 +838,162 @@ func textPointer(value pgtype.Text) *string {
 	}
 	copy := value.String
 	return &copy
+}
+
+type schemeAuditInput struct {
+	SchemeID    string
+	OrgID       string
+	ActorUserID string
+	ActorRole   string
+	Name        string
+	Address     string
+	UnitCount   int32
+}
+
+func schemeCreatedAuditEvent(input schemeAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "scheme",
+		ResourceID:   input.SchemeID,
+		Action:       "scheme.created",
+		AfterState: map[string]any{
+			"name":       input.Name,
+			"address":    input.Address,
+			"unit_count": input.UnitCount,
+		},
+	}
+}
+
+func schemeUpdatedAuditEvent(input schemeAuditInput, beforeName, beforeAddress string, beforeUnitCount int32) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "scheme",
+		ResourceID:   input.SchemeID,
+		Action:       "scheme.updated",
+		BeforeState: map[string]any{
+			"name":       beforeName,
+			"address":    beforeAddress,
+			"unit_count": beforeUnitCount,
+		},
+		AfterState: map[string]any{
+			"name":       input.Name,
+			"address":    input.Address,
+			"unit_count": input.UnitCount,
+		},
+	}
+}
+
+func schemeDeletedAuditEvent(input schemeAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "scheme",
+		ResourceID:   input.SchemeID,
+		Action:       "scheme.deleted",
+		BeforeState: map[string]any{
+			"name":       input.Name,
+			"address":    input.Address,
+			"unit_count": input.UnitCount,
+		},
+	}
+}
+
+type unitAuditInput struct {
+	SchemeID        string
+	OrgID           string
+	ActorUserID     string
+	ActorRole       string
+	UnitID          string
+	Identifier      string
+	OwnerName       string
+	Floor           int32
+	SectionValuePct float64
+}
+
+func unitCreatedAuditEvent(input unitAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "unit",
+		ResourceID:   input.UnitID,
+		Action:       "unit.created",
+		AfterState: map[string]any{
+			"identifier":        input.Identifier,
+			"owner_name":        input.OwnerName,
+			"floor":             input.Floor,
+			"section_value_pct": input.SectionValuePct,
+		},
+	}
+}
+
+func unitUpdatedAuditEvent(input unitAuditInput, beforeIdentifier, beforeOwnerName string, beforeFloor int32, beforeSectionValuePct float64) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "unit",
+		ResourceID:   input.UnitID,
+		Action:       "unit.updated",
+		BeforeState: map[string]any{
+			"identifier":        beforeIdentifier,
+			"owner_name":        beforeOwnerName,
+			"floor":             beforeFloor,
+			"section_value_pct": beforeSectionValuePct,
+		},
+		AfterState: map[string]any{
+			"identifier":        input.Identifier,
+			"owner_name":        input.OwnerName,
+			"floor":             input.Floor,
+			"section_value_pct": input.SectionValuePct,
+		},
+	}
+}
+
+type memberAuditInput struct {
+	SchemeID     string
+	OrgID        string
+	ActorUserID  string
+	ActorRole    string
+	UserID       string
+	Role         string
+	UnitID       string
+	BeforeRole   string
+	BeforeUnitID string
+}
+
+func memberUpdatedAuditEvent(input memberAuditInput) audit.ResourceEvent {
+	beforeState := map[string]any{
+		"role": input.BeforeRole,
+	}
+	if input.BeforeUnitID != "" {
+		beforeState["unit_id"] = input.BeforeUnitID
+	}
+	afterState := map[string]any{
+		"role": input.Role,
+	}
+	if input.UnitID != "" {
+		afterState["unit_id"] = input.UnitID
+	}
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "member",
+		ResourceID:   input.UserID,
+		Action:       "member.updated",
+		BeforeState:  beforeState,
+		AfterState:   afterState,
+	}
 }

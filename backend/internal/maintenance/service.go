@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -71,12 +72,21 @@ type accessInfo struct {
 	memberUnitName *string
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
-	db *database.Pool
+	db      *database.Pool
+	auditor resourceAuditor
 }
 
 func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+	return NewServiceWithAudit(db, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, auditor resourceAuditor) *Service {
+	return &Service{db: db, auditor: auditor}
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -165,7 +175,27 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		created.Status = dbgen.MaintenanceStatusPendingApproval
 	}
 
-	return s.enrichRequest(ctx, created)
+	info, err := s.enrichRequest(ctx, created)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, maintenanceRequestCreatedAuditEvent(maintenanceAuditInput{
+			SchemeID:    access.scheme.ID.String(),
+			OrgID:       access.scheme.OrgID.String(),
+			ActorUserID: identity.UserID,
+			ActorRole:   access.role,
+			RequestID:   created.ID.String(),
+			Title:       info.Title,
+			Description: info.Description,
+			Category:    info.Category,
+			Status:      info.Status,
+			SlaHours:    info.SlaHours,
+		}))
+	}
+
+	return info, nil
 }
 
 func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, requestID string, input AssignInput) (*RequestInfo, error) {
@@ -185,6 +215,11 @@ func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, 
 		return nil, ErrForbidden
 	}
 
+	beforeInfo, err := s.enrichRequest(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
 	phone := pgtype.Text{}
 	if input.ContractorPhone != nil && *input.ContractorPhone != "" {
 		phone = pgtype.Text{String: *input.ContractorPhone, Valid: true}
@@ -199,7 +234,29 @@ func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, 
 		return nil, err
 	}
 
-	return s.enrichRequest(ctx, updated)
+	afterInfo, err := s.enrichRequest(ctx, updated)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.auditor != nil {
+		beforeContractorName := ""
+		if beforeInfo.ContractorName != nil {
+			beforeContractorName = *beforeInfo.ContractorName
+		}
+		_ = s.auditor.RecordResourceEvent(ctx, maintenanceRequestAssignedAuditEvent(maintenanceAuditInput{
+			SchemeID:       access.scheme.ID.String(),
+			OrgID:          access.scheme.OrgID.String(),
+			ActorUserID:    identity.UserID,
+			ActorRole:      access.role,
+			RequestID:      updated.ID.String(),
+			Title:          afterInfo.Title,
+			Status:         afterInfo.Status,
+			ContractorName: afterInfo.ContractorName,
+		}, beforeContractorName, beforeInfo.ContractorPhone))
+	}
+
+	return afterInfo, nil
 }
 
 func (s *Service) Resolve(ctx context.Context, identity auth.Identity, schemeID, requestID string) (*RequestInfo, error) {
@@ -219,12 +276,34 @@ func (s *Service) Resolve(ctx context.Context, identity auth.Identity, schemeID,
 		return nil, ErrForbidden
 	}
 
+	beforeInfo, err := s.enrichRequest(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
 	resolved, err := s.db.Q.ResolveMaintenanceRequest(ctx, request.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.enrichRequest(ctx, resolved)
+	afterInfo, err := s.enrichRequest(ctx, resolved)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, maintenanceRequestResolvedAuditEvent(maintenanceAuditInput{
+			SchemeID:    access.scheme.ID.String(),
+			OrgID:       access.scheme.OrgID.String(),
+			ActorUserID: identity.UserID,
+			ActorRole:   access.role,
+			RequestID:   resolved.ID.String(),
+			Title:       afterInfo.Title,
+			Status:      afterInfo.Status,
+		}, beforeInfo.Status))
+	}
+
+	return afterInfo, nil
 }
 
 func (s *Service) resolveAccess(ctx context.Context, identity auth.Identity, schemeID string) (*accessInfo, error) {
@@ -430,4 +509,86 @@ func sameUnit(value pgtype.UUID, expected *uuid.UUID) bool {
 		return false
 	}
 	return uuid.UUID(value.Bytes) == *expected
+}
+
+type maintenanceAuditInput struct {
+	SchemeID       string
+	OrgID          string
+	ActorUserID    string
+	ActorRole      string
+	RequestID      string
+	Title          string
+	Description    string
+	Category       string
+	Status         string
+	SlaHours       int32
+	ContractorName *string
+}
+
+func maintenanceRequestCreatedAuditEvent(input maintenanceAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "maintenance_request",
+		ResourceID:   input.RequestID,
+		Action:       "maintenance.request_created",
+		AfterState: map[string]any{
+			"title":       input.Title,
+			"description": input.Description,
+			"category":    input.Category,
+			"status":      input.Status,
+			"sla_hours":   input.SlaHours,
+		},
+	}
+}
+
+func maintenanceRequestAssignedAuditEvent(input maintenanceAuditInput, beforeContractorName string, beforeContractorPhone *string) audit.ResourceEvent {
+	beforeState := map[string]any{
+		"title":           input.Title,
+		"status":          input.Status,
+		"contractor_name": beforeContractorName,
+	}
+	if beforeContractorPhone != nil {
+		beforeState["contractor_phone"] = *beforeContractorPhone
+	}
+	afterState := map[string]any{
+		"title":  input.Title,
+		"status": input.Status,
+	}
+	if input.ContractorName != nil {
+		afterState["contractor_name"] = *input.ContractorName
+	}
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "maintenance_request",
+		ResourceID:   input.RequestID,
+		Action:       "maintenance.request_assigned",
+		BeforeState:  beforeState,
+		AfterState:   afterState,
+	}
+}
+
+func maintenanceRequestResolvedAuditEvent(input maintenanceAuditInput, beforeStatus string) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "maintenance_request",
+		ResourceID:   input.RequestID,
+		Action:       "maintenance.request_resolved",
+		BeforeState: map[string]any{
+			"title":  input.Title,
+			"status": beforeStatus,
+		},
+		AfterState: map[string]any{
+			"title":  input.Title,
+			"status": input.Status,
+		},
+	}
 }

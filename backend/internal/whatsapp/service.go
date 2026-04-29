@@ -167,7 +167,12 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 			return nil, msgErr
 		}
 
-		thread := mapThread(row, messages)
+		mediaRows, mediaErr := s.db.Q.ListWhatsAppMessageMediaByThread(ctx, row.ID)
+		if mediaErr != nil {
+			return nil, mediaErr
+		}
+
+		thread := mapThread(row, messages, mediaRows)
 		response.TotalResidents++
 		if row.Connected {
 			response.ConnectedCount++
@@ -183,6 +188,16 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		}
 
 		response.Threads = append(response.Threads, thread)
+	}
+
+	if !auth.IsResidentRole(access.role) {
+		intakes, err := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, intake := range intakes {
+			response.MaintenanceIntakes = append(response.MaintenanceIntakes, mapMaintenanceIntake(intake))
+		}
 	}
 
 	broadcastRows, err := s.db.Q.ListWhatsAppBroadcastsDetailedByScheme(ctx, access.scheme.ID)
@@ -382,7 +397,20 @@ func (s *Service) resolveAccess(ctx context.Context, identity auth.Identity, sch
 	return access, nil
 }
 
-func mapThread(row dbgen.ListWhatsAppThreadsDetailedBySchemeRow, messages []dbgen.WhatsappMessage) ThreadInfo {
+func mapThread(row dbgen.ListWhatsAppThreadsDetailedBySchemeRow, messages []dbgen.WhatsappMessage, mediaRows []dbgen.WhatsappMessageMedium) ThreadInfo {
+	mediaByMessage := make(map[uuid.UUID][]MediaInfo)
+	for _, m := range mediaRows {
+		contentType := ""
+		if m.ContentType.Valid {
+			contentType = m.ContentType.String
+		}
+		mediaByMessage[m.MessageID] = append(mediaByMessage[m.MessageID], MediaInfo{
+			ID:          m.ID.String(),
+			URL:         m.MediaUrl,
+			ContentType: contentType,
+		})
+	}
+
 	thread := ThreadInfo{
 		Messages:       make([]MessageInfo, 0, len(messages)),
 		ID:             row.ID.String(),
@@ -398,12 +426,18 @@ func mapThread(row dbgen.ListWhatsAppThreadsDetailedBySchemeRow, messages []dbge
 		thread.PhoneNumber = &phone
 	}
 	for _, message := range messages {
-		thread.Messages = append(thread.Messages, MessageInfo{
+		info := MessageInfo{
 			ID:     message.ID.String(),
 			From:   string(message.Sender),
 			Text:   message.Body,
 			SentAt: message.CreatedAt,
-		})
+			Media:  mediaByMessage[message.ID],
+		}
+		if message.MaintenanceRequestID.Valid {
+			id := uuid.UUID(message.MaintenanceRequestID.Bytes).String()
+			info.MaintenanceRequestID = &id
+		}
+		thread.Messages = append(thread.Messages, info)
 	}
 	return thread
 }
@@ -548,5 +582,190 @@ func whatsAppBroadcastSentAuditEvent(input whatsAppAuditInput, sendErrors int) a
 		Metadata: map[string]any{
 			"send_errors": sendErrors,
 		},
+	}
+}
+
+func mapMaintenanceIntake(row dbgen.ListWhatsAppMaintenanceIntakesBySchemeRow) MaintenanceIntakeInfo {
+	info := MaintenanceIntakeInfo{
+		ID:             row.ID.String(),
+		SchemeID:       row.SchemeID.String(),
+		ThreadID:       row.ThreadID.String(),
+		MessageID:      row.MessageID.String(),
+		UnitID:         row.UnitID.String(),
+		UnitIdentifier: row.UnitIdentifier,
+		OwnerName:      row.OwnerName,
+		Status:         row.Status,
+		Category:       string(row.Category),
+		Title:          row.Title,
+		Description:    row.Description,
+		MediaCount:     int(row.MediaCount),
+		CreatedAt:      row.CreatedAt,
+	}
+	if row.MaintenanceRequestID.Valid {
+		id := uuid.UUID(row.MaintenanceRequestID.Bytes).String()
+		info.MaintenanceRequestID = &id
+	}
+	return info
+}
+
+func (s *Service) CreateMaintenanceFromMessage(ctx context.Context, identity auth.Identity, schemeID, messageID string, input CreateMaintenanceFromMessageInput) (*MaintenanceIntakeInfo, error) {
+	access, err := s.resolveAccess(ctx, identity, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	if auth.IsResidentRole(access.role) {
+		return nil, ErrForbidden
+	}
+	mid, err := uuid.Parse(messageID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	msg, err := s.db.Q.GetWhatsAppMessageWithThread(ctx, mid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if msg.SchemeID != access.scheme.ID {
+		return nil, ErrForbidden
+	}
+	title := strings.TrimSpace(input.Title)
+	description := strings.TrimSpace(input.Description)
+	category := strings.TrimSpace(input.Category)
+	if title == "" || description == "" || !validMaintenanceCategory(category) {
+		return nil, ErrInvalidInput
+	}
+	mediaCount, err := s.db.Q.CountWhatsAppMessageMediaByMessage(ctx, mid)
+	if err != nil {
+		return nil, err
+	}
+	return s.createMaintenanceTicketForMessage(ctx, access.scheme.ID, msg.ThreadID, mid, msg.UnitID, title, description, category, int(mediaCount))
+}
+
+func (s *Service) DismissMaintenanceIntake(ctx context.Context, identity auth.Identity, schemeID, intakeID string) (*MaintenanceIntakeInfo, error) {
+	access, err := s.resolveAccess(ctx, identity, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	if auth.IsResidentRole(access.role) {
+		return nil, ErrForbidden
+	}
+	id, err := uuid.Parse(intakeID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	intake, err := s.db.Q.GetWhatsAppMaintenanceIntake(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if intake.SchemeID != access.scheme.ID {
+		return nil, ErrForbidden
+	}
+	dismissed, err := s.db.Q.DismissWhatsAppMaintenanceIntake(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range rows {
+		if item.ID == dismissed.ID {
+			mapped := mapMaintenanceIntake(item)
+			return &mapped, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (s *Service) createMaintenanceTicketForMessage(ctx context.Context, schemeID, threadID, messageID, unitID uuid.UUID, title, description, category string, mediaCount int) (*MaintenanceIntakeInfo, error) {
+	unit, err := s.db.Q.GetUnit(ctx, unitID)
+	if err != nil {
+		return nil, err
+	}
+	var intake dbgen.WhatsappMaintenanceIntake
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		request, txErr := q.CreateMaintenanceRequest(ctx, dbgen.CreateMaintenanceRequestParams{
+			SchemeID:        schemeID,
+			UnitID:          pgtype.UUID{Bytes: unitID, Valid: true},
+			Title:           title,
+			Description:     description,
+			Category:        dbgen.MaintenanceCategory(category),
+			SlaHours:        defaultWhatsAppSLAHours(category),
+			SubmittedByUnit: pgtype.Text{String: unit.Identifier, Valid: true},
+		})
+		if txErr != nil {
+			return txErr
+		}
+		request, txErr = q.UpdateMaintenanceStatus(ctx, dbgen.UpdateMaintenanceStatusParams{
+			ID:     request.ID,
+			Status: dbgen.MaintenanceStatusPendingApproval,
+		})
+		if txErr != nil {
+			return txErr
+		}
+		if txErr = q.UpdateWhatsAppMessageMaintenanceRequest(ctx, dbgen.UpdateWhatsAppMessageMaintenanceRequestParams{
+			ID:                   messageID,
+			MaintenanceRequestID: pgtype.UUID{Bytes: request.ID, Valid: true},
+		}); txErr != nil {
+			return txErr
+		}
+		intake, txErr = q.CreateWhatsAppMaintenanceIntake(ctx, dbgen.CreateWhatsAppMaintenanceIntakeParams{
+			SchemeID:             schemeID,
+			ThreadID:             threadID,
+			MessageID:            messageID,
+			UnitID:               unitID,
+			MaintenanceRequestID: pgtype.UUID{Bytes: request.ID, Valid: true},
+			Status:               "ticket_created",
+			Category:             dbgen.MaintenanceCategory(category),
+			Title:                title,
+			Description:          description,
+			MediaCount:           int32(mediaCount),
+		})
+		return txErr
+	})
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		if row.ID == intake.ID {
+			mapped := mapMaintenanceIntake(row)
+			return &mapped, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func validMaintenanceCategory(category string) bool {
+	switch category {
+	case string(dbgen.MaintenanceCategoryPlumbing),
+		string(dbgen.MaintenanceCategoryElectrical),
+		string(dbgen.MaintenanceCategoryStructural),
+		string(dbgen.MaintenanceCategoryGarden),
+		string(dbgen.MaintenanceCategoryPool),
+		string(dbgen.MaintenanceCategoryOther):
+		return true
+	default:
+		return false
+	}
+}
+
+func defaultWhatsAppSLAHours(category string) int32 {
+	switch category {
+	case string(dbgen.MaintenanceCategoryElectrical),
+		string(dbgen.MaintenanceCategoryPlumbing):
+		return 24
+	case string(dbgen.MaintenanceCategoryStructural):
+		return 48
+	default:
+		return 72
 	}
 }

@@ -29,10 +29,6 @@ type createMaintenanceFromMessageRequest struct {
 	Category    string `json:"category"`
 }
 
-type dismissMaintenanceIntakeRequest struct {
-	Dismissed bool `json:"dismissed"`
-}
-
 func (h *Handler) Dashboard(w http.ResponseWriter, r *http.Request) {
 	identity, ok := auth.IdentityFromRequest(r)
 	if !ok {

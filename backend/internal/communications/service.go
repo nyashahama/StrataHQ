@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/database"
 )
@@ -51,12 +52,21 @@ type accessInfo struct {
 	userID string
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
-	db *database.Pool
+	db      *database.Pool
+	auditor resourceAuditor
 }
 
 func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+	return NewServiceWithAudit(db, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, auditor resourceAuditor) *Service {
+	return &Service{db: db, auditor: auditor}
 }
 
 func (s *Service) List(ctx context.Context, identity auth.Identity, schemeID string, typeFilter string) (*DashboardResponse, error) {
@@ -158,7 +168,7 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		}
 	}
 
-	return &NoticeInfo{
+	info := &NoticeInfo{
 		SentByName: senderName,
 		ID:         created.ID.String(),
 		SchemeID:   created.SchemeID.String(),
@@ -166,7 +176,23 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		Body:       created.Body,
 		Type:       string(created.Type),
 		SentAt:     created.SentAt,
-	}, nil
+	}
+
+	if s.auditor != nil {
+		_ = s.auditor.RecordResourceEvent(ctx, noticeCreatedAuditEvent(noticeAuditInput{
+			SchemeID:    access.scheme.ID.String(),
+			OrgID:       access.scheme.OrgID.String(),
+			ActorUserID: access.userID,
+			ActorRole:   access.role,
+			NoticeID:    created.ID.String(),
+			Title:       created.Title,
+			Body:        created.Body,
+			Type:        string(created.Type),
+			SentAt:      created.SentAt,
+		}))
+	}
+
+	return info, nil
 }
 
 func (s *Service) resolveAccess(ctx context.Context, identity auth.Identity, schemeID string) (*accessInfo, error) {
@@ -229,5 +255,35 @@ func validNoticeType(value string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+type noticeAuditInput struct {
+	SchemeID    string
+	OrgID       string
+	ActorUserID string
+	ActorRole   string
+	NoticeID    string
+	Title       string
+	Body        string
+	Type        string
+	SentAt      time.Time
+}
+
+func noticeCreatedAuditEvent(input noticeAuditInput) audit.ResourceEvent {
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "notice",
+		ResourceID:   input.NoticeID,
+		Action:       "notice.created",
+		AfterState: map[string]any{
+			"title": input.Title,
+			"body":  input.Body,
+			"type":  input.Type,
+			"sent_at": input.SentAt.Format(time.RFC3339),
+		},
 	}
 }

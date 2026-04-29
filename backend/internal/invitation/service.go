@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/platform/database"
@@ -80,6 +81,10 @@ type txStore interface {
 	UpdateInvitationStatus(ctx context.Context, arg dbgen.UpdateInvitationStatusParams) error
 }
 
+type resourceAuditor interface {
+	RecordResourceEvent(ctx context.Context, event audit.ResourceEvent) error
+}
+
 type Service struct {
 	q             queryStore
 	withTx        func(ctx context.Context, fn func(q txStore) error) error
@@ -89,9 +94,14 @@ type Service struct {
 	jwtSecret     string
 	jwtExpiry     time.Duration
 	refreshExpiry time.Duration
+	auditor       resourceAuditor
 }
 
 func NewService(db *database.Pool, sender notification.Sender, appBaseURL, jwtSecret string, jwtExpiry, refreshExpiry time.Duration) *Service {
+	return NewServiceWithAudit(db, sender, appBaseURL, jwtSecret, jwtExpiry, refreshExpiry, nil)
+}
+
+func NewServiceWithAudit(db *database.Pool, sender notification.Sender, appBaseURL, jwtSecret string, jwtExpiry, refreshExpiry time.Duration, auditor resourceAuditor) *Service {
 	return &Service{
 		q: db.Q,
 		withTx: func(ctx context.Context, fn func(q txStore) error) error {
@@ -105,6 +115,7 @@ func NewService(db *database.Pool, sender notification.Sender, appBaseURL, jwtSe
 		jwtSecret:     jwtSecret,
 		jwtExpiry:     jwtExpiry,
 		refreshExpiry: refreshExpiry,
+		auditor:       auditor,
 	}
 }
 
@@ -156,6 +167,25 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 	inviteURL := appBaseURL + "/auth/invite/" + token
 	if err := s.sender.SendInvitation(ctx, p.Email, p.FullName, inviteURL); err != nil {
 		return nil, err
+	}
+
+	if s.auditor != nil {
+		unitIDStr := ""
+		if unitID.Valid {
+			unitIDStr = uuid.UUID(unitID.Bytes).String()
+		}
+		_ = s.auditor.RecordResourceEvent(ctx, invitationCreatedAuditEvent(invitationAuditInput{
+			OrgID:      oid.String(),
+			SchemeID:   sid.String(),
+			ActorRole:  "admin",
+			InvitationID: inv.ID.String(),
+			Email:      inv.Email,
+			FullName:   inv.FullName,
+			Role:       inv.Role,
+			UnitID:     unitIDStr,
+			Status:     inv.Status,
+			ExpiresAt:  inv.ExpiresAt,
+		}))
 	}
 
 	return toResponse(inv), nil
@@ -221,6 +251,25 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 		return nil, err
 	}
 
+	if s.auditor != nil {
+		unitIDStr := ""
+		if inv.UnitID.Valid {
+			unitIDStr = uuid.UUID(inv.UnitID.Bytes).String()
+		}
+		_ = s.auditor.RecordResourceEvent(ctx, invitationResentAuditEvent(invitationAuditInput{
+			OrgID:        inv.OrgID.String(),
+			SchemeID:     inv.SchemeID.String(),
+			ActorRole:    "admin",
+			InvitationID: inv.ID.String(),
+			Email:        inv.Email,
+			FullName:     inv.FullName,
+			Role:         inv.Role,
+			UnitID:       unitIDStr,
+			Status:       inv.Status,
+			ExpiresAt:    inv.ExpiresAt,
+		}))
+	}
+
 	return toResponse(inv), nil
 }
 
@@ -245,10 +294,33 @@ func (s *Service) Revoke(ctx context.Context, orgID, invitationID string) error 
 		return ErrForbidden
 	}
 
-	return s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
+	if err := s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
 		Status: "revoked",
 		ID:     iid,
-	})
+	}); err != nil {
+		return err
+	}
+
+	if s.auditor != nil {
+		unitIDStr := ""
+		if existing.UnitID.Valid {
+			unitIDStr = uuid.UUID(existing.UnitID.Bytes).String()
+		}
+		_ = s.auditor.RecordResourceEvent(ctx, invitationRevokedAuditEvent(invitationAuditInput{
+			OrgID:        existing.OrgID.String(),
+			SchemeID:     existing.SchemeID.String(),
+			ActorRole:    "admin",
+			InvitationID: existing.ID.String(),
+			Email:        existing.Email,
+			FullName:     existing.FullName,
+			Role:         existing.Role,
+			UnitID:       unitIDStr,
+			Status:       "revoked",
+			ExpiresAt:    existing.ExpiresAt,
+		}))
+	}
+
+	return nil
 }
 
 func (s *Service) Verify(ctx context.Context, token string) (*VerifyResponse, error) {
@@ -410,4 +482,90 @@ func unitIDFromString(raw string) (pgtype.UUID, error) {
 		return pgtype.UUID{}, errors.New("invalid unit_id")
 	}
 	return pgtype.UUID{Bytes: uid, Valid: true}, nil
+}
+
+type invitationAuditInput struct {
+	OrgID        string
+	SchemeID     string
+	ActorUserID  string
+	ActorRole    string
+	InvitationID string
+	Email        string
+	FullName     string
+	Role         string
+	UnitID       string
+	Status       string
+	ExpiresAt    time.Time
+}
+
+func invitationCreatedAuditEvent(input invitationAuditInput) audit.ResourceEvent {
+	afterState := map[string]any{
+		"email":     input.Email,
+		"full_name": input.FullName,
+		"role":      input.Role,
+		"scheme_id": input.SchemeID,
+		"status":    input.Status,
+		"expires_at": input.ExpiresAt.Format(time.RFC3339),
+	}
+	if input.UnitID != "" {
+		afterState["unit_id"] = input.UnitID
+	}
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "invitation",
+		ResourceID:   input.InvitationID,
+		Action:       "invitation.created",
+		AfterState:   afterState,
+	}
+}
+
+func invitationResentAuditEvent(input invitationAuditInput) audit.ResourceEvent {
+	afterState := map[string]any{
+		"email":     input.Email,
+		"full_name": input.FullName,
+		"role":      input.Role,
+		"scheme_id": input.SchemeID,
+		"status":    input.Status,
+		"expires_at": input.ExpiresAt.Format(time.RFC3339),
+	}
+	if input.UnitID != "" {
+		afterState["unit_id"] = input.UnitID
+	}
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "invitation",
+		ResourceID:   input.InvitationID,
+		Action:       "invitation.resent",
+		AfterState:   afterState,
+	}
+}
+
+func invitationRevokedAuditEvent(input invitationAuditInput) audit.ResourceEvent {
+	afterState := map[string]any{
+		"email":     input.Email,
+		"full_name": input.FullName,
+		"role":      input.Role,
+		"scheme_id": input.SchemeID,
+		"status":    input.Status,
+		"expires_at": input.ExpiresAt.Format(time.RFC3339),
+	}
+	if input.UnitID != "" {
+		afterState["unit_id"] = input.UnitID
+	}
+	return audit.ResourceEvent{
+		SchemeID:     input.SchemeID,
+		OrgID:        input.OrgID,
+		ActorUserID:  input.ActorUserID,
+		ActorRole:    input.ActorRole,
+		ResourceType: "invitation",
+		ResourceID:   input.InvitationID,
+		Action:       "invitation.revoked",
+		AfterState:   afterState,
+	}
 }

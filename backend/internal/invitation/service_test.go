@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/notification"
 )
@@ -242,3 +243,102 @@ func TestServiceAcceptStoresHashedRefreshToken(t *testing.T) {
 		t.Fatalf("invitation status update = %+v, want accepted", store.updatedInviteStatus)
 	}
 }
+
+func TestInvitationCreatedAuditEvent(t *testing.T) {
+	event := invitationCreatedAuditEvent(invitationAuditInput{
+		OrgID:        "org-1",
+		SchemeID:     "scheme-1",
+		ActorRole:    "admin",
+		InvitationID: "inv-1",
+		Email:        "user@example.com",
+		FullName:     "Test User",
+		Role:         "trustee",
+		UnitID:       "unit-1",
+		Status:       "pending",
+		ExpiresAt:    time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	})
+
+	if event.Action != "invitation.created" {
+		t.Fatalf("action = %q, want invitation.created", event.Action)
+	}
+	if event.ResourceType != "invitation" {
+		t.Fatalf("resource_type = %q, want invitation", event.ResourceType)
+	}
+	after, ok := event.AfterState.(map[string]any)
+	if !ok {
+		t.Fatal("after state should be a map")
+	}
+	if after["email"] != "user@example.com" {
+		t.Fatalf("after.email = %v, want user@example.com", after["email"])
+	}
+	if _, exists := after["token"]; exists {
+		t.Fatal("after state must not contain token")
+	}
+	if after["unit_id"] != "unit-1" {
+		t.Fatalf("after.unit_id = %v, want unit-1", after["unit_id"])
+	}
+}
+
+func TestInvitationCreatedAuditEventOmitsEmptyUnitID(t *testing.T) {
+	event := invitationCreatedAuditEvent(invitationAuditInput{
+		OrgID:        "org-1",
+		SchemeID:     "scheme-1",
+		ActorRole:    "admin",
+		InvitationID: "inv-1",
+		Email:        "user@example.com",
+		FullName:     "Test User",
+		Role:         "trustee",
+		UnitID:       "",
+		Status:       "pending",
+		ExpiresAt:    time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	})
+
+	after, ok := event.AfterState.(map[string]any)
+	if !ok {
+		t.Fatal("after state should be a map")
+	}
+	if _, exists := after["unit_id"]; exists {
+		t.Fatal("after state should not contain unit_id when empty")
+	}
+}
+
+func TestInvitationResentAuditEvent(t *testing.T) {
+	event := invitationResentAuditEvent(invitationAuditInput{
+		OrgID:        "org-1",
+		SchemeID:     "scheme-1",
+		ActorRole:    "admin",
+		InvitationID: "inv-1",
+		Email:        "user@example.com",
+		FullName:     "Test User",
+		Role:         "trustee",
+		Status:       "pending",
+		ExpiresAt:    time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	})
+
+	if event.Action != "invitation.resent" {
+		t.Fatalf("action = %q, want invitation.resent", event.Action)
+	}
+}
+
+func TestInvitationRevokedAuditEvent(t *testing.T) {
+	event := invitationRevokedAuditEvent(invitationAuditInput{
+		OrgID:        "org-1",
+		SchemeID:     "scheme-1",
+		ActorRole:    "admin",
+		InvitationID: "inv-1",
+		Email:        "user@example.com",
+		FullName:     "Test User",
+		Role:         "trustee",
+		Status:       "revoked",
+		ExpiresAt:    time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC),
+	})
+
+	if event.Action != "invitation.revoked" {
+		t.Fatalf("action = %q, want invitation.revoked", event.Action)
+	}
+	if event.BeforeState != nil {
+		t.Fatal("before state should be nil for revoke")
+	}
+}
+
+var _ audit.ResourceEvent

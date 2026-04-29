@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/auth"
@@ -188,5 +189,35 @@ func TestAudit_ListSchemeEvents_UsesDefaultLimit(t *testing.T) {
 	}
 	if len(resp.Data.Events) > 50 {
 		t.Fatalf("events len = %d, want <= 50", len(resp.Data.Events))
+	}
+}
+
+func TestAudit_RecordSchemeDeletedAfterHardDelete(t *testing.T) {
+	orgID := uuid.New().String()
+	schemeID := uuid.New().String()
+
+	if _, err := testPool.Exec(context.Background(), "INSERT INTO orgs (id, name) VALUES ($1, $2)", orgID, "Deleted Audit Org"); err != nil {
+		t.Fatalf("insert org: %v", err)
+	}
+	if _, err := testPool.Exec(context.Background(), "INSERT INTO schemes (id, org_id, name, address, unit_count) VALUES ($1, $2, $3, $4, $5)", schemeID, orgID, "Deleted Scheme", "123 Main St", 10); err != nil {
+		t.Fatalf("insert scheme: %v", err)
+	}
+
+	if _, err := testPool.Exec(context.Background(), "DELETE FROM schemes WHERE id = $1", schemeID); err != nil {
+		t.Fatalf("delete scheme: %v", err)
+	}
+
+	recorder := audit.NewResourceService(testPool.Q)
+	if err := recorder.RecordResourceEvent(context.Background(), audit.ResourceEvent{
+		SchemeID:     schemeID,
+		OrgID:        orgID,
+		ActorRole:    "admin",
+		ResourceType: "scheme",
+		Action:       "scheme.deleted",
+		BeforeState: map[string]any{
+			"name": "Deleted Scheme",
+		},
+	}); err != nil {
+		t.Fatalf("record scheme.deleted after hard delete: %v", err)
 	}
 }

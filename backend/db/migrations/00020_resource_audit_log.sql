@@ -2,7 +2,7 @@
 
 CREATE TABLE resource_audit_events (
     id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    scheme_id     UUID        NOT NULL REFERENCES schemes(id) ON DELETE CASCADE,
+    scheme_id     UUID        NOT NULL,
     org_id        UUID        NOT NULL REFERENCES orgs(id) ON DELETE CASCADE,
     actor_user_id UUID        REFERENCES users(id) ON DELETE SET NULL,
     actor_role    TEXT        NOT NULL DEFAULT '',

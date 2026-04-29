@@ -87,10 +87,7 @@ func (s *Service) List(ctx context.Context, identity auth.Identity, schemeID, ca
 	}
 
 	visibilities := determineVisibilities(access.role)
-	rows, err := s.db.Q.ListSchemeDocumentsDetailedByVisibility(ctx, dbgen.ListSchemeDocumentsDetailedByVisibilityParams{
-		SchemeID: access.scheme.ID,
-		Column2:  visibilities,
-	})
+	rows, err := s.db.Q.ListSchemeDocumentsDetailed(ctx, access.scheme.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +97,10 @@ func (s *Service) List(ctx context.Context, identity auth.Identity, schemeID, ca
 		if filter != "" && string(row.Category) != filter {
 			continue
 		}
-		documents = append(documents, mapVisibilityDocumentRow(row))
+		if !visibilityAllowed(row.Visibility, visibilities) {
+			continue
+		}
+		documents = append(documents, mapVisibilityDocumentRowDetailed(row))
 	}
 
 	return &DashboardResponse{
@@ -437,7 +437,7 @@ func determineVisibilities(role string) []dbgen.DocumentVisibility {
 	}
 }
 
-func mapVisibilityDocumentRow(row dbgen.ListSchemeDocumentsDetailedByVisibilityRow) DocumentInfo {
+func mapVisibilityDocumentRowDetailed(row dbgen.ListSchemeDocumentsDetailedRow) DocumentInfo {
 	return DocumentInfo{
 		UploadedByName: textPointer(row.UploadedByName),
 		ID:             row.ID.String(),
@@ -449,4 +449,13 @@ func mapVisibilityDocumentRow(row dbgen.ListSchemeDocumentsDetailedByVisibilityR
 		SizeBytes:      row.SizeBytes,
 		CreatedAt:      row.CreatedAt,
 	}
+}
+
+func visibilityAllowed(visibility dbgen.DocumentVisibility, allowed []dbgen.DocumentVisibility) bool {
+	for _, v := range allowed {
+		if visibility == v {
+			return true
+		}
+	}
+	return false
 }

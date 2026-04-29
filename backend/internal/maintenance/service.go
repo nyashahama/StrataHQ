@@ -166,11 +166,11 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 	}
 
 	if auth.IsResidentRole(access.role) {
-		if _, err := s.db.Q.UpdateMaintenanceStatus(ctx, dbgen.UpdateMaintenanceStatusParams{
+		if _, updateErr := s.db.Q.UpdateMaintenanceStatus(ctx, dbgen.UpdateMaintenanceStatusParams{
 			ID:     created.ID,
 			Status: dbgen.MaintenanceStatusPendingApproval,
-		}); err != nil {
-			return nil, err
+		}); updateErr != nil {
+			return nil, updateErr
 		}
 		created.Status = dbgen.MaintenanceStatusPendingApproval
 	}

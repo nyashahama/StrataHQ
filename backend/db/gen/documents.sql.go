@@ -15,20 +15,21 @@ import (
 
 const createSchemeDocument = `-- name: CreateSchemeDocument :one
 INSERT INTO scheme_documents (
-    scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id
+    scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, visibility
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at, visibility
 `
 
 type CreateSchemeDocumentParams struct {
-	SchemeID         uuid.UUID        `json:"scheme_id"`
-	Name             string           `json:"name"`
-	StorageKey       string           `json:"storage_key"`
-	FileType         DocumentFileType `json:"file_type"`
-	Category         DocumentCategory `json:"category"`
-	SizeBytes        int64            `json:"size_bytes"`
-	UploadedByUserID pgtype.UUID      `json:"uploaded_by_user_id"`
+	SchemeID         uuid.UUID          `json:"scheme_id"`
+	Name             string             `json:"name"`
+	StorageKey       string             `json:"storage_key"`
+	FileType         DocumentFileType   `json:"file_type"`
+	Category         DocumentCategory   `json:"category"`
+	SizeBytes        int64              `json:"size_bytes"`
+	UploadedByUserID pgtype.UUID        `json:"uploaded_by_user_id"`
+	Visibility       DocumentVisibility `json:"visibility"`
 }
 
 func (q *Queries) CreateSchemeDocument(ctx context.Context, arg CreateSchemeDocumentParams) (SchemeDocument, error) {
@@ -40,6 +41,7 @@ func (q *Queries) CreateSchemeDocument(ctx context.Context, arg CreateSchemeDocu
 		arg.Category,
 		arg.SizeBytes,
 		arg.UploadedByUserID,
+		arg.Visibility,
 	)
 	var i SchemeDocument
 	err := row.Scan(
@@ -52,6 +54,7 @@ func (q *Queries) CreateSchemeDocument(ctx context.Context, arg CreateSchemeDocu
 		&i.SizeBytes,
 		&i.UploadedByUserID,
 		&i.CreatedAt,
+		&i.Visibility,
 	)
 	return i, err
 }
@@ -67,7 +70,7 @@ func (q *Queries) DeleteSchemeDocument(ctx context.Context, id uuid.UUID) error 
 }
 
 const getSchemeDocument = `-- name: GetSchemeDocument :one
-SELECT id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at FROM scheme_documents
+SELECT id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at, visibility FROM scheme_documents
 WHERE id = $1
 LIMIT 1
 `
@@ -85,12 +88,13 @@ func (q *Queries) GetSchemeDocument(ctx context.Context, id uuid.UUID) (SchemeDo
 		&i.SizeBytes,
 		&i.UploadedByUserID,
 		&i.CreatedAt,
+		&i.Visibility,
 	)
 	return i, err
 }
 
 const listSchemeDocuments = `-- name: ListSchemeDocuments :many
-SELECT id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at FROM scheme_documents
+SELECT id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at, visibility FROM scheme_documents
 WHERE scheme_id = $1
 ORDER BY created_at DESC
 `
@@ -114,6 +118,7 @@ func (q *Queries) ListSchemeDocuments(ctx context.Context, schemeID uuid.UUID) (
 			&i.SizeBytes,
 			&i.UploadedByUserID,
 			&i.CreatedAt,
+			&i.Visibility,
 		); err != nil {
 			return nil, err
 		}
@@ -126,7 +131,7 @@ func (q *Queries) ListSchemeDocuments(ctx context.Context, schemeID uuid.UUID) (
 }
 
 const listSchemeDocumentsByCategory = `-- name: ListSchemeDocumentsByCategory :many
-SELECT id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at FROM scheme_documents
+SELECT id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at, visibility FROM scheme_documents
 WHERE scheme_id = $1 AND category = $2
 ORDER BY created_at DESC
 `
@@ -155,6 +160,49 @@ func (q *Queries) ListSchemeDocumentsByCategory(ctx context.Context, arg ListSch
 			&i.SizeBytes,
 			&i.UploadedByUserID,
 			&i.CreatedAt,
+			&i.Visibility,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSchemeDocumentsByVisibility = `-- name: ListSchemeDocumentsByVisibility :many
+SELECT id, scheme_id, name, storage_key, file_type, category, size_bytes, uploaded_by_user_id, created_at, visibility FROM scheme_documents
+WHERE scheme_id = $1 AND visibility = ANY($2::document_visibility[])
+ORDER BY created_at DESC
+`
+
+type ListSchemeDocumentsByVisibilityParams struct {
+	SchemeID uuid.UUID            `json:"scheme_id"`
+	Column2  []DocumentVisibility `json:"column_2"`
+}
+
+func (q *Queries) ListSchemeDocumentsByVisibility(ctx context.Context, arg ListSchemeDocumentsByVisibilityParams) ([]SchemeDocument, error) {
+	rows, err := q.db.Query(ctx, listSchemeDocumentsByVisibility, arg.SchemeID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SchemeDocument{}
+	for rows.Next() {
+		var i SchemeDocument
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.Name,
+			&i.StorageKey,
+			&i.FileType,
+			&i.Category,
+			&i.SizeBytes,
+			&i.UploadedByUserID,
+			&i.CreatedAt,
+			&i.Visibility,
 		); err != nil {
 			return nil, err
 		}
@@ -167,7 +215,7 @@ func (q *Queries) ListSchemeDocumentsByCategory(ctx context.Context, arg ListSch
 }
 
 const listSchemeDocumentsDetailed = `-- name: ListSchemeDocumentsDetailed :many
-SELECT sd.id, sd.scheme_id, sd.name, sd.storage_key, sd.file_type, sd.category, sd.size_bytes, sd.uploaded_by_user_id, sd.created_at, u.full_name AS uploaded_by_name
+SELECT sd.id, sd.scheme_id, sd.name, sd.storage_key, sd.file_type, sd.category, sd.size_bytes, sd.uploaded_by_user_id, sd.created_at, sd.visibility, u.full_name AS uploaded_by_name
 FROM scheme_documents sd
 LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
 WHERE sd.scheme_id = $1
@@ -175,16 +223,17 @@ ORDER BY sd.created_at DESC
 `
 
 type ListSchemeDocumentsDetailedRow struct {
-	ID               uuid.UUID        `json:"id"`
-	SchemeID         uuid.UUID        `json:"scheme_id"`
-	Name             string           `json:"name"`
-	StorageKey       string           `json:"storage_key"`
-	FileType         DocumentFileType `json:"file_type"`
-	Category         DocumentCategory `json:"category"`
-	SizeBytes        int64            `json:"size_bytes"`
-	UploadedByUserID pgtype.UUID      `json:"uploaded_by_user_id"`
-	CreatedAt        time.Time        `json:"created_at"`
-	UploadedByName   pgtype.Text      `json:"uploaded_by_name"`
+	ID               uuid.UUID          `json:"id"`
+	SchemeID         uuid.UUID          `json:"scheme_id"`
+	Name             string             `json:"name"`
+	StorageKey       string             `json:"storage_key"`
+	FileType         DocumentFileType   `json:"file_type"`
+	Category         DocumentCategory   `json:"category"`
+	SizeBytes        int64              `json:"size_bytes"`
+	UploadedByUserID pgtype.UUID        `json:"uploaded_by_user_id"`
+	CreatedAt        time.Time          `json:"created_at"`
+	Visibility       DocumentVisibility `json:"visibility"`
+	UploadedByName   pgtype.Text        `json:"uploaded_by_name"`
 }
 
 func (q *Queries) ListSchemeDocumentsDetailed(ctx context.Context, schemeID uuid.UUID) ([]ListSchemeDocumentsDetailedRow, error) {
@@ -206,6 +255,7 @@ func (q *Queries) ListSchemeDocumentsDetailed(ctx context.Context, schemeID uuid
 			&i.SizeBytes,
 			&i.UploadedByUserID,
 			&i.CreatedAt,
+			&i.Visibility,
 			&i.UploadedByName,
 		); err != nil {
 			return nil, err
@@ -219,7 +269,7 @@ func (q *Queries) ListSchemeDocumentsDetailed(ctx context.Context, schemeID uuid
 }
 
 const listSchemeDocumentsDetailedByCategory = `-- name: ListSchemeDocumentsDetailedByCategory :many
-SELECT sd.id, sd.scheme_id, sd.name, sd.storage_key, sd.file_type, sd.category, sd.size_bytes, sd.uploaded_by_user_id, sd.created_at, u.full_name AS uploaded_by_name
+SELECT sd.id, sd.scheme_id, sd.name, sd.storage_key, sd.file_type, sd.category, sd.size_bytes, sd.uploaded_by_user_id, sd.created_at, sd.visibility, u.full_name AS uploaded_by_name
 FROM scheme_documents sd
 LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
 WHERE sd.scheme_id = $1 AND sd.category = $2
@@ -232,16 +282,17 @@ type ListSchemeDocumentsDetailedByCategoryParams struct {
 }
 
 type ListSchemeDocumentsDetailedByCategoryRow struct {
-	ID               uuid.UUID        `json:"id"`
-	SchemeID         uuid.UUID        `json:"scheme_id"`
-	Name             string           `json:"name"`
-	StorageKey       string           `json:"storage_key"`
-	FileType         DocumentFileType `json:"file_type"`
-	Category         DocumentCategory `json:"category"`
-	SizeBytes        int64            `json:"size_bytes"`
-	UploadedByUserID pgtype.UUID      `json:"uploaded_by_user_id"`
-	CreatedAt        time.Time        `json:"created_at"`
-	UploadedByName   pgtype.Text      `json:"uploaded_by_name"`
+	ID               uuid.UUID          `json:"id"`
+	SchemeID         uuid.UUID          `json:"scheme_id"`
+	Name             string             `json:"name"`
+	StorageKey       string             `json:"storage_key"`
+	FileType         DocumentFileType   `json:"file_type"`
+	Category         DocumentCategory   `json:"category"`
+	SizeBytes        int64              `json:"size_bytes"`
+	UploadedByUserID pgtype.UUID        `json:"uploaded_by_user_id"`
+	CreatedAt        time.Time          `json:"created_at"`
+	Visibility       DocumentVisibility `json:"visibility"`
+	UploadedByName   pgtype.Text        `json:"uploaded_by_name"`
 }
 
 func (q *Queries) ListSchemeDocumentsDetailedByCategory(ctx context.Context, arg ListSchemeDocumentsDetailedByCategoryParams) ([]ListSchemeDocumentsDetailedByCategoryRow, error) {
@@ -263,6 +314,66 @@ func (q *Queries) ListSchemeDocumentsDetailedByCategory(ctx context.Context, arg
 			&i.SizeBytes,
 			&i.UploadedByUserID,
 			&i.CreatedAt,
+			&i.Visibility,
+			&i.UploadedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSchemeDocumentsDetailedByVisibility = `-- name: ListSchemeDocumentsDetailedByVisibility :many
+SELECT sd.id, sd.scheme_id, sd.name, sd.storage_key, sd.file_type, sd.category, sd.size_bytes, sd.uploaded_by_user_id, sd.created_at, sd.visibility, u.full_name AS uploaded_by_name
+FROM scheme_documents sd
+LEFT JOIN users u ON u.id = sd.uploaded_by_user_id
+WHERE sd.scheme_id = $1 AND sd.visibility = ANY($2::document_visibility[])
+ORDER BY sd.created_at DESC
+`
+
+type ListSchemeDocumentsDetailedByVisibilityParams struct {
+	SchemeID uuid.UUID            `json:"scheme_id"`
+	Column2  []DocumentVisibility `json:"column_2"`
+}
+
+type ListSchemeDocumentsDetailedByVisibilityRow struct {
+	ID               uuid.UUID          `json:"id"`
+	SchemeID         uuid.UUID          `json:"scheme_id"`
+	Name             string             `json:"name"`
+	StorageKey       string             `json:"storage_key"`
+	FileType         DocumentFileType   `json:"file_type"`
+	Category         DocumentCategory   `json:"category"`
+	SizeBytes        int64              `json:"size_bytes"`
+	UploadedByUserID pgtype.UUID        `json:"uploaded_by_user_id"`
+	CreatedAt        time.Time          `json:"created_at"`
+	Visibility       DocumentVisibility `json:"visibility"`
+	UploadedByName   pgtype.Text        `json:"uploaded_by_name"`
+}
+
+func (q *Queries) ListSchemeDocumentsDetailedByVisibility(ctx context.Context, arg ListSchemeDocumentsDetailedByVisibilityParams) ([]ListSchemeDocumentsDetailedByVisibilityRow, error) {
+	rows, err := q.db.Query(ctx, listSchemeDocumentsDetailedByVisibility, arg.SchemeID, arg.Column2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSchemeDocumentsDetailedByVisibilityRow{}
+	for rows.Next() {
+		var i ListSchemeDocumentsDetailedByVisibilityRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.Name,
+			&i.StorageKey,
+			&i.FileType,
+			&i.Category,
+			&i.SizeBytes,
+			&i.UploadedByUserID,
+			&i.CreatedAt,
+			&i.Visibility,
 			&i.UploadedByName,
 		); err != nil {
 			return nil, err

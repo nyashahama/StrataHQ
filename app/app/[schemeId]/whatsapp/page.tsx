@@ -7,11 +7,17 @@ import Modal from '@/components/Modal'
 import { useAuth } from '@/lib/auth'
 import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
-import { createWhatsAppBroadcast, getWhatsAppDashboard } from '@/lib/whatsapp-api'
+import {
+  createMaintenanceRequestFromWhatsAppMessage,
+  createWhatsAppBroadcast,
+  dismissWhatsAppMaintenanceIntake,
+  getWhatsAppDashboard,
+} from '@/lib/whatsapp-api'
 import type {
   WhatsAppBroadcast,
   WhatsAppBroadcastType,
   WhatsAppDashboard,
+  WhatsAppMaintenanceIntake,
   WhatsAppMessage,
   WhatsAppThread,
 } from '@/lib/whatsapp'
@@ -50,7 +56,57 @@ function ChatBubble({ message }: { message: WhatsAppMessage }) {
         ].join(' ')}
       >
         {message.text}
+        {message.media && message.media.length > 0 && (
+          <span className="mt-1 block text-[10px] text-muted">{message.media.length} media item{message.media.length === 1 ? '' : 's'}</span>
+        )}
+        {message.maintenance_request_id && (
+          <span className="mt-1 inline-block rounded-full bg-green-bg px-2 py-[1px] text-[10px] font-semibold text-green">
+            Maintenance ticket {message.maintenance_request_id.slice(0, 8)}
+          </span>
+        )}
         <span className="block text-[10px] text-muted/60 text-right mt-0.5">{messageTime(message.sent_at)}</span>
+      </div>
+    </div>
+  )
+}
+
+function MaintenanceIntakeCard({
+  intake,
+  onCreate,
+  onDismiss,
+}: {
+  intake: WhatsAppMaintenanceIntake
+  onCreate: (intake: WhatsAppMaintenanceIntake) => Promise<void>
+  onDismiss: (intake: WhatsAppMaintenanceIntake) => Promise<void>
+}) {
+  return (
+    <div className="border-b border-border px-5 py-4 last:border-b-0">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <span className="text-[13px] font-semibold text-ink">Unit {intake.unit_identifier}</span>
+            <span className="rounded-full bg-hover-subtle px-2 py-[2px] text-[10px] text-muted">{intake.category}</span>
+            <span className={intake.status === 'ticket_created' ? 'rounded-full bg-green-bg px-2 py-[2px] text-[10px] text-green' : 'rounded-full bg-yellowbg px-2 py-[2px] text-[10px] text-amber'}>
+              {intake.status === 'ticket_created' ? 'Ticket created' : intake.status}
+            </span>
+          </div>
+          <p className="text-[13px] font-medium text-ink">{intake.title}</p>
+          <p className="mt-1 line-clamp-2 text-[12px] text-muted">{intake.description}</p>
+          <p className="mt-1 text-[11px] text-muted">
+            {intake.owner_name} · {intake.media_count} media item{intake.media_count === 1 ? '' : 's'}
+            {intake.maintenance_request_id ? ` · Ref ${intake.maintenance_request_id.slice(0, 8)}` : ''}
+          </p>
+        </div>
+        {intake.status === 'candidate' && (
+          <div className="flex flex-shrink-0 gap-2">
+            <button onClick={() => onCreate(intake)} className="rounded-lg bg-accent px-3 py-2 text-[12px] font-semibold text-white">
+              Create ticket
+            </button>
+            <button onClick={() => onDismiss(intake)} className="rounded-lg border border-border px-3 py-2 text-[12px] font-medium text-muted">
+              Dismiss
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -228,7 +284,7 @@ function OperatorView({
   onReload: () => Promise<void>
 }) {
   const { addToast } = useToast()
-  const [activeTab, setActiveTab] = useState<'inbox' | 'broadcasts'>('inbox')
+  const [activeTab, setActiveTab] = useState<'inbox' | 'maintenance' | 'broadcasts'>('inbox')
   const [broadcastOpen, setBroadcastOpen] = useState(false)
   const [broadcastText, setBroadcastText] = useState('')
   const [broadcastType, setBroadcastType] = useState<WhatsAppBroadcastType>('general')
@@ -256,6 +312,22 @@ function OperatorView({
     } finally {
       setSending(false)
     }
+  }
+
+  async function createTicketFromIntake(intake: WhatsAppMaintenanceIntake) {
+    await createMaintenanceRequestFromWhatsAppMessage(schemeId, intake.message_id, {
+      title: intake.title,
+      description: intake.description,
+      category: intake.category,
+    })
+    await onReload()
+    addToast('Maintenance ticket created from WhatsApp.', 'success')
+  }
+
+  async function dismissIntake(intake: WhatsAppMaintenanceIntake) {
+    await dismissWhatsAppMaintenanceIntake(schemeId, intake.id)
+    await onReload()
+    addToast('WhatsApp maintenance intake dismissed.', 'success')
   }
 
   return (
@@ -288,7 +360,7 @@ function OperatorView({
       </div>
 
       <div className="flex border-b border-border mb-0">
-        {(['inbox', 'broadcasts'] as const).map(tab => (
+        {(['inbox', 'maintenance', 'broadcasts'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -297,10 +369,15 @@ function OperatorView({
               activeTab === tab ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink',
             ].join(' ')}
           >
-            {tab}
+            {tab === 'maintenance' ? 'Maintenance' : tab}
             {tab === 'inbox' && dashboard.unread_count > 0 && (
               <span className="ml-2 w-4 h-4 rounded-full bg-[#25D366] text-white text-[10px] font-bold inline-flex items-center justify-center">
                 {dashboard.unread_count}
+              </span>
+            )}
+            {tab === 'maintenance' && dashboard.maintenance_intakes.filter(item => item.status === 'candidate').length > 0 && (
+              <span className="ml-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber text-[10px] font-bold text-white">
+                {dashboard.maintenance_intakes.filter(item => item.status === 'candidate').length}
               </span>
             )}
           </button>
@@ -321,6 +398,17 @@ function OperatorView({
               <ThreadCard key={thread.id} thread={thread} />
             ))}
           </>
+        ) : activeTab === 'maintenance' ? (
+          dashboard.maintenance_intakes.length === 0 ? (
+            <div className="px-5 py-12 text-center text-[13px] text-muted">No WhatsApp maintenance intakes yet.</div>
+          ) : dashboard.maintenance_intakes.map(intake => (
+            <MaintenanceIntakeCard
+              key={intake.id}
+              intake={intake}
+              onCreate={createTicketFromIntake}
+              onDismiss={dismissIntake}
+            />
+          ))
         ) : (
           <>
             <div className="px-5 py-2 border-b border-border bg-page">

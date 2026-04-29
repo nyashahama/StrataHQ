@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 )
 
 type BankStatementImportPayload struct {
@@ -31,11 +30,5 @@ func (h *BankStatementImportHandler) Handle(ctx context.Context, payload json.Ra
 	if p.ImportID == "" {
 		return fmt.Errorf("%w: importId is required", ErrNonRetryable)
 	}
-	if err := h.levyService.ProcessBankStatementImport(ctx, p.ImportID); err != nil {
-		if strings.Contains(err.Error(), "import not found") {
-			return fmt.Errorf("%w: %v", ErrNonRetryable, err)
-		}
-		return err
-	}
-	return nil
+	return h.levyService.ProcessBankStatementImport(ctx, p.ImportID)
 }

@@ -61,8 +61,7 @@ CREATE TABLE bank_statement_rows (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT bank_statement_rows_confidence_range CHECK (confidence >= 0 AND confidence <= 100),
     CONSTRAINT bank_statement_rows_amount_positive CHECK (amount_cents > 0),
-    CONSTRAINT bank_statement_rows_unique_row UNIQUE (import_id, row_number),
-    CONSTRAINT bank_statement_rows_unique_fingerprint UNIQUE (row_fingerprint)
+    CONSTRAINT bank_statement_rows_unique_row UNIQUE (import_id, row_number)
 );
 
 CREATE INDEX idx_bank_statement_imports_scheme_created_at
@@ -74,12 +73,16 @@ CREATE INDEX idx_bank_statement_imports_status
 CREATE INDEX idx_bank_statement_rows_import_status
     ON bank_statement_rows (import_id, status, row_number);
 
+CREATE INDEX idx_bank_statement_rows_row_fingerprint
+    ON bank_statement_rows (row_fingerprint);
+
 CREATE INDEX idx_bank_statement_rows_matched_account
     ON bank_statement_rows (matched_levy_account_id)
     WHERE matched_levy_account_id IS NOT NULL;
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_bank_statement_rows_matched_account;
+DROP INDEX IF EXISTS idx_bank_statement_rows_row_fingerprint;
 DROP INDEX IF EXISTS idx_bank_statement_rows_import_status;
 DROP INDEX IF EXISTS idx_bank_statement_imports_status;
 DROP INDEX IF EXISTS idx_bank_statement_imports_scheme_created_at;

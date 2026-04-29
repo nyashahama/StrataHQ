@@ -468,18 +468,18 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 			continue
 		}
 
-		accountID, err := uuid.Parse(match.AccountID)
-		if err != nil {
+		accountID, parseErr := uuid.Parse(match.AccountID)
+		if parseErr != nil {
 			return nil, ErrInvalidInput
 		}
 
-		account, err := q.GetLevyAccount(ctx, accountID)
-		if err != nil {
+		account, getErr := q.GetLevyAccount(ctx, accountID)
+		if getErr != nil {
 			return nil, ErrInvalidInput
 		}
 
-		paymentDate, err := time.Parse("2006-01-02", match.PaymentDate)
-		if err != nil {
+		paymentDate, parseErr := time.Parse("2006-01-02", match.PaymentDate)
+		if parseErr != nil {
 			return nil, ErrInvalidInput
 		}
 
@@ -490,9 +490,9 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 			bankRef = pgtype.Text{String: match.Reference, Valid: true}
 		}
 
-		payment, created, err := ensureLevyPayment(ctx, q, account.ID, match.AmountCents, paymentDate, row.RowFingerprint, bankRef)
-		if err != nil {
-			return nil, err
+		payment, created, paymentErr := ensureLevyPayment(ctx, q, account.ID, match.AmountCents, paymentDate, row.RowFingerprint, bankRef)
+		if paymentErr != nil {
+			return nil, paymentErr
 		}
 		if created {
 			newPaid := account.PaidCents + match.AmountCents

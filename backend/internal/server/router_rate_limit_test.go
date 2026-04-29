@@ -7,20 +7,34 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 
 	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/config"
 )
 
+func newTestRedis(t *testing.T) *redis.Client {
+	t.Helper()
+
+	server, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	t.Cleanup(server.Close)
+
+	rdb := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() {
+		_ = rdb.Close()
+	})
+	return rdb
+}
+
 func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
-	defer rdb.Close()
+	rdb := newTestRedis(t)
 
 	ctx := context.Background()
 
@@ -66,8 +80,7 @@ func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) 
 func TestRouterUsesDedicatedRateLimitPrefixesForAIAndWebhooks(t *testing.T) {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
-	rdb := redis.NewClient(&redis.Options{Addr: "localhost:6379"})
-	defer rdb.Close()
+	rdb := newTestRedis(t)
 
 	ctx := context.Background()
 	existingKeys, _ := rdb.Keys(ctx, "ratelimit:*").Result()
@@ -114,10 +127,7 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-	})
-	defer rdb.Close()
+	rdb := newTestRedis(t)
 
 	ctx := context.Background()
 

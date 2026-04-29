@@ -4,8 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 )
+
+func resetTrustedProxyCIDRsForTest() {
+	trustedCIDRs = nil
+	trustedCIDRsOnce = sync.Once{}
+}
 
 func TestPerEndpointRateLimitUsesDistinctPrefixes(t *testing.T) {
 	testIP := "192.0.2.1"
@@ -98,7 +104,22 @@ func TestClientIPUsesForwardedForFromTrustedProxy(t *testing.T) {
 	}
 }
 
-func TestClientIPUsesRealIPFromTrustedPrivateProxy(t *testing.T) {
+func TestClientIPDoesNotTrustPrivateProxyWithoutCIDRConfiguration(t *testing.T) {
+	resetTrustedProxyCIDRsForTest()
+
+	req := httptest.NewRequest("GET", "/", nil)
+	req.RemoteAddr = "10.0.0.10:8080"
+	req.Header.Set("X-Real-Ip", "203.0.113.88")
+
+	if got := clientIP(req); got != "10.0.0.10" {
+		t.Fatalf("clientIP() = %q, want %q", got, "10.0.0.10")
+	}
+}
+
+func TestClientIPUsesRealIPFromConfiguredTrustedProxyCIDR(t *testing.T) {
+	t.Setenv("TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
+	resetTrustedProxyCIDRsForTest()
+
 	req := httptest.NewRequest("GET", "/", nil)
 	req.RemoteAddr = "10.0.0.10:8080"
 	req.Header.Set("X-Real-Ip", "203.0.113.88")

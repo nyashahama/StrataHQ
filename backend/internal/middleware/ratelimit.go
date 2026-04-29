@@ -183,5 +183,5 @@ func isTrustedProxy(host string) bool {
 		return false
 	}
 
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
+	return ip.IsLoopback()
 }

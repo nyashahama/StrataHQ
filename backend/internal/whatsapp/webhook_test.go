@@ -10,7 +10,7 @@ import (
 )
 
 func TestInboundRejectsMissingTwilioSignature(t *testing.T) {
-	handler := NewWebhookHandler(nil, nil, nil, slog.Default(), "twilio-token")
+	handler := NewWebhookHandler(nil, nil, nil, nil, slog.Default(), "twilio-token")
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/whatsapp/webhooks", strings.NewReader("From=whatsapp%3A%2B27123456789&Body=hello"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -24,7 +24,7 @@ func TestInboundRejectsMissingTwilioSignature(t *testing.T) {
 }
 
 func TestInboundRejectsInvalidTwilioSignature(t *testing.T) {
-	handler := NewWebhookHandler(nil, nil, nil, slog.Default(), "twilio-token")
+	handler := NewWebhookHandler(nil, nil, nil, nil, slog.Default(), "twilio-token")
 
 	form := url.Values{}
 	form.Set("From", "whatsapp:+27123456789")

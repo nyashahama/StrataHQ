@@ -1,6 +1,7 @@
 package whatsapp
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +61,40 @@ func TestWhatsAppBroadcastSentAuditEvent(t *testing.T) {
 	}
 	if metadata["send_errors"] != 2 {
 		t.Fatalf("metadata.send_errors = %v, want 2", metadata["send_errors"])
+	}
+}
+
+func TestClassifyMaintenanceIntent(t *testing.T) {
+	tests := []struct {
+		body       string
+		mediaCount int
+		wantIntent bool
+		wantCategory string
+	}{
+		{body: "2 leaking tap in bathroom", wantIntent: true, wantCategory: "plumbing"},
+		{body: "No power at my unit", wantIntent: true, wantCategory: "electrical"},
+		{body: "Crack in the wall", wantIntent: true, wantCategory: "structural"},
+		{body: "Pool pump is broken", wantIntent: true, wantCategory: "pool"},
+		{body: "hello", wantIntent: false, wantCategory: "other"},
+		{body: "photo of broken gate", mediaCount: 1, wantIntent: true, wantCategory: "electrical"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.body, func(t *testing.T) {
+			got := classifyMaintenanceIntent(tt.body, tt.mediaCount)
+			if got.IsMaintenance != tt.wantIntent || got.Category != tt.wantCategory {
+				t.Fatalf("classification = %+v", got)
+			}
+		})
+	}
+}
+
+func TestBuildMaintenanceIntakeText(t *testing.T) {
+	result := buildMaintenanceIntakeText("Leaking pipe in bathroom. Please help", 2)
+	if result.Title != "WhatsApp: Leaking pipe in bathroom" {
+		t.Fatalf("title = %q", result.Title)
+	}
+	if !strings.Contains(result.Description, "Media attached: 2 item(s)") {
+		t.Fatalf("description missing media summary: %q", result.Description)
 	}
 }
 

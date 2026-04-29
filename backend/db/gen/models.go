@@ -1140,6 +1140,22 @@ type WhatsappBroadcast struct {
 	CreatedAt      time.Time             `json:"created_at"`
 }
 
+type WhatsappMaintenanceIntake struct {
+	ID                   uuid.UUID           `json:"id"`
+	SchemeID             uuid.UUID           `json:"scheme_id"`
+	ThreadID             uuid.UUID           `json:"thread_id"`
+	MessageID            uuid.UUID           `json:"message_id"`
+	UnitID               uuid.UUID           `json:"unit_id"`
+	MaintenanceRequestID pgtype.UUID         `json:"maintenance_request_id"`
+	Status               string              `json:"status"`
+	Category             MaintenanceCategory `json:"category"`
+	Title                string              `json:"title"`
+	Description          string              `json:"description"`
+	MediaCount           int32               `json:"media_count"`
+	CreatedAt            time.Time           `json:"created_at"`
+	UpdatedAt            time.Time           `json:"updated_at"`
+}
+
 type WhatsappMessage struct {
 	ID                   uuid.UUID             `json:"id"`
 	ThreadID             uuid.UUID             `json:"thread_id"`
@@ -1148,6 +1164,16 @@ type WhatsappMessage struct {
 	MaintenanceRequestID pgtype.UUID           `json:"maintenance_request_id"`
 	NoticeID             pgtype.UUID           `json:"notice_id"`
 	CreatedAt            time.Time             `json:"created_at"`
+}
+
+type WhatsappMessageMedium struct {
+	ID               uuid.UUID   `json:"id"`
+	MessageID        uuid.UUID   `json:"message_id"`
+	Provider         string      `json:"provider"`
+	ProviderMediaSid pgtype.Text `json:"provider_media_sid"`
+	MediaUrl         string      `json:"media_url"`
+	ContentType      pgtype.Text `json:"content_type"`
+	CreatedAt        time.Time   `json:"created_at"`
 }
 
 type WhatsappThread struct {

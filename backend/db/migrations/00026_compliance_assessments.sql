@@ -13,6 +13,9 @@ CREATE TABLE compliance_assessments (
 CREATE INDEX idx_compliance_assessments_scheme_assessed
     ON compliance_assessments (scheme_id, assessed_at DESC);
 
+ALTER TABLE compliance_assessments ENABLE ROW LEVEL SECURITY;
+
 -- +goose Down
+ALTER TABLE compliance_assessments DISABLE ROW LEVEL SECURITY;
 DROP INDEX IF EXISTS idx_compliance_assessments_scheme_assessed;
 DROP TABLE IF EXISTS compliance_assessments;

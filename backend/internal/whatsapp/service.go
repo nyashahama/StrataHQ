@@ -155,10 +155,11 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 	}
 
 	response := &DashboardResponse{
-		Threads:     []ThreadInfo{},
-		Broadcasts:  []BroadcastInfo{},
-		Role:        access.role,
-		PhoneNumber: schemeWhatsAppNumber,
+		Threads:            []ThreadInfo{},
+		Broadcasts:         []BroadcastInfo{},
+		MaintenanceIntakes: []MaintenanceIntakeInfo{},
+		Role:               access.role,
+		PhoneNumber:        schemeWhatsAppNumber,
 	}
 
 	for _, row := range threadRows {
@@ -630,6 +631,19 @@ func (s *Service) CreateMaintenanceFromMessage(ctx context.Context, identity aut
 	if msg.SchemeID != access.scheme.ID {
 		return nil, ErrForbidden
 	}
+	if msg.MaintenanceRequestID.Valid {
+		intakes, err := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range intakes {
+			if row.MessageID == mid {
+				mapped := mapMaintenanceIntake(row)
+				return &mapped, nil
+			}
+		}
+	}
+
 	title := strings.TrimSpace(input.Title)
 	description := strings.TrimSpace(input.Description)
 	category := strings.TrimSpace(input.Category)

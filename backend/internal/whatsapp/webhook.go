@@ -105,14 +105,15 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 	body := r.FormValue("Body")
 	profileName := r.FormValue("ProfileName")
 
-	if from == "" || body == "" {
+	media := parseInboundMedia(r.Form)
+
+	if from == "" || (body == "" && len(media) == 0) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
 	phoneNumber := strings.TrimPrefix(from, "whatsapp:")
 
-	media := parseInboundMedia(r.Form)
 	go h.processMessage(phoneNumber, body, profileName, media)
 
 	w.WriteHeader(http.StatusOK)

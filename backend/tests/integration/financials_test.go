@@ -103,6 +103,16 @@ func TestFinancials_DashboardAndUpdates(t *testing.T) {
 		t.Fatalf("unexpected levy summary: %+v", dashboard.LevySummary)
 	}
 
+	if dashboard.LevyForecast == nil {
+		t.Fatalf("expected admin dashboard to include levy forecast")
+	}
+	if dashboard.LevyForecast.MonthsProjected != 12 {
+		t.Fatalf("forecast months = %d", dashboard.LevyForecast.MonthsProjected)
+	}
+	if len(dashboard.LevyForecast.DataPoints) != 1 {
+		t.Fatalf("expected 1 forecast point, got %d", len(dashboard.LevyForecast.DataPoints))
+	}
+
 	req = httptest.NewRequest(http.MethodGet, "/financials/"+schemeID, nil)
 	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
 	req = req.WithContext(auth.ContextWithIdentity(req.Context(), residentUserID, orgID, string(auth.RoleResident)))
@@ -114,6 +124,9 @@ func TestFinancials_DashboardAndUpdates(t *testing.T) {
 	residentDashboard := decodeSuccess[financials.DashboardResponse](t, w)
 	if residentDashboard.Role != string(auth.RoleResident) || len(residentDashboard.BudgetLines) != 1 {
 		t.Fatalf("unexpected resident dashboard: %+v", residentDashboard)
+	}
+	if residentDashboard.LevyForecast != nil {
+		t.Fatalf("resident dashboard should not include levy forecast: %+v", residentDashboard.LevyForecast)
 	}
 
 	req = httptest.NewRequest(http.MethodPut, "/financials/"+schemeID+"/budget-lines", bytes.NewReader(budgetBody))

@@ -178,10 +178,12 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		resp.SurplusCents = resp.TotalBudgetedCents - resp.TotalActualCents
 	}
 
+	var reserveInfo *ReserveFundInfo
 	reserve, reserveErr := s.db.Q.GetReserveFund(ctx, scheme.ID)
 	if reserveErr == nil {
 		mapped := mapReserveFund(reserve)
-		resp.ReserveFund = &mapped
+		reserveInfo = &mapped
+		resp.ReserveFund = reserveInfo
 	} else if !errors.Is(reserveErr, pgx.ErrNoRows) {
 		return nil, reserveErr
 	}
@@ -191,6 +193,14 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		return nil, levyErr
 	}
 	resp.LevySummary = levySummary
+
+	if role != string(auth.RoleResident) {
+		forecast, forecastErr := s.buildLevyForecastForScheme(ctx, scheme.ID, reserveInfo, allLines)
+		if forecastErr != nil {
+			return nil, forecastErr
+		}
+		resp.LevyForecast = forecast
+	}
 
 	return resp, nil
 }
@@ -320,6 +330,59 @@ func (s *Service) buildLevySummary(ctx context.Context, schemeID uuid.UUID) (*Le
 		summary.CollectionRatePct = int(math.Round(float64(summary.TotalCollectedCents) * 100 / float64(summary.TotalBilledCents)))
 	}
 	return summary, nil
+}
+
+func (s *Service) buildLevyForecastForScheme(ctx context.Context, schemeID uuid.UUID, reserve *ReserveFundInfo, budgetLines []dbgen.BudgetLine) (*LevyForecastInfo, error) {
+	periods, err := s.db.Q.ListLevyPeriodsByScheme(ctx, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	if len(periods) == 0 {
+		return nil, nil
+	}
+	if len(periods) > 12 {
+		periods = periods[:12]
+	}
+
+	expenseByPeriod := make(map[string]int64)
+	for _, line := range budgetLines {
+		expenseByPeriod[line.PeriodLabel] += line.ActualCents
+	}
+
+	input := levyForecastInput{
+		MonthsProjected:         12,
+		CurrentMonthlyLevyCents: periods[0].AmountCents,
+	}
+	if reserve != nil {
+		input.CurrentReserveBalanceCents = reserve.BalanceCents
+		input.ReserveTargetCents = reserve.TargetCents
+	}
+
+	for index, period := range periods {
+		accounts, accountErr := s.db.Q.ListLevyAccountsByPeriod(ctx, period.ID)
+		if accountErr != nil {
+			return nil, accountErr
+		}
+		if index == 0 {
+			input.LatestUnitCount = len(accounts)
+		}
+		point := levyForecastPointInput{PeriodLabel: period.Label}
+		for _, account := range accounts {
+			point.BilledCents += account.AmountCents
+			point.CollectedCents += minInt64(account.PaidCents, account.AmountCents)
+		}
+		if expense, ok := expenseByPeriod[period.Label]; ok {
+			point.ExpenseCents = expense
+			point.HasExpense = true
+		}
+		input.Points = append(input.Points, point)
+	}
+
+	forecast := buildLevyForecast(input)
+	if forecast != nil && reserve == nil {
+		forecast.Notes = append(forecast.Notes, "No reserve fund is set; projection starts from R0.")
+	}
+	return forecast, nil
 }
 
 func mapBudgetLine(line dbgen.BudgetLine) BudgetLineInfo {

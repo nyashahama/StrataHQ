@@ -105,10 +105,11 @@ func TestDocuments_VisibilityFiltering(t *testing.T) {
 	schemeID := setupScheme(t, accessToken)
 	schemeUUID := uuid.MustParse(schemeID)
 
-	adminUserID, adminClaims := auth.ValidateAccessToken(accessToken, testJWTSigningKey, "", "")
-	if adminClaims == nil {
-		t.Fatal("validate admin token")
+	adminClaims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey, "", "")
+	if err != nil {
+		t.Fatalf("validate admin token: %v", err)
 	}
+	_ = adminClaims
 
 	unitID := createUnitRecord(t, schemeID, "5E")
 	residentEmail := uniqueEmail(t)
@@ -119,7 +120,7 @@ func TestDocuments_VisibilityFiltering(t *testing.T) {
 	trusteeUserID := createMemberRecord(t, orgID, schemeID, trusteeEmail, "Trustee User", string(auth.RoleTrustee), nil)
 
 	// Create documents with different visibilities using testQ directly
-	_, err := testQ.CreateSchemeDocument(ctx, dbgen.CreateSchemeDocumentParams{
+	_, err = testQ.CreateSchemeDocument(ctx, dbgen.CreateSchemeDocumentParams{
 		SchemeID:         schemeUUID,
 		Name:             "Public Rules",
 		StorageKey:       "/docs/public.pdf",
@@ -235,7 +236,4 @@ func TestDocuments_VisibilityFiltering(t *testing.T) {
 	if !hasTrusteeDoc {
 		t.Fatalf("trustee should see 'Trustee Minutes' doc, got: %+v", trusteeDocs.Documents)
 	}
-
-	_ = adminUserID
-	_ = residentEmail
 }

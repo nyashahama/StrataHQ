@@ -20,12 +20,33 @@ BEGIN
 END $$;
 -- +goose StatementEnd
 
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+-- GitHub Actions and local dev databases do not always have Supabase's
+-- placeholder roles. Guard the revokes so migrations remain portable.
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+        EXECUTE 'REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon';
+        EXECUTE 'REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon';
+    END IF;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+        EXECUTE 'REVOKE ALL ON ALL TABLES IN SCHEMA public FROM authenticated';
+        EXECUTE 'REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM authenticated';
+    END IF;
+END $$;
+-- +goose StatementEnd
+
+-- +goose StatementBegin
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated';
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated';
+        EXECUTE 'ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM anon, authenticated';
+    END IF;
+END $$;
+-- +goose StatementEnd
 
 -- +goose Down
 

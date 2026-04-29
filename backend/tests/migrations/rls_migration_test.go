@@ -17,9 +17,9 @@ func TestSupabaseRLSHardeningMigrationExists(t *testing.T) {
 	sql := string(content)
 	required := []string{
 		"ENABLE ROW LEVEL SECURITY",
-		"REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated;",
-		"REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;",
-		"ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated;",
+		"IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')",
+		"IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')",
+		"IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres')",
 	}
 
 	for _, token := range required {

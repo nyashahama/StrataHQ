@@ -52,16 +52,43 @@ type LevySummaryInfo struct {
 }
 
 //nolint:govet // Keep response DTO fields grouped by API meaning rather than field packing.
+type LevyForecastPointInfo struct {
+	PeriodLabel       string `json:"period_label"`
+	BilledCents       int64  `json:"billed_cents"`
+	CollectedCents    int64  `json:"collected_cents"`
+	CollectionRatePct int    `json:"collection_rate_pct"`
+	ExpenseCents      int64  `json:"expense_cents"`
+}
+
+//nolint:govet // Keep response DTO fields grouped by API meaning rather than field packing.
+type LevyForecastInfo struct {
+	DataPoints                    []LevyForecastPointInfo `json:"data_points"`
+	Notes                         []string                `json:"notes"`
+	Status                        string                  `json:"status"`
+	Confidence                    string                  `json:"confidence"`
+	MonthsProjected               int                     `json:"months_projected"`
+	CurrentMonthlyLevyCents       int64                   `json:"current_monthly_levy_cents"`
+	AverageCollectionRatePct      int                     `json:"average_collection_rate_pct"`
+	AverageMonthlyIncomeCents     int64                   `json:"average_monthly_income_cents"`
+	AverageMonthlyExpenseCents    int64                   `json:"average_monthly_expense_cents"`
+	ProjectedReserveBalanceCents  int64                   `json:"projected_reserve_balance_cents"`
+	ProjectedShortfallCents       int64                   `json:"projected_shortfall_cents"`
+	RecommendedMonthlyIncreaseCents int64                 `json:"recommended_monthly_increase_cents"`
+	RecommendedIncreasePct        int                     `json:"recommended_increase_pct"`
+}
+
+//nolint:govet // Keep response DTO fields grouped by API meaning rather than field packing.
 type DashboardResponse struct {
-	ReserveFund        *ReserveFundInfo `json:"reserve_fund"`
-	LevySummary        *LevySummaryInfo `json:"levy_summary"`
-	BudgetLines        []BudgetLineInfo `json:"budget_lines"`
-	AvailablePeriods   []string         `json:"available_periods"`
-	Role               string           `json:"role"`
-	SelectedPeriod     string           `json:"selected_period"`
-	TotalBudgetedCents int64            `json:"total_budgeted_cents"`
-	TotalActualCents   int64            `json:"total_actual_cents"`
-	SurplusCents       int64            `json:"surplus_cents"`
+	LevyForecast        *LevyForecastInfo `json:"levy_forecast"`
+	ReserveFund        *ReserveFundInfo  `json:"reserve_fund"`
+	LevySummary        *LevySummaryInfo  `json:"levy_summary"`
+	BudgetLines        []BudgetLineInfo  `json:"budget_lines"`
+	AvailablePeriods   []string          `json:"available_periods"`
+	Role               string            `json:"role"`
+	SelectedPeriod     string            `json:"selected_period"`
+	TotalBudgetedCents int64             `json:"total_budgeted_cents"`
+	TotalActualCents   int64             `json:"total_actual_cents"`
+	SurplusCents       int64             `json:"surplus_cents"`
 }
 
 //nolint:govet // Keep input DTO fields grouped by domain meaning rather than field packing.
@@ -75,6 +102,23 @@ type UpsertBudgetLineInput struct {
 type UpdateReserveFundInput struct {
 	BalanceCents int64
 	TargetCents  int64
+}
+
+type levyForecastPointInput struct {
+	PeriodLabel    string
+	BilledCents    int64
+	CollectedCents int64
+	ExpenseCents   int64
+	HasExpense     bool
+}
+
+type levyForecastInput struct {
+	Points                     []levyForecastPointInput
+	MonthsProjected            int
+	CurrentReserveBalanceCents int64
+	ReserveTargetCents         int64
+	CurrentMonthlyLevyCents    int64
+	LatestUnitCount            int
 }
 
 type Service struct {
@@ -323,4 +367,108 @@ func levyStatusFor(paidCents, amountCents int64, dueDate pgtype.Date) string {
 
 func startOfDay(value time.Time) time.Time {
 	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
+}
+
+func buildLevyForecast(input levyForecastInput) *LevyForecastInfo {
+	if len(input.Points) == 0 {
+		return nil
+	}
+	months := input.MonthsProjected
+	if months <= 0 {
+		months = 12
+	}
+
+	forecast := &LevyForecastInfo{
+		Status:                  "healthy",
+		Confidence:              "low",
+		MonthsProjected:         months,
+		CurrentMonthlyLevyCents: input.CurrentMonthlyLevyCents,
+		DataPoints:              make([]LevyForecastPointInfo, 0, len(input.Points)),
+		Notes:                   []string{},
+	}
+
+	var totalBilled, totalCollected, totalExpense int64
+	expensePoints := 0
+	for _, point := range input.Points {
+		if point.BilledCents <= 0 {
+			continue
+		}
+		totalBilled += point.BilledCents
+		totalCollected += minInt64(point.CollectedCents, point.BilledCents)
+		if point.HasExpense {
+			totalExpense += point.ExpenseCents
+			expensePoints++
+		}
+		collectionPct := int(math.Round(float64(minInt64(point.CollectedCents, point.BilledCents)) * 100 / float64(point.BilledCents)))
+		forecast.DataPoints = append(forecast.DataPoints, LevyForecastPointInfo{
+			PeriodLabel:       point.PeriodLabel,
+			BilledCents:       point.BilledCents,
+			CollectedCents:    minInt64(point.CollectedCents, point.BilledCents),
+			CollectionRatePct: collectionPct,
+			ExpenseCents:      point.ExpenseCents,
+		})
+	}
+
+	if totalBilled == 0 || len(forecast.DataPoints) == 0 {
+		return nil
+	}
+
+	forecast.AverageCollectionRatePct = int(math.Round(float64(totalCollected) * 100 / float64(totalBilled)))
+	forecast.AverageMonthlyIncomeCents = int64(math.Round(float64(totalCollected) / float64(len(forecast.DataPoints))))
+	if expensePoints > 0 {
+		forecast.AverageMonthlyExpenseCents = int64(math.Round(float64(totalExpense) / float64(expensePoints)))
+	} else {
+		forecast.Notes = append(forecast.Notes, "No matching budget expense periods were found; expense projection uses R0.")
+	}
+
+	monthlyNet := forecast.AverageMonthlyIncomeCents - forecast.AverageMonthlyExpenseCents
+	forecast.ProjectedReserveBalanceCents = input.CurrentReserveBalanceCents + monthlyNet*int64(months)
+	if input.ReserveTargetCents > forecast.ProjectedReserveBalanceCents {
+		forecast.ProjectedShortfallCents = input.ReserveTargetCents - forecast.ProjectedReserveBalanceCents
+	}
+
+	switch {
+	case len(forecast.DataPoints) < 2 || expensePoints == 0:
+		forecast.Status = "insufficient_data"
+	case forecast.ProjectedShortfallCents > 0:
+		forecast.Status = "shortfall_risk"
+	case monthlyNet < 0:
+		forecast.Status = "watch"
+	default:
+		forecast.Status = "healthy"
+	}
+
+	switch {
+	case len(forecast.DataPoints) >= 6 && expensePoints >= 3:
+		forecast.Confidence = "high"
+	case len(forecast.DataPoints) >= 3 && expensePoints >= 1:
+		forecast.Confidence = "medium"
+	default:
+		forecast.Confidence = "low"
+	}
+
+	if len(forecast.DataPoints) < 2 {
+		forecast.Notes = append(forecast.Notes, "Projection uses fewer than 2 historical levy periods.")
+	}
+	if input.ReserveTargetCents == 0 {
+		forecast.Notes = append(forecast.Notes, "No reserve target is set; shortfall is calculated against R0.")
+	}
+	if forecast.ProjectedShortfallCents > 0 && input.LatestUnitCount > 0 {
+		rawIncrease := int64(math.Ceil(float64(forecast.ProjectedShortfallCents) / float64(months*input.LatestUnitCount)))
+		forecast.RecommendedMonthlyIncreaseCents = roundUpToNearest(rawIncrease, 1000)
+		if input.CurrentMonthlyLevyCents > 0 {
+			forecast.RecommendedIncreasePct = int(math.Round(float64(forecast.RecommendedMonthlyIncreaseCents) * 100 / float64(input.CurrentMonthlyLevyCents)))
+		}
+	} else if forecast.ProjectedShortfallCents > 0 {
+		forecast.Notes = append(forecast.Notes, "No levy accounts were found in the latest period, so no per-unit increase is recommended.")
+	}
+
+	return forecast
+}
+
+func roundUpToNearest(value, nearest int64) int64 {
+	if value <= 0 || nearest <= 0 {
+		return 0
+	}
+	return ((value + nearest - 1) / nearest) * nearest
 }

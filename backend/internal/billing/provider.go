@@ -241,7 +241,12 @@ func verifyStripeSignature(payload []byte, header, secret string) error {
 	if err != nil {
 		return err
 	}
-	if time.Since(time.Unix(secs, 0)) > 5*time.Minute {
+	t := time.Unix(secs, 0)
+	d := time.Since(t)
+	if d < 0 {
+		d = -d
+	}
+	if d > 5*time.Minute {
 		return errors.New("stale signature")
 	}
 

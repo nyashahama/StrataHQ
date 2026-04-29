@@ -13,6 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearBankStatementImportRawCsv = `-- name: ClearBankStatementImportRawCsv :exec
+UPDATE bank_statement_imports SET raw_csv = NULL WHERE id = $1
+`
+
+func (q *Queries) ClearBankStatementImportRawCsv(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearBankStatementImportRawCsv, id)
+	return err
+}
+
 const createLevyAccount = `-- name: CreateLevyAccount :one
 INSERT INTO levy_accounts (unit_id, period_id, amount_cents, due_date)
 VALUES ($1, $2, $3, $4)

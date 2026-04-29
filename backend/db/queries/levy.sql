@@ -92,3 +92,6 @@ JOIN units u ON u.id = la.unit_id
 WHERE lp.scheme_id = $1
   AND la.status IN ('pending', 'partial', 'overdue')
 ORDER BY lp.due_date DESC, u.identifier ASC;
+
+-- name: ClearBankStatementImportRawCsv :exec
+UPDATE bank_statement_imports SET raw_csv = NULL WHERE id = $1;

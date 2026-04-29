@@ -2,6 +2,7 @@ package server
 
 import (
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -64,7 +65,22 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 	// Health & metrics (outside /api/v1, no auth)
 	r.Get("/healthz", h.Health.Healthz)
 	r.Get("/readyz", h.Health.Readyz)
-	r.Handle("/metrics", promhttp.Handler())
+	if cfg.MetricsToken != "" {
+		r.Group(func(r chi.Router) {
+			r.Use(func(next http.Handler) http.Handler {
+				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Header.Get("Authorization") != "Bearer "+cfg.MetricsToken {
+						http.Error(w, "unauthorized", http.StatusUnauthorized)
+						return
+					}
+					next.ServeHTTP(w, r)
+				})
+			})
+			r.Handle("/metrics", promhttp.Handler())
+		})
+	} else {
+		r.Handle("/metrics", promhttp.Handler())
+	}
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {

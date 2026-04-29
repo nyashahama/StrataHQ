@@ -270,41 +270,49 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 		return nil, voteErr
 	}
 
-	if _, createErr := s.db.Q.CreateAgmVote(ctx, dbgen.CreateAgmVoteParams{
-		ResolutionID: resolution.ID,
-		VoterUserID:  userID,
-		Vote:         dbgen.VoteChoice(input.Choice),
-	}); createErr != nil {
-		return nil, createErr
-	}
+	var updated dbgen.AgmResolution
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		if _, createErr := q.CreateAgmVote(ctx, dbgen.CreateAgmVoteParams{
+			ResolutionID: resolution.ID,
+			VoterUserID:  userID,
+			Vote:         dbgen.VoteChoice(input.Choice),
+		}); createErr != nil {
+			return createErr
+		}
 
-	votes, err := s.db.Q.ListAgmVotesByResolution(ctx, resolution.ID)
-	if err != nil {
-		return nil, err
-	}
-	votesFor, votesAgainst := calculateVoteTotals(votes, assignments)
+		votes, txErr := q.ListAgmVotesByResolution(ctx, resolution.ID)
+		if txErr != nil {
+			return txErr
+		}
+		votesFor, votesAgainst := calculateVoteTotals(votes, assignments)
 
-	updated, err := s.db.Q.UpdateAgmResolutionVotes(ctx, dbgen.UpdateAgmResolutionVotesParams{
-		ID:           resolution.ID,
-		VotesFor:     votesFor,
-		VotesAgainst: votesAgainst,
+		updatedRes, txErr := q.UpdateAgmResolutionVotes(ctx, dbgen.UpdateAgmResolutionVotesParams{
+			ID:           resolution.ID,
+			VotesFor:     votesFor,
+			VotesAgainst: votesAgainst,
+		})
+		if txErr != nil {
+			return txErr
+		}
+		updated = updatedRes
+
+		if votesFor+votesAgainst >= updated.TotalEligible {
+			nextStatus := dbgen.ResolutionStatusFailed
+			if votesFor > votesAgainst {
+				nextStatus = dbgen.ResolutionStatusPassed
+			}
+			if _, statusErr := q.UpdateAgmResolutionStatus(ctx, dbgen.UpdateAgmResolutionStatusParams{
+				ID:     updated.ID,
+				Status: nextStatus,
+			}); statusErr != nil {
+				return statusErr
+			}
+			updated.Status = nextStatus
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
-	}
-
-	if votesFor+votesAgainst >= updated.TotalEligible {
-		nextStatus := dbgen.ResolutionStatusFailed
-		if votesFor > votesAgainst {
-			nextStatus = dbgen.ResolutionStatusPassed
-		}
-		updated, err = s.db.Q.UpdateAgmResolutionStatus(ctx, dbgen.UpdateAgmResolutionStatusParams{
-			ID:     updated.ID,
-			Status: nextStatus,
-		})
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	item := mapResolution(updated)

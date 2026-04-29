@@ -575,25 +575,29 @@ func (s *Service) UpdateMember(ctx context.Context, identity auth.Identity, sche
 		unitValue = pgtype.UUID{Bytes: parsedUnitID, Valid: true}
 	}
 
-	_, err = s.db.Q.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
-		UserID:   memberUserID,
-		SchemeID: scheme.ID,
-		UnitID:   unitValue,
-		Role:     input.Role,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = s.db.Q.UpdateOrgMembershipRole(ctx, dbgen.UpdateOrgMembershipRoleParams{
-		UserID: memberUserID,
-		OrgID:  scheme.OrgID,
-		Role:   input.Role,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		if _, txErr := q.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+			UserID:   memberUserID,
+			SchemeID: scheme.ID,
+			UnitID:   unitValue,
+			Role:     input.Role,
+		}); txErr != nil {
+			return txErr
 		}
+
+		if _, txErr := q.UpdateOrgMembershipRole(ctx, dbgen.UpdateOrgMembershipRoleParams{
+			UserID: memberUserID,
+			OrgID:  scheme.OrgID,
+			Role:   input.Role,
+		}); txErr != nil {
+			if errors.Is(txErr, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			return txErr
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 

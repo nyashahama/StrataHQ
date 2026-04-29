@@ -160,19 +160,27 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		params.SubmittedByUnit = pgtype.Text{}
 	}
 
-	created, err := s.db.Q.CreateMaintenanceRequest(ctx, params)
+	var created dbgen.MaintenanceRequest
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		c, txErr := q.CreateMaintenanceRequest(ctx, params)
+		if txErr != nil {
+			return txErr
+		}
+		created = c
+
+		if auth.IsResidentRole(access.role) {
+			if _, updateErr := q.UpdateMaintenanceStatus(ctx, dbgen.UpdateMaintenanceStatusParams{
+				ID:     created.ID,
+				Status: dbgen.MaintenanceStatusPendingApproval,
+			}); updateErr != nil {
+				return updateErr
+			}
+			created.Status = dbgen.MaintenanceStatusPendingApproval
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	if auth.IsResidentRole(access.role) {
-		if _, updateErr := s.db.Q.UpdateMaintenanceStatus(ctx, dbgen.UpdateMaintenanceStatusParams{
-			ID:     created.ID,
-			Status: dbgen.MaintenanceStatusPendingApproval,
-		}); updateErr != nil {
-			return nil, updateErr
-		}
-		created.Status = dbgen.MaintenanceStatusPendingApproval
 	}
 
 	info, err := s.enrichRequest(ctx, created)

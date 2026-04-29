@@ -15,4 +15,12 @@ describe("schemeKeys", () => {
       "agm",
     ])
   })
+
+  it("includes audit key", () => {
+    expect(schemeKeys.audit("scheme-1")).toEqual([
+      "scheme",
+      "scheme-1",
+      "audit",
+    ])
+  })
 })

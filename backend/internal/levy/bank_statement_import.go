@@ -174,10 +174,10 @@ func parseFNBStatementCSV(data []byte) ([]ParsedBankStatementRow, error) {
 		if err != nil {
 			return nil, fmt.Errorf("row %d: cannot parse amount %q", row.RowNumber, amountStr)
 		}
-		cents := int64(floatVal * 100)
-		if floatVal < 0 {
-			cents = -cents
+		if floatVal <= 0 {
+			return nil, fmt.Errorf("row %d: amount %q is not a positive credit (debits are not supported)", row.RowNumber, amountStr)
 		}
+		cents := int64(floatVal * 100)
 		row.AmountCents = cents
 
 		if hasRef && refIdx < len(record) {
@@ -325,6 +325,18 @@ func (s *Service) ImportBankStatement(ctx context.Context, identity auth.Identit
 			IdempotencyKey: import_.ID.String(),
 			MaxAttempts:    3,
 		}); err != nil {
+			_, _ = s.db.Q.UpdateBankStatementImportStatus(ctx, dbgen.UpdateBankStatementImportStatusParams{
+				ID:            import_.ID,
+				Status:        dbgen.BankStatementImportStatusFailed,
+				TotalRows:     0,
+				MatchedRows:   0,
+				AmbiguousRows: 0,
+				UnmatchedRows: 0,
+				AppliedRows:   0,
+				ParsedAt:      pgtype.Timestamptz{},
+				AppliedAt:     pgtype.Timestamptz{},
+				LastError:     pgtype.Text{String: err.Error(), Valid: true},
+			})
 			return nil, err
 		}
 	}
@@ -390,8 +402,11 @@ func (s *Service) GetBankStatementImport(ctx context.Context, identity auth.Iden
 		if r.MatchedLevyAccountID.Valid {
 			id := r.MatchedLevyAccountID.String()
 			row.MatchedLevyAccountID = &id
-			if unit, err := s.db.Q.GetUnit(ctx, uuid.UUID(r.MatchedLevyAccountID.Bytes)); err == nil {
-				row.UnitIdentifier = &unit.Identifier
+			laUUID := uuid.UUID(r.MatchedLevyAccountID.Bytes)
+			if la, err := s.db.Q.GetLevyAccount(ctx, laUUID); err == nil {
+				if unit, unitErr := s.db.Q.GetUnit(ctx, la.UnitID); unitErr == nil {
+					row.UnitIdentifier = &unit.Identifier
+				}
 			}
 		}
 		rows[i] = row
@@ -475,7 +490,21 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 
 		account, getErr := q.GetLevyAccount(ctx, accountID)
 		if getErr != nil {
-			return nil, ErrInvalidInput
+			if errors.Is(getErr, pgx.ErrNoRows) {
+				return nil, ErrInvalidInput
+			}
+			return nil, getErr
+		}
+
+		period, getErr := q.GetLevyPeriod(ctx, account.PeriodID)
+		if getErr != nil {
+			if errors.Is(getErr, pgx.ErrNoRows) {
+				return nil, ErrInvalidInput
+			}
+			return nil, getErr
+		}
+		if period.SchemeID != scheme.ID {
+			return nil, ErrForbidden
 		}
 
 		paymentDate, parseErr := time.Parse("2006-01-02", match.PaymentDate)
@@ -490,12 +519,13 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 			bankRef = pgtype.Text{String: match.Reference, Valid: true}
 		}
 
-		payment, created, paymentErr := ensureLevyPayment(ctx, q, account.ID, match.AmountCents, paymentDate, row.RowFingerprint, bankRef)
+		amountCents := row.AmountCents
+		payment, created, paymentErr := ensureLevyPayment(ctx, q, account.ID, amountCents, paymentDate, row.RowFingerprint, bankRef)
 		if paymentErr != nil {
 			return nil, paymentErr
 		}
 		if created {
-			newPaid := account.PaidCents + match.AmountCents
+			newPaid := account.PaidCents + amountCents
 			_, err = q.UpdateLevyAccountPaid(ctx, dbgen.UpdateLevyAccountPaidParams{
 				ID:        account.ID,
 				PaidCents: newPaid,

@@ -75,6 +75,24 @@ jobs:
       - name: Run migrations
         run: goose -dir db/migrations postgres "postgres://stratahq:stratahq@localhost:5432/stratahq_test?sslmode=disable" up
 
+      - name: RLS drift check
+        run: |
+          MISSING=$(psql "postgres://stratahq:stratahq@localhost:5432/stratahq_test?sslmode=disable" -tAc "
+            SELECT string_agg(tablename, ', ')
+            FROM pg_tables
+            WHERE schemaname = 'public'
+              AND tablename <> 'goose_db_version'
+              AND tablename NOT IN (
+                SELECT relname FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relrowsecurity = true
+              )")
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: The following tables have RLS disabled: $MISSING"
+            exit 1
+          fi
+          echo "All public tables have RLS enabled."
+
       - name: Unit tests
         run: go test ./internal/... -v -race
 

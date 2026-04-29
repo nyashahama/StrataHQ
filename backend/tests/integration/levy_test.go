@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -445,4 +446,103 @@ func TestLevy_BankStatementImportLifecycle(t *testing.T) {
 
 func ptrString(value string) *string {
 	return &value
+}
+
+func TestLevy_BankStatementImportCrossSchemeForbidden(t *testing.T) {
+	ctx := context.Background()
+
+	accessTokenA, orgID := setupAgent(t)
+	claimsA, err := auth.ValidateAccessToken(accessTokenA, testJWTSigningKey)
+	if err != nil {
+		t.Fatalf("validate access token A: %v", err)
+	}
+	identityA := auth.Identity{UserID: claimsA.Subject, OrgID: orgID, Role: claimsA.Role}
+	schemeID_A := setupScheme(t, accessTokenA)
+
+	unitA, err := testQ.CreateUnit(ctx, createUnitParams(schemeID_A, "A1", "Alice"))
+	if err != nil {
+		t.Fatalf("create unit A1: %v", err)
+	}
+	_ = unitA
+
+	accessTokenB, _ := setupAgent(t)
+	claimsB, err := auth.ValidateAccessToken(accessTokenB, testJWTSigningKey)
+	if err != nil {
+		t.Fatalf("validate access token B: %v", err)
+	}
+	identityB := auth.Identity{UserID: claimsB.Subject, OrgID: claimsB.OrgID, Role: claimsB.Role}
+	schemeID_B := setupScheme(t, accessTokenB)
+
+	unitB, err := testQ.CreateUnit(ctx, createUnitParams(schemeID_B, "B1", "Bob"))
+	if err != nil {
+		t.Fatalf("create unit B1: %v", err)
+	}
+	_ = unitB
+
+	service := levy.NewServiceWithAuditAndJobs(testPool, &notification.NoopSender{}, whatsapp.NewNoOpSender(), nil, jobs.NewService(testQ, jobs.Registry{}, nil, jobs.RealClock{}, jobs.Config{WorkerID: "integration-cross-scheme"}))
+	service.SetMaxJobAttempts(3)
+
+	_, err = service.CreatePeriod(ctx, identityA, schemeID_A, levy.CreatePeriodInput{
+		Label:       "May 2026",
+		AmountCents: 245000,
+		DueDate:     time.Now().UTC().AddDate(0, 0, -1),
+	})
+	if err != nil {
+		t.Fatalf("create period A: %v", err)
+	}
+
+	periodB, err := service.CreatePeriod(ctx, identityB, schemeID_B, levy.CreatePeriodInput{
+		Label:       "May 2026",
+		AmountCents: 300000,
+		DueDate:     time.Now().UTC().AddDate(0, 0, -1),
+	})
+	if err != nil {
+		t.Fatalf("create period B: %v", err)
+	}
+
+	rawCSV := []byte("Date,Description,Reference,Amount\n2026-04-01,Payment for B1,B1,3000.00\n")
+
+	importResp, err := service.ImportBankStatement(ctx, identityA, schemeID_A, levy.BankStatementImportInput{
+		BankName:         "fnb",
+		OriginalFilename: "cross_scheme.csv",
+		RawCSV:           rawCSV,
+	})
+	if err != nil {
+		t.Fatalf("import statement: %v", err)
+	}
+
+	if err := service.ProcessBankStatementImport(ctx, importResp.ID); err != nil {
+		t.Fatalf("process import: %v", err)
+	}
+
+	details, err := service.GetBankStatementImport(ctx, identityA, schemeID_A, importResp.ID)
+	if err != nil {
+		t.Fatalf("get import details: %v", err)
+	}
+	if len(details.Rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(details.Rows))
+	}
+	row := details.Rows[0]
+
+	accountsB, err := testQ.ListLevyAccountsByPeriod(ctx, uuid.MustParse(periodB.ID))
+	if err != nil {
+		t.Fatalf("list levy accounts for scheme B: %v", err)
+	}
+	if len(accountsB) == 0 {
+		t.Fatal("no levy accounts for scheme B")
+	}
+	schemeBAccountID := accountsB[0].ID.String()
+
+	_, applyErr := service.ApplyBankStatementImport(ctx, identityA, schemeID_A, importResp.ID, []levy.BankStatementManualMatchInput{
+		{
+			RowID:       row.ID,
+			AccountID:   schemeBAccountID,
+			PaymentDate: "2026-04-02",
+			AmountCents: row.AmountCents,
+			Reference:   "CROSS-SCHEME-ATTACK",
+		},
+	})
+	if !errors.Is(applyErr, levy.ErrForbidden) {
+		t.Fatalf("expected ErrForbidden when matching to another scheme's levy account, got: %v", applyErr)
+	}
 }

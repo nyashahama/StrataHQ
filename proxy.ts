@@ -44,8 +44,7 @@ export function proxy(request: NextRequest) {
 
   if (!isPublicPath(pathname)) {
     const sessionCookie = request.cookies.get("sh_session");
-    const accessCookie = request.cookies.get("sh_access");
-    if (!sessionCookie || !accessCookie) {
+    if (!sessionCookie) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);

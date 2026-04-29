@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -108,7 +109,8 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	threads, lookupErr := h.db.Q.GetConnectedWhatsAppThreadByPhone(ctx, pgtype.Text{String: phoneNumber, Valid: true})
 	if lookupErr != nil {

@@ -125,7 +125,10 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, identity auth.Ident
 		return nil, ErrNotConfigured
 	}
 
-	existing, _ := s.db.Q.GetOrgSubscription(ctx, org.ID)
+	existing, err := s.db.Q.GetOrgSubscription(ctx, org.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
 	var customerID *string
 	if existing.CustomerID.Valid {
 		value := existing.CustomerID.String

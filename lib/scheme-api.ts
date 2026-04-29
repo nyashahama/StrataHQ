@@ -12,6 +12,8 @@ export interface SchemeSummary {
   address: string;
   role: string;
   health: "good" | "fair" | "poor";
+  health_score: number;
+  health_breakdown: Record<string, number>;
   unit_count: number;
   total_members: number;
   trustee_count: number;

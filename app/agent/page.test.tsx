@@ -21,6 +21,8 @@ describe("PortfolioOverview", () => {
             address: "Address 1",
             role: "admin",
             health: "good",
+            health_score: 85,
+            health_breakdown: {},
             unit_count: 12,
             total_members: 14,
             trustee_count: 2,

@@ -53,3 +53,9 @@ RETURNING *;
 SELECT COUNT(*) FROM maintenance_requests
 WHERE scheme_id = $1
   AND status != 'resolved';
+
+-- name: CountSlaBreachedMaintenanceByScheme :one
+SELECT COUNT(*) FROM maintenance_requests
+WHERE scheme_id = $1
+  AND status NOT IN ('resolved', 'pending_approval')
+  AND created_at + (sla_hours || ' hours')::interval < NOW();

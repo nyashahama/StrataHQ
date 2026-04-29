@@ -52,22 +52,24 @@ type NoticeInfo struct {
 
 //nolint:govet // Keep API response fields grouped by meaning rather than field packing.
 type SchemeSummary struct {
-	UnitID               *string `json:"unit_id"`
-	UnitIdentifier       *string `json:"unit_identifier"`
-	NextAgmDate          *string `json:"next_agm_date"`
-	ID                   string  `json:"id"`
-	Name                 string  `json:"name"`
-	Address              string  `json:"address"`
-	Role                 string  `json:"role"`
-	Health               string  `json:"health"`
-	UnitCount            int32   `json:"unit_count"`
-	TotalMembers         int     `json:"total_members"`
-	TrusteeCount         int     `json:"trustee_count"`
-	ResidentCount        int     `json:"resident_count"`
-	LevyCollectionPct    int     `json:"levy_collection_pct"`
-	OpenMaintenanceCount int64   `json:"open_maintenance_count"`
-	NoticeCount          int     `json:"notice_count"`
-	DaysToAgm            *int    `json:"days_to_agm"`
+	UnitID               *string        `json:"unit_id"`
+	UnitIdentifier       *string        `json:"unit_identifier"`
+	NextAgmDate          *string        `json:"next_agm_date"`
+	ID                   string         `json:"id"`
+	Name                 string         `json:"name"`
+	Address              string         `json:"address"`
+	Role                 string         `json:"role"`
+	Health               string         `json:"health"`
+	HealthScore          int            `json:"health_score"`
+	HealthBreakdown      map[string]int `json:"health_breakdown"`
+	UnitCount            int32          `json:"unit_count"`
+	TotalMembers         int            `json:"total_members"`
+	TrusteeCount         int            `json:"trustee_count"`
+	ResidentCount        int            `json:"resident_count"`
+	LevyCollectionPct    int            `json:"levy_collection_pct"`
+	OpenMaintenanceCount int64          `json:"open_maintenance_count"`
+	NoticeCount          int            `json:"notice_count"`
+	DaysToAgm            *int           `json:"days_to_agm"`
 }
 
 //nolint:govet // Keep API response fields grouped by meaning rather than field packing.
@@ -154,12 +156,15 @@ func (s *Service) List(ctx context.Context, identity auth.Identity) ([]SchemeSum
 
 			openMaintenanceCount := row.OpenMaintenanceCount
 			levyCollectionPct := int(row.LevyCollectionPct)
+			score, breakdown := s.computeHealthScore(ctx, row.ID)
 			summaries = append(summaries, SchemeSummary{
 				ID:                   row.ID.String(),
 				Name:                 row.Name,
 				Address:              row.Address,
 				Role:                 string(auth.RoleAdmin),
-				Health:               healthFor(levyCollectionPct, openMaintenanceCount),
+				Health:               healthFor(score),
+				HealthScore:          score,
+				HealthBreakdown:      breakdown,
 				UnitCount:            row.UnitCount,
 				TotalMembers:         int(row.TotalMembers),
 				TrusteeCount:         int(row.TrusteeCount),
@@ -717,7 +722,8 @@ func (s *Service) buildSummary(ctx context.Context, scheme dbgen.Scheme, role st
 	}
 
 	nextAgmDate, daysToAgm := nextAgm(meetings)
-	health := healthFor(collectionPct, openMaintenanceCount)
+	healthScore, healthBreakdown := s.computeHealthScore(ctx, scheme.ID)
+	health := healthFor(healthScore)
 
 	summary := SchemeSummary{
 		UnitID:               unitID,
@@ -728,6 +734,8 @@ func (s *Service) buildSummary(ctx context.Context, scheme dbgen.Scheme, role st
 		Address:              scheme.Address,
 		Role:                 role,
 		Health:               health,
+		HealthScore:          healthScore,
+		HealthBreakdown:      healthBreakdown,
 		UnitCount:            scheme.UnitCount,
 		TotalMembers:         len(members),
 		LevyCollectionPct:    collectionPct,
@@ -837,15 +845,146 @@ func nextAgm(meetings []dbgen.AgmMeeting) (*string, *int) {
 	return &date, &days
 }
 
-func healthFor(collectionPct int, openMaintenanceCount int64) string {
+func healthFor(score int) string {
 	switch {
-	case collectionPct >= 95 && openMaintenanceCount <= 2:
+	case score >= 80:
 		return "good"
-	case collectionPct >= 75 && openMaintenanceCount <= 6:
+	case score >= 60:
 		return "fair"
 	default:
 		return "poor"
 	}
+}
+
+type healthFactors struct {
+	levyCollection int
+	maintenanceSLA int
+	compliance     int
+	reserveFund    int
+	agmRecency     int
+}
+
+func (s *Service) computeHealthScore(ctx context.Context, schemeID uuid.UUID) (int, map[string]int) {
+	factors := healthFactors{
+		levyCollection: s.computeLevyFactor(ctx, schemeID),
+		maintenanceSLA: s.computeMaintenanceFactor(ctx, schemeID),
+		compliance:     s.complianceFactor(ctx, schemeID),
+		reserveFund:    s.reserveFundFactor(ctx, schemeID),
+		agmRecency:     s.agmRecencyFactor(ctx, schemeID),
+	}
+
+	score := int(math.Round(
+		float64(factors.levyCollection)*0.35 +
+			float64(factors.maintenanceSLA)*0.25 +
+			float64(factors.compliance)*0.20 +
+			float64(factors.reserveFund)*0.15 +
+			float64(factors.agmRecency)*0.05,
+	))
+
+	breakdown := map[string]int{
+		"levy_collection": factors.levyCollection,
+		"maintenance_sla": factors.maintenanceSLA,
+		"compliance":      factors.compliance,
+		"reserve_fund":    factors.reserveFund,
+		"agm_recency":     factors.agmRecency,
+	}
+
+	return score, breakdown
+}
+
+func (s *Service) computeLevyFactor(ctx context.Context, schemeID uuid.UUID) int {
+	periods, err := s.db.Q.ListLevyPeriodsByScheme(ctx, schemeID)
+	if err != nil || len(periods) == 0 {
+		return 0
+	}
+	accounts, err := s.db.Q.ListLevyAccountsByPeriod(ctx, periods[0].ID)
+	if err != nil {
+		return 0
+	}
+	var totalDue, totalPaid int64
+	for _, a := range accounts {
+		totalDue += a.AmountCents
+		totalPaid += minInt64(a.PaidCents, a.AmountCents)
+	}
+	if totalDue == 0 {
+		return 100
+	}
+	return int(math.Round(float64(totalPaid) * 100 / float64(totalDue)))
+}
+
+func (s *Service) computeMaintenanceFactor(ctx context.Context, schemeID uuid.UUID) int {
+	openCount, err := s.db.Q.CountOpenMaintenanceByScheme(ctx, schemeID)
+	if err != nil || openCount == 0 {
+		return 100
+	}
+	slaBreached, err := s.db.Q.CountSlaBreachedMaintenanceByScheme(ctx, schemeID)
+	if err != nil {
+		return 0
+	}
+	breachRate := float64(slaBreached) / float64(openCount)
+	score := int(math.Round((1 - breachRate) * 100))
+	if score < 0 {
+		score = 0
+	}
+	return score
+}
+
+func (s *Service) complianceFactor(ctx context.Context, schemeID uuid.UUID) int {
+	items, err := s.db.Q.ListComplianceItemsByScheme(ctx, schemeID)
+	if err != nil || len(items) == 0 {
+		return 100
+	}
+	var totalPoints, earnedPoints int
+	for _, item := range items {
+		totalPoints += 10
+		switch item.Status {
+		case dbgen.ComplianceStatusCompliant:
+			earnedPoints += 10
+		case dbgen.ComplianceStatusAtRisk:
+			earnedPoints += 5
+		}
+	}
+	if totalPoints == 0 {
+		return 100
+	}
+	return (earnedPoints * 100) / totalPoints
+}
+
+func (s *Service) reserveFundFactor(ctx context.Context, schemeID uuid.UUID) int {
+	fund, err := s.db.Q.GetReserveFund(ctx, schemeID)
+	if err != nil || fund.TargetCents == 0 {
+		return 100
+	}
+	pct := int(math.Round(float64(fund.BalanceCents) * 100 / float64(fund.TargetCents)))
+	if pct > 100 {
+		pct = 100
+	}
+	return pct
+}
+
+func (s *Service) agmRecencyFactor(ctx context.Context, schemeID uuid.UUID) int {
+	meetings, err := s.db.Q.ListAgmMeetingsByScheme(ctx, schemeID)
+	if err != nil || len(meetings) == 0 {
+		return 0
+	}
+	var latestDate time.Time
+	for _, m := range meetings {
+		if m.MeetingDate.Valid && m.MeetingDate.Time.After(latestDate) {
+			latestDate = m.MeetingDate.Time
+		}
+	}
+	if latestDate.IsZero() {
+		return 0
+	}
+	monthsSince := int(time.Since(latestDate).Hours() / (24 * 30))
+	if monthsSince <= 12 {
+		return 100
+	}
+	score := 100 - (monthsSince-12)*5
+	if score < 0 {
+		score = 0
+	}
+	return score
 }
 
 func minInt64(a, b int64) int64 {

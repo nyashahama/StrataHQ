@@ -63,6 +63,20 @@ func (q *Queries) CountOpenMaintenanceByScheme(ctx context.Context, schemeID uui
 	return count, err
 }
 
+const countSlaBreachedMaintenanceByScheme = `-- name: CountSlaBreachedMaintenanceByScheme :one
+SELECT COUNT(*) FROM maintenance_requests
+WHERE scheme_id = $1
+  AND status NOT IN ('resolved', 'pending_approval')
+  AND created_at + (sla_hours || ' hours')::interval < NOW()
+`
+
+func (q *Queries) CountSlaBreachedMaintenanceByScheme(ctx context.Context, schemeID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countSlaBreachedMaintenanceByScheme, schemeID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createMaintenanceRequest = `-- name: CreateMaintenanceRequest :one
 INSERT INTO maintenance_requests (
     scheme_id, unit_id, title, description, category, sla_hours, submitted_by_unit

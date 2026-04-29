@@ -343,6 +343,10 @@ func (s *Service) Delete(ctx context.Context, identity auth.Identity, schemeID s
 		return ErrForbidden
 	}
 
+	if err := s.db.Q.DeleteScheme(ctx, scheme.ID); err != nil {
+		return err
+	}
+
 	if s.auditor != nil {
 		_ = s.auditor.RecordResourceEvent(ctx, schemeDeletedAuditEvent(schemeAuditInput{
 			SchemeID:    scheme.ID.String(),
@@ -355,7 +359,7 @@ func (s *Service) Delete(ctx context.Context, identity auth.Identity, schemeID s
 		}))
 	}
 
-	return s.db.Q.DeleteScheme(ctx, scheme.ID)
+	return nil
 }
 
 func (s *Service) ListUnits(ctx context.Context, identity auth.Identity, schemeID string) ([]UnitInfo, error) {

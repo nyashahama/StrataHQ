@@ -164,28 +164,28 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 		return nil, err
 	}
 
-	inviteURL := appBaseURL + "/auth/invite/" + token
-	if err := s.sender.SendInvitation(ctx, p.Email, p.FullName, inviteURL); err != nil {
-		return nil, err
-	}
-
 	if s.auditor != nil {
 		unitIDStr := ""
 		if unitID.Valid {
 			unitIDStr = uuid.UUID(unitID.Bytes).String()
 		}
 		_ = s.auditor.RecordResourceEvent(ctx, invitationCreatedAuditEvent(invitationAuditInput{
-			OrgID:      oid.String(),
-			SchemeID:   sid.String(),
-			ActorRole:  "admin",
+			OrgID:        oid.String(),
+			SchemeID:     sid.String(),
+			ActorRole:    "admin",
 			InvitationID: inv.ID.String(),
-			Email:      inv.Email,
-			FullName:   inv.FullName,
-			Role:       inv.Role,
-			UnitID:     unitIDStr,
-			Status:     inv.Status,
-			ExpiresAt:  inv.ExpiresAt,
+			Email:        inv.Email,
+			FullName:     inv.FullName,
+			Role:         inv.Role,
+			UnitID:       unitIDStr,
+			Status:       inv.Status,
+			ExpiresAt:    inv.ExpiresAt,
 		}))
+	}
+
+	inviteURL := appBaseURL + "/auth/invite/" + token
+	if err := s.sender.SendInvitation(ctx, p.Email, p.FullName, inviteURL); err != nil {
+		return nil, err
 	}
 
 	return toResponse(inv), nil
@@ -246,11 +246,6 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 		return nil, err
 	}
 
-	inviteURL := appBaseURL + "/auth/invite/" + token
-	if err := s.sender.SendInvitation(ctx, inv.Email, inv.FullName, inviteURL); err != nil {
-		return nil, err
-	}
-
 	if s.auditor != nil {
 		unitIDStr := ""
 		if inv.UnitID.Valid {
@@ -268,6 +263,11 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 			Status:       inv.Status,
 			ExpiresAt:    inv.ExpiresAt,
 		}))
+	}
+
+	inviteURL := appBaseURL + "/auth/invite/" + token
+	if err := s.sender.SendInvitation(ctx, inv.Email, inv.FullName, inviteURL); err != nil {
+		return nil, err
 	}
 
 	return toResponse(inv), nil
@@ -500,11 +500,11 @@ type invitationAuditInput struct {
 
 func invitationCreatedAuditEvent(input invitationAuditInput) audit.ResourceEvent {
 	afterState := map[string]any{
-		"email":     input.Email,
-		"full_name": input.FullName,
-		"role":      input.Role,
-		"scheme_id": input.SchemeID,
-		"status":    input.Status,
+		"email":      input.Email,
+		"full_name":  input.FullName,
+		"role":       input.Role,
+		"scheme_id":  input.SchemeID,
+		"status":     input.Status,
 		"expires_at": input.ExpiresAt.Format(time.RFC3339),
 	}
 	if input.UnitID != "" {
@@ -524,11 +524,11 @@ func invitationCreatedAuditEvent(input invitationAuditInput) audit.ResourceEvent
 
 func invitationResentAuditEvent(input invitationAuditInput) audit.ResourceEvent {
 	afterState := map[string]any{
-		"email":     input.Email,
-		"full_name": input.FullName,
-		"role":      input.Role,
-		"scheme_id": input.SchemeID,
-		"status":    input.Status,
+		"email":      input.Email,
+		"full_name":  input.FullName,
+		"role":       input.Role,
+		"scheme_id":  input.SchemeID,
+		"status":     input.Status,
 		"expires_at": input.ExpiresAt.Format(time.RFC3339),
 	}
 	if input.UnitID != "" {
@@ -548,11 +548,11 @@ func invitationResentAuditEvent(input invitationAuditInput) audit.ResourceEvent 
 
 func invitationRevokedAuditEvent(input invitationAuditInput) audit.ResourceEvent {
 	afterState := map[string]any{
-		"email":     input.Email,
-		"full_name": input.FullName,
-		"role":      input.Role,
-		"scheme_id": input.SchemeID,
-		"status":    input.Status,
+		"email":      input.Email,
+		"full_name":  input.FullName,
+		"role":       input.Role,
+		"scheme_id":  input.SchemeID,
+		"status":     input.Status,
 		"expires_at": input.ExpiresAt.Format(time.RFC3339),
 	}
 	if input.UnitID != "" {

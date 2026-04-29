@@ -19,17 +19,51 @@ import (
 type fakeInvitationStore struct {
 	scheme                *dbgen.Scheme
 	unit                  *dbgen.Unit
+	invitationByID        *dbgen.Invitation
 	invitationByToken     *dbgen.Invitation
 	createdUser           *dbgen.User
 	createdInvitation     *dbgen.CreateInvitationParams
+	updatedInvitation     *dbgen.UpdateInvitationTokenParams
 	createdRefreshToken   *dbgen.CreateRefreshTokenParams
 	updatedInviteStatus   *dbgen.UpdateInvitationStatusParams
 	schemeErr             error
 	unitErr               error
+	invitationByIDErr     error
 	invitationByTokenErr  error
 	getUserByEmailErr     error
 	createUserErr         error
 	createRefreshTokenErr error
+}
+
+type fakeInvitationSender struct {
+	sendErr error
+	calls   int
+}
+
+func (s *fakeInvitationSender) SendInvitation(context.Context, string, string, string) error {
+	s.calls++
+	return s.sendErr
+}
+
+func (s *fakeInvitationSender) SendPasswordReset(context.Context, string, string) error {
+	return nil
+}
+
+func (s *fakeInvitationSender) SendEarlyAccessApproval(context.Context, string, string, string) error {
+	return nil
+}
+
+func (s *fakeInvitationSender) SendNewEarlyAccessRequest(context.Context, string, string, string, string, int32, string, string) error {
+	return nil
+}
+
+type fakeInvitationAuditor struct {
+	events []audit.ResourceEvent
+}
+
+func (a *fakeInvitationAuditor) RecordResourceEvent(_ context.Context, event audit.ResourceEvent) error {
+	a.events = append(a.events, event)
+	return nil
 }
 
 func (f *fakeInvitationStore) CreateInvitation(_ context.Context, arg dbgen.CreateInvitationParams) (dbgen.Invitation, error) {
@@ -53,11 +87,24 @@ func (f *fakeInvitationStore) ListInvitationsByOrg(context.Context, uuid.UUID) (
 }
 
 func (f *fakeInvitationStore) GetInvitationByID(context.Context, uuid.UUID) (dbgen.Invitation, error) {
-	return dbgen.Invitation{}, pgx.ErrNoRows
+	if f.invitationByIDErr != nil {
+		return dbgen.Invitation{}, f.invitationByIDErr
+	}
+	if f.invitationByID == nil {
+		return dbgen.Invitation{}, pgx.ErrNoRows
+	}
+	return *f.invitationByID, nil
 }
 
-func (f *fakeInvitationStore) UpdateInvitationToken(context.Context, dbgen.UpdateInvitationTokenParams) (dbgen.Invitation, error) {
-	return dbgen.Invitation{}, nil
+func (f *fakeInvitationStore) UpdateInvitationToken(_ context.Context, arg dbgen.UpdateInvitationTokenParams) (dbgen.Invitation, error) {
+	f.updatedInvitation = &arg
+	if f.invitationByID == nil {
+		return dbgen.Invitation{}, nil
+	}
+	inv := *f.invitationByID
+	inv.Token = arg.Token
+	inv.ExpiresAt = arg.ExpiresAt
+	return inv, nil
 }
 
 func (f *fakeInvitationStore) UpdateInvitationStatus(_ context.Context, arg dbgen.UpdateInvitationStatusParams) error {
@@ -194,6 +241,90 @@ func TestServiceCreateRejectsUnitOutsideScheme(t *testing.T) {
 	}
 	if store.createdInvitation != nil {
 		t.Fatal("Create() created invitation for unit outside scheme")
+	}
+}
+
+func TestServiceCreateRecordsAuditBeforeInvitationSendFailure(t *testing.T) {
+	orgID := uuid.New()
+	schemeID := uuid.New()
+	store := &fakeInvitationStore{
+		scheme: &dbgen.Scheme{
+			ID:    schemeID,
+			OrgID: orgID,
+		},
+	}
+	sender := &fakeInvitationSender{sendErr: errors.New("provider unavailable")}
+	auditor := &fakeInvitationAuditor{}
+	svc := &Service{
+		q:             store,
+		withTx:        func(ctx context.Context, fn func(q txStore) error) error { return fn(store) },
+		sender:        sender,
+		auditor:       auditor,
+		jwtSecret:     "unit-test-secret",
+		jwtExpiry:     15 * time.Minute,
+		refreshExpiry: 7 * 24 * time.Hour,
+	}
+
+	_, err := svc.Create(context.Background(), orgID.String(), CreateParams{
+		Email:    "user@example.com",
+		FullName: "Test User",
+		Role:     "trustee",
+		SchemeID: schemeID.String(),
+	}, "http://localhost:3000")
+	if err == nil {
+		t.Fatal("Create() error = nil, want send failure")
+	}
+	if sender.calls != 1 {
+		t.Fatalf("SendInvitation calls = %d, want 1", sender.calls)
+	}
+	if len(auditor.events) != 1 {
+		t.Fatalf("audit events = %d, want 1", len(auditor.events))
+	}
+	if auditor.events[0].Action != "invitation.created" {
+		t.Fatalf("audit action = %q, want invitation.created", auditor.events[0].Action)
+	}
+}
+
+func TestServiceResendRecordsAuditBeforeInvitationSendFailure(t *testing.T) {
+	orgID := uuid.New()
+	invitationID := uuid.New()
+	schemeID := uuid.New()
+	store := &fakeInvitationStore{
+		invitationByID: &dbgen.Invitation{
+			ID:        invitationID,
+			OrgID:     orgID,
+			SchemeID:  schemeID,
+			Email:     "user@example.com",
+			FullName:  "Test User",
+			Role:      "trustee",
+			Status:    "pending",
+			ExpiresAt: time.Now().Add(time.Hour),
+		},
+	}
+	sender := &fakeInvitationSender{sendErr: errors.New("provider unavailable")}
+	auditor := &fakeInvitationAuditor{}
+	svc := &Service{
+		q:             store,
+		withTx:        func(ctx context.Context, fn func(q txStore) error) error { return fn(store) },
+		sender:        sender,
+		auditor:       auditor,
+		jwtSecret:     "unit-test-secret",
+		jwtExpiry:     15 * time.Minute,
+		refreshExpiry: 7 * 24 * time.Hour,
+	}
+
+	_, err := svc.Resend(context.Background(), orgID.String(), invitationID.String(), "http://localhost:3000")
+	if err == nil {
+		t.Fatal("Resend() error = nil, want send failure")
+	}
+	if sender.calls != 1 {
+		t.Fatalf("SendInvitation calls = %d, want 1", sender.calls)
+	}
+	if len(auditor.events) != 1 {
+		t.Fatalf("audit events = %d, want 1", len(auditor.events))
+	}
+	if auditor.events[0].Action != "invitation.resent" {
+		t.Fatalf("audit action = %q, want invitation.resent", auditor.events[0].Action)
 	}
 }
 

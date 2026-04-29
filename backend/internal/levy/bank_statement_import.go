@@ -487,6 +487,10 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 	}
 
 	appliedCount := int32(0)
+	var accountID uuid.UUID
+	var account dbgen.LevyAccount
+	var paymentDate time.Time
+	var payment dbgen.LevyPayment
 	for _, match := range manualMatches {
 		row, ok := rowMap[match.RowID]
 		if !ok {
@@ -497,17 +501,17 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 			continue
 		}
 
-		accountID, err := uuid.Parse(match.AccountID)
+		accountID, err = uuid.Parse(match.AccountID)
 		if err != nil {
 			return nil, ErrInvalidInput
 		}
 
-		account, err := s.db.Q.GetLevyAccount(ctx, accountID)
+		account, err = s.db.Q.GetLevyAccount(ctx, accountID)
 		if err != nil {
 			return nil, ErrInvalidInput
 		}
 
-		paymentDate, err := time.Parse("2006-01-02", match.PaymentDate)
+		paymentDate, err = time.Parse("2006-01-02", match.PaymentDate)
 		if err != nil {
 			return nil, ErrInvalidInput
 		}
@@ -517,7 +521,7 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 			bankRef = pgtype.Text{String: *match.BankRef, Valid: true}
 		}
 
-		payment, err := s.db.Q.CreateLevyPayment(ctx, dbgen.CreateLevyPaymentParams{
+		payment, err = s.db.Q.CreateLevyPayment(ctx, dbgen.CreateLevyPaymentParams{
 			LevyAccountID: account.ID,
 			AmountCents:   match.AmountCents,
 			PaymentDate:   dateValue(paymentDate),
@@ -529,19 +533,19 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 		}
 
 		newPaid := account.PaidCents + match.AmountCents
-		if _, err := s.db.Q.UpdateLevyAccountPaid(ctx, dbgen.UpdateLevyAccountPaidParams{
+		_, err = s.db.Q.UpdateLevyAccountPaid(ctx, dbgen.UpdateLevyAccountPaidParams{
 			ID:        account.ID,
 			PaidCents: newPaid,
 			Status:    statusFor(newPaid, account.AmountCents, account.DueDate),
 			PaidDate:  dateValue(paymentDate),
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, err
 		}
 
-		paymentUUID := payment.ID
-		if _, err := s.db.Q.UpdateBankStatementRowApplied(ctx, dbgen.UpdateBankStatementRowAppliedParams{
+		if _, err = s.db.Q.UpdateBankStatementRowApplied(ctx, dbgen.UpdateBankStatementRowAppliedParams{
 			ID:                   row.ID,
-			MatchedLevyPaymentID: pgtype.UUID{Bytes: paymentUUID, Valid: true},
+			MatchedLevyPaymentID: pgtype.UUID{Bytes: payment.ID, Valid: true},
 		}); err != nil {
 			return nil, err
 		}
@@ -642,11 +646,12 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 	}
 
 	var matchedCount, ambiguousCount, unmatchedCount int32
+	var row dbgen.BankStatementRow
+	var acct dbgen.LevyAccount
+	var payment dbgen.LevyPayment
 	for _, parsed := range parsedRows {
 		rawDataJSON, _ := json.Marshal(parsed.RawData)
 		match := matchBankStatementRow(parsed, accounts)
-
-		rowUUID := uuid.New()
 
 		var matchedAccountID pgtype.UUID
 		if match.MatchedLevyAccountID != nil {
@@ -658,7 +663,7 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 			matchReason = pgtype.Text{String: match.Reason, Valid: true}
 		}
 
-		if _, err := s.db.Q.CreateBankStatementRow(ctx, dbgen.CreateBankStatementRowParams{
+		row, err = s.db.Q.CreateBankStatementRow(ctx, dbgen.CreateBankStatementRowParams{
 			ImportID:             importUUID,
 			RowNumber:            int32(parsed.RowNumber),
 			TransactionDate:      dateValue(parsed.TransactionDate),
@@ -673,7 +678,8 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 			MatchedLevyAccountID: matchedAccountID,
 			MatchedLevyPaymentID: pgtype.UUID{},
 			RawData:              rawDataJSON,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 
@@ -681,26 +687,25 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 		case dbgen.BankStatementRowStatusMatched:
 			matchedCount++
 			if match.MatchedLevyAccountID != nil {
-				account, err := s.db.Q.GetLevyAccount(ctx, *match.MatchedLevyAccountID)
+				acct, err = s.db.Q.GetLevyAccount(ctx, *match.MatchedLevyAccountID)
 				if err == nil {
-					newPaid := account.PaidCents + parsed.AmountCents
-					payment, err := s.db.Q.CreateLevyPayment(ctx, dbgen.CreateLevyPaymentParams{
-						LevyAccountID: account.ID,
+					newPaid := acct.PaidCents + parsed.AmountCents
+					payment, err = s.db.Q.CreateLevyPayment(ctx, dbgen.CreateLevyPaymentParams{
+						LevyAccountID: acct.ID,
 						AmountCents:   parsed.AmountCents,
 						PaymentDate:   dateValue(parsed.TransactionDate),
 						Reference:     parsed.RowFingerprint,
 						BankRef:       pgtype.Text{String: parsed.Reference, Valid: true},
 					})
 					if err == nil {
-						paymentUUID := payment.ID
 						_, _ = s.db.Q.UpdateBankStatementRowApplied(ctx, dbgen.UpdateBankStatementRowAppliedParams{
-							ID:                   rowUUID,
-							MatchedLevyPaymentID: pgtype.UUID{Bytes: paymentUUID, Valid: true},
+							ID:                   row.ID,
+							MatchedLevyPaymentID: pgtype.UUID{Bytes: payment.ID, Valid: true},
 						})
 						_, _ = s.db.Q.UpdateLevyAccountPaid(ctx, dbgen.UpdateLevyAccountPaidParams{
-							ID:        account.ID,
+							ID:        acct.ID,
 							PaidCents: newPaid,
-							Status:    statusFor(newPaid, account.AmountCents, account.DueDate),
+							Status:    statusFor(newPaid, acct.AmountCents, acct.DueDate),
 							PaidDate:  dateValue(parsed.TransactionDate),
 						})
 					}
@@ -711,8 +716,6 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 		case dbgen.BankStatementRowStatusUnmatched:
 			unmatchedCount++
 		}
-
-		_ = rowUUID
 	}
 
 	now := time.Now().UTC()

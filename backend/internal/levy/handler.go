@@ -381,6 +381,7 @@ func (h *Handler) ApplyBankStatementImport(w http.ResponseWriter, r *http.Reques
 	}
 
 	matches := make([]BankStatementManualMatchInput, len(req.ManualMatches))
+	//nolint:gosimple // manualMatchRequest is a distinct named type
 	for i, m := range req.ManualMatches {
 		matches[i] = BankStatementManualMatchInput{
 			RowID:       m.RowID,

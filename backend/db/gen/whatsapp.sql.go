@@ -46,6 +46,19 @@ func (q *Queries) CountConnectedWhatsAppThreadsByScheme(ctx context.Context, sch
 	return count, err
 }
 
+const countWhatsAppMessageMediaByMessage = `-- name: CountWhatsAppMessageMediaByMessage :one
+SELECT COUNT(*)
+FROM whatsapp_message_media
+WHERE message_id = $1
+`
+
+func (q *Queries) CountWhatsAppMessageMediaByMessage(ctx context.Context, messageID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countWhatsAppMessageMediaByMessage, messageID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createWhatsAppBroadcast = `-- name: CreateWhatsAppBroadcast :one
 INSERT INTO whatsapp_broadcasts (
     scheme_id, sent_by_user_id, type, message, recipient_count
@@ -84,6 +97,87 @@ func (q *Queries) CreateWhatsAppBroadcast(ctx context.Context, arg CreateWhatsAp
 	return i, err
 }
 
+const createWhatsAppMaintenanceIntake = `-- name: CreateWhatsAppMaintenanceIntake :one
+INSERT INTO whatsapp_maintenance_intakes (
+    scheme_id,
+    thread_id,
+    message_id,
+    unit_id,
+    maintenance_request_id,
+    status,
+    category,
+    title,
+    description,
+    media_count
+)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    $9,
+    $10
+)
+ON CONFLICT (message_id)
+DO UPDATE SET
+    maintenance_request_id = COALESCE(EXCLUDED.maintenance_request_id, whatsapp_maintenance_intakes.maintenance_request_id),
+    status = EXCLUDED.status,
+    category = EXCLUDED.category,
+    title = EXCLUDED.title,
+    description = EXCLUDED.description,
+    media_count = EXCLUDED.media_count
+RETURNING id, scheme_id, thread_id, message_id, unit_id, maintenance_request_id, status, category, title, description, media_count, created_at, updated_at
+`
+
+type CreateWhatsAppMaintenanceIntakeParams struct {
+	SchemeID             uuid.UUID           `json:"scheme_id"`
+	ThreadID             uuid.UUID           `json:"thread_id"`
+	MessageID            uuid.UUID           `json:"message_id"`
+	UnitID               uuid.UUID           `json:"unit_id"`
+	MaintenanceRequestID pgtype.UUID         `json:"maintenance_request_id"`
+	Status               string              `json:"status"`
+	Category             MaintenanceCategory `json:"category"`
+	Title                string              `json:"title"`
+	Description          string              `json:"description"`
+	MediaCount           int32               `json:"media_count"`
+}
+
+func (q *Queries) CreateWhatsAppMaintenanceIntake(ctx context.Context, arg CreateWhatsAppMaintenanceIntakeParams) (WhatsappMaintenanceIntake, error) {
+	row := q.db.QueryRow(ctx, createWhatsAppMaintenanceIntake,
+		arg.SchemeID,
+		arg.ThreadID,
+		arg.MessageID,
+		arg.UnitID,
+		arg.MaintenanceRequestID,
+		arg.Status,
+		arg.Category,
+		arg.Title,
+		arg.Description,
+		arg.MediaCount,
+	)
+	var i WhatsappMaintenanceIntake
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.ThreadID,
+		&i.MessageID,
+		&i.UnitID,
+		&i.MaintenanceRequestID,
+		&i.Status,
+		&i.Category,
+		&i.Title,
+		&i.Description,
+		&i.MediaCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const createWhatsAppMessage = `-- name: CreateWhatsAppMessage :one
 INSERT INTO whatsapp_messages (
     thread_id, sender, body, maintenance_request_id, notice_id
@@ -116,6 +210,57 @@ func (q *Queries) CreateWhatsAppMessage(ctx context.Context, arg CreateWhatsAppM
 		&i.Body,
 		&i.MaintenanceRequestID,
 		&i.NoticeID,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createWhatsAppMessageMedia = `-- name: CreateWhatsAppMessageMedia :one
+INSERT INTO whatsapp_message_media (
+    message_id,
+    provider,
+    provider_media_sid,
+    media_url,
+    content_type
+)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+)
+ON CONFLICT (message_id, provider_media_sid) WHERE provider_media_sid IS NOT NULL
+DO UPDATE SET
+    media_url = EXCLUDED.media_url,
+    content_type = EXCLUDED.content_type
+RETURNING id, message_id, provider, provider_media_sid, media_url, content_type, created_at
+`
+
+type CreateWhatsAppMessageMediaParams struct {
+	MessageID        uuid.UUID   `json:"message_id"`
+	Provider         string      `json:"provider"`
+	ProviderMediaSid pgtype.Text `json:"provider_media_sid"`
+	MediaUrl         string      `json:"media_url"`
+	ContentType      pgtype.Text `json:"content_type"`
+}
+
+func (q *Queries) CreateWhatsAppMessageMedia(ctx context.Context, arg CreateWhatsAppMessageMediaParams) (WhatsappMessageMedium, error) {
+	row := q.db.QueryRow(ctx, createWhatsAppMessageMedia,
+		arg.MessageID,
+		arg.Provider,
+		arg.ProviderMediaSid,
+		arg.MediaUrl,
+		arg.ContentType,
+	)
+	var i WhatsappMessageMedium
+	err := row.Scan(
+		&i.ID,
+		&i.MessageID,
+		&i.Provider,
+		&i.ProviderMediaSid,
+		&i.MediaUrl,
+		&i.ContentType,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -168,6 +313,34 @@ func (q *Queries) CreateWhatsAppThread(ctx context.Context, arg CreateWhatsAppTh
 	return i, err
 }
 
+const dismissWhatsAppMaintenanceIntake = `-- name: DismissWhatsAppMaintenanceIntake :one
+UPDATE whatsapp_maintenance_intakes
+SET status = 'dismissed'
+WHERE id = $1
+RETURNING id, scheme_id, thread_id, message_id, unit_id, maintenance_request_id, status, category, title, description, media_count, created_at, updated_at
+`
+
+func (q *Queries) DismissWhatsAppMaintenanceIntake(ctx context.Context, id uuid.UUID) (WhatsappMaintenanceIntake, error) {
+	row := q.db.QueryRow(ctx, dismissWhatsAppMaintenanceIntake, id)
+	var i WhatsappMaintenanceIntake
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.ThreadID,
+		&i.MessageID,
+		&i.UnitID,
+		&i.MaintenanceRequestID,
+		&i.Status,
+		&i.Category,
+		&i.Title,
+		&i.Description,
+		&i.MediaCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getConnectedWhatsAppThreadByPhone = `-- name: GetConnectedWhatsAppThreadByPhone :many
 SELECT id, scheme_id, unit_id, resident_user_id, phone_number, connected, consented_at, unread_count, last_active_at, created_at, updated_at FROM whatsapp_threads
 WHERE phone_number = $1
@@ -205,6 +378,80 @@ func (q *Queries) GetConnectedWhatsAppThreadByPhone(ctx context.Context, phoneNu
 		return nil, err
 	}
 	return items, nil
+}
+
+const getWhatsAppMaintenanceIntake = `-- name: GetWhatsAppMaintenanceIntake :one
+SELECT id, scheme_id, thread_id, message_id, unit_id, maintenance_request_id, status, category, title, description, media_count, created_at, updated_at
+FROM whatsapp_maintenance_intakes
+WHERE id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetWhatsAppMaintenanceIntake(ctx context.Context, id uuid.UUID) (WhatsappMaintenanceIntake, error) {
+	row := q.db.QueryRow(ctx, getWhatsAppMaintenanceIntake, id)
+	var i WhatsappMaintenanceIntake
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.ThreadID,
+		&i.MessageID,
+		&i.UnitID,
+		&i.MaintenanceRequestID,
+		&i.Status,
+		&i.Category,
+		&i.Title,
+		&i.Description,
+		&i.MediaCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getWhatsAppMessageWithThread = `-- name: GetWhatsAppMessageWithThread :one
+SELECT
+    wm.id, wm.thread_id, wm.sender, wm.body, wm.maintenance_request_id, wm.notice_id, wm.created_at,
+    wt.scheme_id,
+    wt.unit_id,
+    wt.resident_user_id,
+    wt.phone_number
+FROM whatsapp_messages wm
+JOIN whatsapp_threads wt ON wt.id = wm.thread_id
+WHERE wm.id = $1
+LIMIT 1
+`
+
+type GetWhatsAppMessageWithThreadRow struct {
+	ID                   uuid.UUID             `json:"id"`
+	ThreadID             uuid.UUID             `json:"thread_id"`
+	Sender               WhatsappMessageSender `json:"sender"`
+	Body                 string                `json:"body"`
+	MaintenanceRequestID pgtype.UUID           `json:"maintenance_request_id"`
+	NoticeID             pgtype.UUID           `json:"notice_id"`
+	CreatedAt            time.Time             `json:"created_at"`
+	SchemeID             uuid.UUID             `json:"scheme_id"`
+	UnitID               uuid.UUID             `json:"unit_id"`
+	ResidentUserID       pgtype.UUID           `json:"resident_user_id"`
+	PhoneNumber          pgtype.Text           `json:"phone_number"`
+}
+
+func (q *Queries) GetWhatsAppMessageWithThread(ctx context.Context, messageID uuid.UUID) (GetWhatsAppMessageWithThreadRow, error) {
+	row := q.db.QueryRow(ctx, getWhatsAppMessageWithThread, messageID)
+	var i GetWhatsAppMessageWithThreadRow
+	err := row.Scan(
+		&i.ID,
+		&i.ThreadID,
+		&i.Sender,
+		&i.Body,
+		&i.MaintenanceRequestID,
+		&i.NoticeID,
+		&i.CreatedAt,
+		&i.SchemeID,
+		&i.UnitID,
+		&i.ResidentUserID,
+		&i.PhoneNumber,
+	)
+	return i, err
 }
 
 const getWhatsAppThreadBySchemeAndUnit = `-- name: GetWhatsAppThreadBySchemeAndUnit :one
@@ -288,6 +535,107 @@ func (q *Queries) ListWhatsAppBroadcastsDetailedByScheme(ctx context.Context, sc
 			&i.SentAt,
 			&i.CreatedAt,
 			&i.SentByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWhatsAppMaintenanceIntakesByScheme = `-- name: ListWhatsAppMaintenanceIntakesByScheme :many
+SELECT
+    wmi.id, wmi.scheme_id, wmi.thread_id, wmi.message_id, wmi.unit_id, wmi.maintenance_request_id, wmi.status, wmi.category, wmi.title, wmi.description, wmi.media_count, wmi.created_at, wmi.updated_at,
+    u.identifier AS unit_identifier,
+    u.owner_name
+FROM whatsapp_maintenance_intakes wmi
+JOIN units u ON u.id = wmi.unit_id
+WHERE wmi.scheme_id = $1
+ORDER BY wmi.created_at DESC
+`
+
+type ListWhatsAppMaintenanceIntakesBySchemeRow struct {
+	ID                   uuid.UUID           `json:"id"`
+	SchemeID             uuid.UUID           `json:"scheme_id"`
+	ThreadID             uuid.UUID           `json:"thread_id"`
+	MessageID            uuid.UUID           `json:"message_id"`
+	UnitID               uuid.UUID           `json:"unit_id"`
+	MaintenanceRequestID pgtype.UUID         `json:"maintenance_request_id"`
+	Status               string              `json:"status"`
+	Category             MaintenanceCategory `json:"category"`
+	Title                string              `json:"title"`
+	Description          string              `json:"description"`
+	MediaCount           int32               `json:"media_count"`
+	CreatedAt            time.Time           `json:"created_at"`
+	UpdatedAt            time.Time           `json:"updated_at"`
+	UnitIdentifier       string              `json:"unit_identifier"`
+	OwnerName            string              `json:"owner_name"`
+}
+
+func (q *Queries) ListWhatsAppMaintenanceIntakesByScheme(ctx context.Context, schemeID uuid.UUID) ([]ListWhatsAppMaintenanceIntakesBySchemeRow, error) {
+	rows, err := q.db.Query(ctx, listWhatsAppMaintenanceIntakesByScheme, schemeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWhatsAppMaintenanceIntakesBySchemeRow{}
+	for rows.Next() {
+		var i ListWhatsAppMaintenanceIntakesBySchemeRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.ThreadID,
+			&i.MessageID,
+			&i.UnitID,
+			&i.MaintenanceRequestID,
+			&i.Status,
+			&i.Category,
+			&i.Title,
+			&i.Description,
+			&i.MediaCount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.UnitIdentifier,
+			&i.OwnerName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWhatsAppMessageMediaByThread = `-- name: ListWhatsAppMessageMediaByThread :many
+SELECT wmm.id, wmm.message_id, wmm.provider, wmm.provider_media_sid, wmm.media_url, wmm.content_type, wmm.created_at
+FROM whatsapp_message_media wmm
+JOIN whatsapp_messages wm ON wm.id = wmm.message_id
+WHERE wm.thread_id = $1
+ORDER BY wmm.created_at ASC
+`
+
+func (q *Queries) ListWhatsAppMessageMediaByThread(ctx context.Context, threadID uuid.UUID) ([]WhatsappMessageMedium, error) {
+	rows, err := q.db.Query(ctx, listWhatsAppMessageMediaByThread, threadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []WhatsappMessageMedium{}
+	for rows.Next() {
+		var i WhatsappMessageMedium
+		if err := rows.Scan(
+			&i.ID,
+			&i.MessageID,
+			&i.Provider,
+			&i.ProviderMediaSid,
+			&i.MediaUrl,
+			&i.ContentType,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -408,5 +756,21 @@ type TouchWhatsAppThreadParams struct {
 
 func (q *Queries) TouchWhatsAppThread(ctx context.Context, arg TouchWhatsAppThreadParams) error {
 	_, err := q.db.Exec(ctx, touchWhatsAppThread, arg.ID, arg.UnreadCount, arg.LastActiveAt)
+	return err
+}
+
+const updateWhatsAppMessageMaintenanceRequest = `-- name: UpdateWhatsAppMessageMaintenanceRequest :exec
+UPDATE whatsapp_messages
+SET maintenance_request_id = $1
+WHERE id = $2
+`
+
+type UpdateWhatsAppMessageMaintenanceRequestParams struct {
+	MaintenanceRequestID pgtype.UUID `json:"maintenance_request_id"`
+	ID                   uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) UpdateWhatsAppMessageMaintenanceRequest(ctx context.Context, arg UpdateWhatsAppMessageMaintenanceRequestParams) error {
+	_, err := q.db.Exec(ctx, updateWhatsAppMessageMaintenanceRequest, arg.MaintenanceRequestID, arg.ID)
 	return err
 }

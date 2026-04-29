@@ -41,7 +41,7 @@ export default function BankStatementImportModal({
   onApplied,
   onClose,
 }: BankStatementImportModalProps) {
-  const [step, setStep] = useState<Step>('upload')
+  const [, setStep] = useState<Step>('upload')
   const [importData, setImportData] = useState<BankStatementImportResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -74,6 +74,7 @@ export default function BankStatementImportModal({
         setError('The bank statement import failed. Please check the CSV format and try again.')
       }
     } catch {
+      return
     }
   }, [schemeId, onApplied])
 

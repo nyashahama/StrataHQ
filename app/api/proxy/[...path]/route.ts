@@ -8,7 +8,6 @@ import { getOrCreateRequestId } from "@/lib/request-id";
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
 
 const UPSTREAM_TIMEOUT_MS = 10000;
-const RETRYABLE_STATUS_CODES = [502, 503, 504] as const;
 
 const PROXY_HEADERS = [
   "content-type",

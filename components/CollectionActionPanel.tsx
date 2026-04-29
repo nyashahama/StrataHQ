@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AttentionItem, CollectionEvent } from "@/lib/attention";
 import { createCollectionEvent, listCollectionEvents } from "@/lib/attention-api";
 import { useToast } from "@/lib/toast";
@@ -22,17 +22,17 @@ export function CollectionActionPanel({
   const [promiseDate, setPromiseDate] = useState("");
   const [saving, setSaving] = useState(false);
 
-  async function loadEvents() {
+  const loadEvents = useCallback(async () => {
     try {
       setEvents(await listCollectionEvents(item.scheme_id, item.levy_account_id));
     } catch {
       setEvents([]);
     }
-  }
+  }, [item.levy_account_id, item.scheme_id]);
 
   useEffect(() => {
     loadEvents();
-  }, [item.scheme_id, item.levy_account_id]);
+  }, [loadEvents]);
 
   async function submitEvent(input: {
     event_type: "follow_up_logged" | "promise_to_pay" | "legal_review_flagged";

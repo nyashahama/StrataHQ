@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
@@ -395,7 +395,7 @@ export default function WhatsAppPage() {
   const [dashboard, setDashboard] = useState<WhatsAppDashboard | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function loadDashboard(invalidate = false) {
+  const loadDashboard = useCallback(async (invalidate = false) => {
     const key = `scheme:${schemeId}:whatsapp`
     if (invalidate) {
       invalidateCache(key)
@@ -419,11 +419,11 @@ export default function WhatsAppPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [addToast, schemeId])
 
   useEffect(() => {
     loadDashboard()
-  }, [addToast, schemeId])
+  }, [loadDashboard])
 
   if (loading || !dashboard) {
     return (

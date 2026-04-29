@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Modal from "@/components/Modal";
 import RetryState from "@/components/RetryState";
@@ -71,7 +71,7 @@ export default function InvitationsPage() {
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState<InviteForm>(INITIAL_FORM);
 
-  const schemes = user?.scheme_memberships ?? [];
+  const schemes = useMemo(() => user?.scheme_memberships ?? [], [user?.scheme_memberships]);
   const schemeNameById = Object.fromEntries(
     schemes.map((scheme) => [scheme.scheme_id, scheme.scheme_name]),
   );
@@ -105,7 +105,6 @@ export default function InvitationsPage() {
 
   const invitations = rawInvitations.map(enrichInvitation);
   const trusteeCount = invitations.filter((inv) => inv.role === "trustee").length;
-  const residentCount = invitations.length - trusteeCount;
   const nextExpiry = [...invitations].sort(
     (a, b) =>
       new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime(),

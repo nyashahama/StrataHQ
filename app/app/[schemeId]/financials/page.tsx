@@ -48,7 +48,7 @@ export default function FinancialsPage() {
     staleTime: 30_000,
   })
 
-  const budgetLines = dashboard?.budget_lines ?? []
+  const budgetLines = useMemo(() => dashboard?.budget_lines ?? [], [dashboard?.budget_lines])
   const reserveFund = dashboard?.reserve_fund ?? null
   const levySummary = dashboard?.levy_summary ?? null
   const totalBudgeted = dashboard?.total_budgeted_cents ?? 0

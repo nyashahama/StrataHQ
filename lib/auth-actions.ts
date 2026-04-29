@@ -26,22 +26,6 @@ async function fetchWithTimeout(
 
 const TEMP_UNAVAILABLE = "Service temporarily unavailable — please try again";
 
-const ACCESS_OPTS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-  maxAge: 15 * 60,
-};
-
-const REFRESH_OPTS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-  maxAge: 30 * 24 * 60 * 60,
-};
-
 const SESSION_OPTS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",

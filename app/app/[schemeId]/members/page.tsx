@@ -172,7 +172,7 @@ export default function MembersPage() {
 
     setSavingMember(true)
     try {
-      const updated = await updateSchemeMember(schemeId, selectedMember.user_id, {
+      await updateSchemeMember(schemeId, selectedMember.user_id, {
         role: editForm.role,
         unit_id: editForm.role === 'resident' ? editForm.unit_id : null,
       })

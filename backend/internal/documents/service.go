@@ -282,34 +282,6 @@ func (s *Service) resolveAccess(ctx context.Context, identity auth.Identity, sch
 	return &accessInfo{scheme: scheme, role: membership.Role, userID: identity.UserID}, nil
 }
 
-func mapDocumentRow(row dbgen.ListSchemeDocumentsDetailedRow) DocumentInfo {
-	return DocumentInfo{
-		UploadedByName: textPointer(row.UploadedByName),
-		ID:             row.ID.String(),
-		SchemeID:       row.SchemeID.String(),
-		Name:           row.Name,
-		StorageKey:     safeListedStorageKey(row.StorageKey, string(row.FileType)),
-		FileType:       string(row.FileType),
-		Category:       string(row.Category),
-		SizeBytes:      row.SizeBytes,
-		CreatedAt:      row.CreatedAt,
-	}
-}
-
-func mapDocumentCategoryRow(row dbgen.ListSchemeDocumentsDetailedByCategoryRow) DocumentInfo {
-	return DocumentInfo{
-		UploadedByName: textPointer(row.UploadedByName),
-		ID:             row.ID.String(),
-		SchemeID:       row.SchemeID.String(),
-		Name:           row.Name,
-		StorageKey:     safeListedStorageKey(row.StorageKey, string(row.FileType)),
-		FileType:       string(row.FileType),
-		Category:       string(row.Category),
-		SizeBytes:      row.SizeBytes,
-		CreatedAt:      row.CreatedAt,
-	}
-}
-
 var allowedDataURLPrefixes = map[string][]string{
 	"pdf": {
 		"data:application/pdf;base64,",

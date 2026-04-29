@@ -4,7 +4,6 @@ package integration
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -332,6 +331,10 @@ func TestAuth_SetupOnboarding(t *testing.T) {
 
 func TestAuth_ForgotResetPassword(t *testing.T) {
 	h := newAuthHandler(t)
+	sender := notification.NoopSender{}
+	svc := auth.NewService(testPool, testRedis, &sender, testJWTSigningKey, "http://localhost:3000", 15*time.Minute, 7*24*time.Hour)
+	h = auth.NewHandler(svc)
+
 	email := uniqueEmail(t)
 
 	// Register user
@@ -363,13 +366,15 @@ func TestAuth_ForgotResetPassword(t *testing.T) {
 		t.Errorf("forgot-password unknown: status=%d, want 200", w.Code)
 	}
 
-	// Read token from Redis
-	ctx := context.Background()
-	keys, err := testRedis.Keys(ctx, "pwreset:*").Result()
-	if err != nil || len(keys) == 0 {
-		t.Fatal("no pwreset key in redis after forgot-password")
+	// Extract token from the reset URL captured by the sender
+	if len(sender.ResetTokens) == 0 {
+		t.Fatal("no reset token captured by sender")
 	}
-	token := strings.TrimPrefix(keys[0], "pwreset:")
+	resetURL := sender.ResetTokens[0]
+	token := strings.TrimPrefix(resetURL, "http://localhost:3000/auth/reset-password?token=")
+	if token == resetURL {
+		t.Fatalf("could not extract token from reset URL: %s", resetURL)
+	}
 
 	// ResetPassword → 204
 	rpBody, _ := json.Marshal(map[string]string{"token": token, "password": "NewP@ssw0rd!"})

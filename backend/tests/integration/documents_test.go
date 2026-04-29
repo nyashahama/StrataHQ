@@ -39,6 +39,7 @@ func TestDocuments_CreateListFilterAndDelete(t *testing.T) {
 		"file_type":   "pdf",
 		"category":    "rules",
 		"size_bytes":  4,
+		"visibility":  "all",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/documents/"+schemeID, bytes.NewReader(createBody))
 	req = withRouteParams(req, map[string]string{"schemeId": schemeID})

@@ -7,6 +7,7 @@ import "context"
 type NoopSender struct {
 	InvitationsSent []string
 	PasswordResets  []string
+	ResetTokens     []string
 }
 
 func (n *NoopSender) SendInvitation(_ context.Context, to, _, _ string) error {
@@ -14,8 +15,9 @@ func (n *NoopSender) SendInvitation(_ context.Context, to, _, _ string) error {
 	return nil
 }
 
-func (n *NoopSender) SendPasswordReset(_ context.Context, to, _ string) error {
+func (n *NoopSender) SendPasswordReset(_ context.Context, to, url string) error {
 	n.PasswordResets = append(n.PasswordResets, to)
+	n.ResetTokens = append(n.ResetTokens, url)
 	return nil
 }
 

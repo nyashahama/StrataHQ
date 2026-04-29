@@ -12,11 +12,13 @@ import (
 const (
 	KindCollectionReminderEmail    = "collection_reminder_email"
 	KindCollectionReminderWhatsApp = "collection_reminder_whatsapp"
+	KindBankStatementImport        = "bank_statement_import"
 )
 
 var (
-	ErrUnknownKind = errors.New("unknown job kind")
-	ErrBadPayload  = errors.New("bad job payload")
+	ErrUnknownKind   = errors.New("unknown job kind")
+	ErrBadPayload    = errors.New("bad job payload")
+	ErrNonRetryable  = errors.New("non-retryable job error")
 )
 
 type Clock interface {

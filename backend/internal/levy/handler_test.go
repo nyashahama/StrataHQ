@@ -72,6 +72,18 @@ func (f *fakeAttentionService) Reconcile(_ context.Context, _ auth.Identity, _ s
 	return &ReconcileResult{}, nil
 }
 
+func (f *fakeAttentionService) ImportBankStatement(_ context.Context, _ auth.Identity, _ string, _ BankStatementImportInput) (*BankStatementImportResponse, error) {
+	return &BankStatementImportResponse{}, nil
+}
+
+func (f *fakeAttentionService) GetBankStatementImport(_ context.Context, _ auth.Identity, _, _ string) (*BankStatementImportDetails, error) {
+	return &BankStatementImportDetails{}, nil
+}
+
+func (f *fakeAttentionService) ApplyBankStatementImport(_ context.Context, _ auth.Identity, _, _ string, _ []BankStatementManualMatchInput) (*BankStatementImportResponse, error) {
+	return &BankStatementImportResponse{}, nil
+}
+
 func TestAttentionQueueRequiresAuth(t *testing.T) {
 	svc := &fakeAttentionService{}
 	h := NewHandlerWithService(svc)

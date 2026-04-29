@@ -13,6 +13,7 @@ import (
 
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/jobs"
+	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/notification"
 	"github.com/stratahq/backend/internal/platform/database"
 	"github.com/stratahq/backend/internal/twilio"
@@ -48,9 +49,12 @@ func main() {
 		sender = whatsapp.NewNoOpSender()
 	}
 
+	levyService := levy.NewService(db, nil, nil)
+
 	registry := jobs.Registry{
 		jobs.KindCollectionReminderEmail:    jobs.NewCollectionReminderEmailHandler(db.Q, emailClient),
 		jobs.KindCollectionReminderWhatsApp: jobs.NewCollectionReminderWhatsAppHandler(db.Q, sender),
+		jobs.KindBankStatementImport:        jobs.NewBankStatementImportHandler(levyService),
 	}
 
 	workerID, err := os.Hostname()

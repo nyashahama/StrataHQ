@@ -2,6 +2,7 @@ package levy
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -21,6 +22,9 @@ type attentionService interface {
 	Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error)
 	CreatePeriod(ctx context.Context, identity auth.Identity, schemeID string, input CreatePeriodInput) (*PeriodInfo, error)
 	Reconcile(ctx context.Context, identity auth.Identity, schemeID string, payments []ReconcilePaymentInput) (*ReconcileResult, error)
+	ImportBankStatement(ctx context.Context, identity auth.Identity, schemeID string, input BankStatementImportInput) (*BankStatementImportResponse, error)
+	GetBankStatementImport(ctx context.Context, identity auth.Identity, schemeID, importID string) (*BankStatementImportDetails, error)
+	ApplyBankStatementImport(ctx context.Context, identity auth.Identity, schemeID, importID string, manualMatches []BankStatementManualMatchInput) (*BankStatementImportResponse, error)
 }
 
 type Handler struct {
@@ -288,6 +292,114 @@ func (h *Handler) SendReminder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(w, http.StatusCreated, event)
+}
+
+func (h *Handler) ImportBankStatement(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid multipart form data")
+		return
+	}
+
+	bank := strings.TrimSpace(r.FormValue("bank"))
+	if bank == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "bank is required")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "file is required")
+		return
+	}
+	defer file.Close()
+
+	rawCSV, err := io.ReadAll(file)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "failed to read uploaded file")
+		return
+	}
+
+	import_, err := h.service.ImportBankStatement(r.Context(), identity, chi.URLParam(r, "schemeId"), BankStatementImportInput{
+		BankName:         bank,
+		OriginalFilename: header.Filename,
+		RawCSV:          rawCSV,
+	})
+	if err != nil {
+		writeLevyError(w, err, "failed to import bank statement")
+		return
+	}
+
+	response.JSON(w, http.StatusAccepted, import_)
+}
+
+func (h *Handler) GetBankStatementImport(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	details, err := h.service.GetBankStatementImport(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "importId"))
+	if err != nil {
+		writeLevyError(w, err, "failed to load bank statement import")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, details)
+}
+
+func (h *Handler) ApplyBankStatementImport(w http.ResponseWriter, r *http.Request) {
+	identity, ok := auth.IdentityFromRequest(r)
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
+		return
+	}
+
+	type manualMatchRequest struct {
+		RowID       string  `json:"row_id"`
+		AccountID   string  `json:"account_id"`
+		PaymentDate string  `json:"payment_date"`
+		AmountCents int64   `json:"amount_cents"`
+		Reference   string  `json:"reference"`
+		BankRef     *string `json:"bank_ref"`
+	}
+
+	type applyRequest struct {
+		ManualMatches []manualMatchRequest `json:"manual_matches"`
+	}
+
+	var req applyRequest
+	if err := response.DecodeJSON(r.Body, &req); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
+		return
+	}
+
+	matches := make([]BankStatementManualMatchInput, len(req.ManualMatches))
+	//nolint:gosimple // manualMatchRequest is a distinct named type
+	for i, m := range req.ManualMatches {
+		matches[i] = BankStatementManualMatchInput{
+			RowID:       m.RowID,
+			AccountID:   m.AccountID,
+			PaymentDate: m.PaymentDate,
+			AmountCents: m.AmountCents,
+			Reference:   m.Reference,
+			BankRef:     m.BankRef,
+		}
+	}
+
+	result, err := h.service.ApplyBankStatementImport(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "importId"), matches)
+	if err != nil {
+		writeLevyError(w, err, "failed to apply bank statement import")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, result)
 }
 
 func writeLevyError(w http.ResponseWriter, err error, fallback string) {

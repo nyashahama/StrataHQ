@@ -289,3 +289,160 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 		t.Fatalf("max attempts = email:%d whatsapp:%d, want 3", emailAttempts, whatsappAttempts)
 	}
 }
+
+func TestLevy_BankStatementImportLifecycle(t *testing.T) {
+	ctx := context.Background()
+	accessToken, orgID := setupAgent(t)
+	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey)
+	if err != nil {
+		t.Fatalf("validate access token: %v", err)
+	}
+	identity := auth.Identity{UserID: claims.Subject, OrgID: orgID, Role: claims.Role}
+	schemeID := setupScheme(t, accessToken)
+
+	unitA, err := testQ.CreateUnit(ctx, createUnitParams(schemeID, "1A", "A. Adams"))
+	if err != nil {
+		t.Fatalf("create unit A: %v", err)
+	}
+	unitB, err := testQ.CreateUnit(ctx, createUnitParams(schemeID, "2B", "B. Brown"))
+	if err != nil {
+		t.Fatalf("create unit B: %v", err)
+	}
+
+	service := levy.NewServiceWithAuditAndJobs(testPool, &notification.NoopSender{}, whatsapp.NewNoOpSender(), nil, jobs.NewService(testQ, jobs.Registry{}, nil, jobs.RealClock{}, jobs.Config{WorkerID: "integration-importer"}))
+	service.SetMaxJobAttempts(3)
+
+	period, err := service.CreatePeriod(ctx, identity, schemeID, levy.CreatePeriodInput{
+		Label:       "May 2026",
+		AmountCents: 245000,
+		DueDate:     time.Now().UTC().AddDate(0, 0, -1),
+	})
+	if err != nil {
+		t.Fatalf("create period: %v", err)
+	}
+
+	rawCSV := []byte("Date,Description,Reference,Amount\n2026-04-01,EFT Unit 1A,1A,2450.00\n2026-04-02,Manual review needed,unknown,1200.00\n")
+
+	importResp, err := service.ImportBankStatement(ctx, identity, schemeID, levy.BankStatementImportInput{
+		BankName:         "fnb",
+		OriginalFilename: "fnb_statement.csv",
+		RawCSV:           rawCSV,
+	})
+	if err != nil {
+		t.Fatalf("import statement: %v", err)
+	}
+	if importResp.Status != string(dbgen.BankStatementImportStatusQueued) {
+		t.Fatalf("import status = %q, want queued", importResp.Status)
+	}
+
+	var queuedJobs int
+	if err := testPool.QueryRow(ctx, `SELECT count(*) FROM background_jobs WHERE kind = $1 AND idempotency_key = $2`, jobs.KindBankStatementImport, importResp.ID).Scan(&queuedJobs); err != nil {
+		t.Fatalf("count background jobs: %v", err)
+	}
+	if queuedJobs != 1 {
+		t.Fatalf("queued jobs = %d, want 1", queuedJobs)
+	}
+
+	if err := service.ProcessBankStatementImport(ctx, importResp.ID); err != nil {
+		t.Fatalf("process import: %v", err)
+	}
+
+	details, err := service.GetBankStatementImport(ctx, identity, schemeID, importResp.ID)
+	if err != nil {
+		t.Fatalf("get import details: %v", err)
+	}
+	if details.Status != string(dbgen.BankStatementImportStatusReviewRequired) {
+		t.Fatalf("status = %q, want review_required", details.Status)
+	}
+	if details.MatchedRows != 1 || details.UnmatchedRows != 1 {
+		t.Fatalf("unexpected import counts: %+v", details.BankStatementImportResponse)
+	}
+	if len(details.Rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(details.Rows))
+	}
+
+	accounts, err := testQ.ListLevyAccountsByPeriod(ctx, uuid.MustParse(period.ID))
+	if err != nil {
+		t.Fatalf("list levy accounts by period: %v", err)
+	}
+	var unitBAccountID uuid.UUID
+	for _, account := range accounts {
+		if account.UnitIdentifier == "2B" {
+			unitBAccountID = account.ID
+			break
+		}
+	}
+	if unitBAccountID == uuid.Nil {
+		t.Fatal("missing unit B account")
+	}
+
+	var manualRowID string
+	for _, row := range details.Rows {
+		if row.Status == "unmatched" {
+			manualRowID = row.ID
+			break
+		}
+	}
+	if manualRowID == "" {
+		t.Fatal("missing unmatched row")
+	}
+
+	appliedResp, err := service.ApplyBankStatementImport(ctx, identity, schemeID, importResp.ID, []levy.BankStatementManualMatchInput{
+		{
+			RowID:       manualRowID,
+			AccountID:   unitBAccountID.String(),
+			PaymentDate: "2026-04-02",
+			AmountCents: 120000,
+			Reference:   "MANUAL-002",
+			BankRef:     ptrString("Manual review needed"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply import: %v", err)
+	}
+	if appliedResp.Status != string(dbgen.BankStatementImportStatusApplied) {
+		t.Fatalf("applied status = %q, want applied", appliedResp.Status)
+	}
+	if appliedResp.AppliedRows != 2 {
+		t.Fatalf("applied rows = %d, want 2", appliedResp.AppliedRows)
+	}
+
+	paymentsA, err := testQ.ListLevyPaymentsByUnit(ctx, unitA.ID)
+	if err != nil {
+		t.Fatalf("list unit A payments: %v", err)
+	}
+	paymentsB, err := testQ.ListLevyPaymentsByUnit(ctx, unitB.ID)
+	if err != nil {
+		t.Fatalf("list unit B payments: %v", err)
+	}
+	if len(paymentsA) != 1 || len(paymentsB) != 1 {
+		t.Fatalf("expected one payment per unit, got A=%d B=%d", len(paymentsA), len(paymentsB))
+	}
+
+	reupload, err := service.ImportBankStatement(ctx, identity, schemeID, levy.BankStatementImportInput{
+		BankName:         "fnb",
+		OriginalFilename: "fnb_statement.csv",
+		RawCSV:           rawCSV,
+	})
+	if err != nil {
+		t.Fatalf("reupload import: %v", err)
+	}
+	if err := service.ProcessBankStatementImport(ctx, reupload.ID); err != nil {
+		t.Fatalf("reprocess import: %v", err)
+	}
+	paymentsA, err = testQ.ListLevyPaymentsByUnit(ctx, unitA.ID)
+	if err != nil {
+		t.Fatalf("list unit A payments after reupload: %v", err)
+	}
+	paymentsB, err = testQ.ListLevyPaymentsByUnit(ctx, unitB.ID)
+	if err != nil {
+		t.Fatalf("list unit B payments after reupload: %v", err)
+	}
+	if len(paymentsA) != 1 || len(paymentsB) != 1 {
+		t.Fatalf("reupload duplicated payments: A=%d B=%d", len(paymentsA), len(paymentsB))
+	}
+}
+
+func ptrString(value string) *string {
+	return &value
+}

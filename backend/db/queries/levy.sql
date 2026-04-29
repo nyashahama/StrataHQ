@@ -78,3 +78,17 @@ FROM levy_payments lp
 JOIN levy_accounts la ON la.id = lp.levy_account_id
 WHERE la.unit_id = $1
 ORDER BY lp.payment_date DESC, lp.created_at DESC;
+
+-- name: ListOpenLevyAccountsByScheme :many
+SELECT
+    la.*,
+    lp.scheme_id,
+    lp.label AS period_label,
+    u.identifier AS unit_identifier,
+    u.owner_name
+FROM levy_accounts la
+JOIN levy_periods lp ON lp.id = la.period_id
+JOIN units u ON u.id = la.unit_id
+WHERE lp.scheme_id = $1
+  AND la.status IN ('pending', 'partial', 'overdue')
+ORDER BY lp.due_date DESC, u.identifier ASC;

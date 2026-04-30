@@ -935,6 +935,26 @@ type EarlyAccessRequest struct {
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 }
 
+type IntegrationApiClient struct {
+	ID              uuid.UUID          `json:"id"`
+	OrgID           uuid.UUID          `json:"org_id"`
+	Name            string             `json:"name"`
+	KeyPrefix       string             `json:"key_prefix"`
+	KeyHash         string             `json:"key_hash"`
+	Scopes          []string           `json:"scopes"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	LastUsedAt      pgtype.Timestamptz `json:"last_used_at"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+}
+
+type IntegrationApiClientScheme struct {
+	ClientID uuid.UUID `json:"client_id"`
+	SchemeID uuid.UUID `json:"scheme_id"`
+}
+
 type Invitation struct {
 	ID        uuid.UUID   `json:"id"`
 	OrgID     uuid.UUID   `json:"org_id"`

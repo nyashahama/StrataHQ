@@ -326,8 +326,8 @@ const listContractorsByOrg = `-- name: ListContractorsByOrg :many
 SELECT
     c.id, c.org_id, c.name, c.trade, c.phone, c.email, c.suburb, c.city, c.province, c.public_profile, c.vetted, c.active, c.notes, c.created_by_user_id, c.created_at, c.updated_at,
     COALESCE(AVG(cr.rating), 0)::float8 AS average_rating,
-    COUNT(cr.id)::int AS review_count,
-    COUNT(mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count,
+    COUNT(DISTINCT cr.id)::int AS review_count,
+    COUNT(DISTINCT mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count,
     COALESCE(bool_or(sc.preferred), false)::boolean AS preferred
 FROM contractors c
 LEFT JOIN contractor_reviews cr ON cr.contractor_id = c.id
@@ -431,8 +431,8 @@ SELECT
     c.id, c.org_id, c.name, c.trade, c.phone, c.email, c.suburb, c.city, c.province, c.public_profile, c.vetted, c.active, c.notes, c.created_by_user_id, c.created_at, c.updated_at,
     COALESCE(sc.preferred, false)::boolean AS preferred,
     COALESCE(AVG(cr.rating), 0)::float8 AS average_rating,
-    COUNT(cr.id)::int AS review_count,
-    COUNT(mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count
+    COUNT(DISTINCT cr.id)::int AS review_count,
+    COUNT(DISTINCT mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count
 FROM contractors c
 LEFT JOIN scheme_contractors sc
   ON sc.contractor_id = c.id

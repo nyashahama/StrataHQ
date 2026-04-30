@@ -168,6 +168,14 @@ func (s *Service) List(ctx context.Context, identity auth.Identity, filters Cont
 	if err != nil {
 		return nil, ErrInvalidInput
 	}
+	if !auth.IsAdminRole(identity.Role) {
+		if filters.SchemeID == "" {
+			return nil, ErrForbidden
+		}
+		if _, accessErr := s.ensureSchemeAccess(ctx, identity, filters.SchemeID); accessErr != nil {
+			return nil, accessErr
+		}
+	}
 	params := dbgen.ListContractorsByOrgParams{OrgID: orgID}
 	params.SchemeID = uuidFilter(filters.SchemeID)
 	params.Trade = tradeFilter(filters.Trade)
@@ -198,9 +206,9 @@ func (s *Service) Marketplace(ctx context.Context, identity auth.Identity, schem
 	if auth.IsResidentRole(identity.Role) {
 		return nil, ErrForbidden
 	}
-	sid, err := uuid.Parse(schemeID)
+	sid, err := s.ensureSchemeAccess(ctx, identity, schemeID)
 	if err != nil {
-		return nil, ErrInvalidInput
+		return nil, err
 	}
 	rows, err := s.db.Q.SearchContractorMarketplace(ctx, dbgen.SearchContractorMarketplaceParams{
 		SchemeID: sid, Trade: tradeFilter(filters.Trade), Suburb: textFilter(filters.Suburb),
@@ -220,7 +228,10 @@ func (s *Service) Marketplace(ctx context.Context, identity auth.Identity, schem
 }
 
 func (s *Service) CreateReview(ctx context.Context, identity auth.Identity, contractorID string, input ReviewInput) (*ContractorReviewInfo, error) {
-	if auth.IsResidentRole(identity.Role) || !validRating(input.Rating) {
+	if auth.IsResidentRole(identity.Role) {
+		return nil, ErrForbidden
+	}
+	if !validRating(input.Rating) {
 		return nil, ErrInvalidInput
 	}
 	cid, err := uuid.Parse(contractorID)
@@ -230,6 +241,9 @@ func (s *Service) CreateReview(ctx context.Context, identity auth.Identity, cont
 	sid, err := uuid.Parse(input.SchemeID)
 	if err != nil {
 		return nil, ErrInvalidInput
+	}
+	if _, err := s.ensureSchemeAccess(ctx, identity, input.SchemeID); err != nil {
+		return nil, err
 	}
 	rid, err := uuid.Parse(input.MaintenanceRequestID)
 	if err != nil {
@@ -254,6 +268,41 @@ func (s *Service) CreateReview(ctx context.Context, identity auth.Identity, cont
 		return nil, mapDBError(err)
 	}
 	return mapReview(row), nil
+}
+
+func (s *Service) ensureSchemeAccess(ctx context.Context, identity auth.Identity, schemeID string) (uuid.UUID, error) {
+	sid, err := uuid.Parse(schemeID)
+	if err != nil {
+		return uuid.Nil, ErrInvalidInput
+	}
+	scheme, err := s.db.Q.GetScheme(ctx, sid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, ErrNotFound
+		}
+		return uuid.Nil, err
+	}
+	if auth.IsAdminRole(identity.Role) {
+		orgID, parseErr := uuid.Parse(identity.OrgID)
+		if parseErr != nil {
+			return uuid.Nil, ErrInvalidInput
+		}
+		if scheme.OrgID != orgID {
+			return uuid.Nil, ErrForbidden
+		}
+		return sid, nil
+	}
+	userID, parseErr := uuid.Parse(identity.UserID)
+	if parseErr != nil {
+		return uuid.Nil, ErrInvalidInput
+	}
+	if _, err := s.db.Q.GetSchemeMembership(ctx, dbgen.GetSchemeMembershipParams{UserID: userID, SchemeID: sid}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, ErrForbidden
+		}
+		return uuid.Nil, err
+	}
+	return sid, nil
 }
 
 func parseOrgUser(identity auth.Identity) (uuid.UUID, uuid.UUID, error) {

@@ -66,8 +66,8 @@ WHERE org_id = sqlc.arg(org_id)
 SELECT
     c.*,
     COALESCE(AVG(cr.rating), 0)::float8 AS average_rating,
-    COUNT(cr.id)::int AS review_count,
-    COUNT(mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count,
+    COUNT(DISTINCT cr.id)::int AS review_count,
+    COUNT(DISTINCT mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count,
     COALESCE(bool_or(sc.preferred), false)::boolean AS preferred
 FROM contractors c
 LEFT JOIN contractor_reviews cr ON cr.contractor_id = c.id
@@ -88,8 +88,8 @@ SELECT
     c.*,
     COALESCE(sc.preferred, false)::boolean AS preferred,
     COALESCE(AVG(cr.rating), 0)::float8 AS average_rating,
-    COUNT(cr.id)::int AS review_count,
-    COUNT(mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count
+    COUNT(DISTINCT cr.id)::int AS review_count,
+    COUNT(DISTINCT mr.id) FILTER (WHERE mr.status = 'resolved')::int AS completed_job_count
 FROM contractors c
 LEFT JOIN scheme_contractors sc
   ON sc.contractor_id = c.id

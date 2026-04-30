@@ -234,23 +234,23 @@ func (s *Service) CreateReview(ctx context.Context, identity auth.Identity, cont
 	if !validRating(input.Rating) {
 		return nil, ErrInvalidInput
 	}
-	cid, err := uuid.Parse(contractorID)
-	if err != nil {
+	cid, parseCidErr := uuid.Parse(contractorID)
+	if parseCidErr != nil {
 		return nil, ErrInvalidInput
 	}
-	sid, err := uuid.Parse(input.SchemeID)
-	if err != nil {
+	sid, parseSidErr := uuid.Parse(input.SchemeID)
+	if parseSidErr != nil {
 		return nil, ErrInvalidInput
 	}
-	if _, err := s.ensureSchemeAccess(ctx, identity, input.SchemeID); err != nil {
-		return nil, err
+	if _, accessErr := s.ensureSchemeAccess(ctx, identity, input.SchemeID); accessErr != nil {
+		return nil, accessErr
 	}
-	rid, err := uuid.Parse(input.MaintenanceRequestID)
-	if err != nil {
+	rid, parseRidErr := uuid.Parse(input.MaintenanceRequestID)
+	if parseRidErr != nil {
 		return nil, ErrInvalidInput
 	}
-	uid, err := uuid.Parse(identity.UserID)
-	if err != nil {
+	uid, parseUidErr := uuid.Parse(identity.UserID)
+	if parseUidErr != nil {
 		return nil, ErrInvalidInput
 	}
 	request, err := s.db.Q.GetMaintenanceRequest(ctx, rid)

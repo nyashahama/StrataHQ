@@ -90,6 +90,7 @@ func TestContractors_ReviewResolvedMaintenanceRequest(t *testing.T) {
 	requestBody, _ := json.Marshal(map[string]string{"title": "Leak", "description": "Leaking pipe", "category": "plumbing"})
 	req = httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID, bytes.NewReader(requestBody))
 	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
 	w = httptest.NewRecorder()
 	mh.Create(w, req)
 	if w.Code != http.StatusCreated {

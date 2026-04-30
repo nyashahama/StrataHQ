@@ -167,6 +167,7 @@ func TestMaintenance_AssignsContractorProfile(t *testing.T) {
 	})
 	req = httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID, bytes.NewReader(createBody))
 	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
 	w = httptest.NewRecorder()
 	h.Create(w, req)
 	if w.Code != http.StatusCreated {

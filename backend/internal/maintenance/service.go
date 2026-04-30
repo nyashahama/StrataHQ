@@ -234,28 +234,28 @@ func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, 
 	}
 
 	if input.ContractorID != nil {
-		contractorUUID, err := uuid.Parse(*input.ContractorID)
-		if err != nil {
+		contractorUUID, parseErr := uuid.Parse(*input.ContractorID)
+		if parseErr != nil {
 			return nil, ErrInvalidInput
 		}
-		contractor, err := s.db.Q.ContractorAssignableToScheme(ctx, dbgen.ContractorAssignableToSchemeParams{
+		contractor, lookupErr := s.db.Q.ContractorAssignableToScheme(ctx, dbgen.ContractorAssignableToSchemeParams{
 			ContractorID: contractorUUID,
 			SchemeID:     access.scheme.ID,
 		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
+		if lookupErr != nil {
+			if errors.Is(lookupErr, pgx.ErrNoRows) {
 				return nil, ErrForbidden
 			}
-			return nil, err
+			return nil, lookupErr
 		}
-		updated, err := s.db.Q.AssignMaintenanceContractorProfile(ctx, dbgen.AssignMaintenanceContractorProfileParams{
+		updated, updateErr := s.db.Q.AssignMaintenanceContractorProfile(ctx, dbgen.AssignMaintenanceContractorProfileParams{
 			ID:              request.ID,
 			ContractorID:    pgtype.UUID{Bytes: contractor.ID, Valid: true},
 			ContractorName:  pgtype.Text{String: contractor.Name, Valid: true},
 			ContractorPhone: contractor.Phone,
 		})
-		if err != nil {
-			return nil, err
+		if updateErr != nil {
+			return nil, updateErr
 		}
 		afterInfo, enrichErr := s.enrichRequest(ctx, updated)
 		if enrichErr != nil {

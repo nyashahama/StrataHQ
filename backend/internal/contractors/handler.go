@@ -118,10 +118,7 @@ func (h *Handler) CreateReview(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	result, err := h.service.CreateReview(r.Context(), identity, chi.URLParam(r, "contractorId"), ReviewInput{
-		SchemeID: req.SchemeID, MaintenanceRequestID: req.MaintenanceRequestID,
-		Rating: req.Rating, Comment: req.Comment,
-	})
+	result, err := h.service.CreateReview(r.Context(), identity, chi.URLParam(r, "contractorId"), ReviewInput(req))
 	if err != nil {
 		writeContractorError(w, err)
 		return
@@ -130,11 +127,7 @@ func (h *Handler) CreateReview(w http.ResponseWriter, r *http.Request) {
 }
 
 func contractorInput(req contractorRequest) UpsertContractorInput {
-	return UpsertContractorInput{
-		Phone: req.Phone, Email: req.Email, Notes: req.Notes, Name: req.Name, Trade: req.Trade,
-		Suburb: req.Suburb, City: req.City, Province: req.Province, SchemeIDs: req.SchemeIDs,
-		PublicProfile: req.PublicProfile, Vetted: req.Vetted, Active: req.Active,
-	}
+	return UpsertContractorInput(req)
 }
 
 func contractorFiltersFromRequest(r *http.Request) ContractorFilters {

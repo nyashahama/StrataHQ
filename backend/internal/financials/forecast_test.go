@@ -4,7 +4,7 @@ import "testing"
 
 func TestBuildLevyForecastShortfallRisk(t *testing.T) {
 	forecast := buildLevyForecast(levyForecastInput{
-		MonthsProjected: 12,
+		MonthsProjected:            12,
 		CurrentReserveBalanceCents: 10_000_00,
 		ReserveTargetCents:         25_000_00,
 		CurrentMonthlyLevyCents:    2_500_00,
@@ -38,7 +38,7 @@ func TestBuildLevyForecastShortfallRisk(t *testing.T) {
 
 func TestBuildLevyForecastHealthy(t *testing.T) {
 	forecast := buildLevyForecast(levyForecastInput{
-		MonthsProjected: 12,
+		MonthsProjected:            12,
 		CurrentReserveBalanceCents: 30_000_00,
 		ReserveTargetCents:         25_000_00,
 		CurrentMonthlyLevyCents:    2_500_00,
@@ -66,7 +66,7 @@ func TestBuildLevyForecastHealthy(t *testing.T) {
 
 func TestBuildLevyForecastWatch(t *testing.T) {
 	forecast := buildLevyForecast(levyForecastInput{
-		MonthsProjected: 12,
+		MonthsProjected:            12,
 		CurrentReserveBalanceCents: 40_000_00,
 		ReserveTargetCents:         25_000_00,
 		CurrentMonthlyLevyCents:    2_500_00,
@@ -91,7 +91,7 @@ func TestBuildLevyForecastWatch(t *testing.T) {
 
 func TestBuildLevyForecastInsufficientData(t *testing.T) {
 	forecast := buildLevyForecast(levyForecastInput{
-		MonthsProjected: 12,
+		MonthsProjected:            12,
 		CurrentReserveBalanceCents: 0,
 		ReserveTargetCents:         10_000_00,
 		CurrentMonthlyLevyCents:    2_000_00,

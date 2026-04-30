@@ -62,24 +62,24 @@ type LevyForecastPointInfo struct {
 
 //nolint:govet // Keep response DTO fields grouped by API meaning rather than field packing.
 type LevyForecastInfo struct {
-	DataPoints                    []LevyForecastPointInfo `json:"data_points"`
-	Notes                         []string                `json:"notes"`
-	Status                        string                  `json:"status"`
-	Confidence                    string                  `json:"confidence"`
-	MonthsProjected               int                     `json:"months_projected"`
-	CurrentMonthlyLevyCents       int64                   `json:"current_monthly_levy_cents"`
-	AverageCollectionRatePct      int                     `json:"average_collection_rate_pct"`
-	AverageMonthlyIncomeCents     int64                   `json:"average_monthly_income_cents"`
-	AverageMonthlyExpenseCents    int64                   `json:"average_monthly_expense_cents"`
-	ProjectedReserveBalanceCents  int64                   `json:"projected_reserve_balance_cents"`
-	ProjectedShortfallCents       int64                   `json:"projected_shortfall_cents"`
-	RecommendedMonthlyIncreaseCents int64                 `json:"recommended_monthly_increase_cents"`
-	RecommendedIncreasePct        int                     `json:"recommended_increase_pct"`
+	DataPoints                      []LevyForecastPointInfo `json:"data_points"`
+	Notes                           []string                `json:"notes"`
+	Status                          string                  `json:"status"`
+	Confidence                      string                  `json:"confidence"`
+	MonthsProjected                 int                     `json:"months_projected"`
+	CurrentMonthlyLevyCents         int64                   `json:"current_monthly_levy_cents"`
+	AverageCollectionRatePct        int                     `json:"average_collection_rate_pct"`
+	AverageMonthlyIncomeCents       int64                   `json:"average_monthly_income_cents"`
+	AverageMonthlyExpenseCents      int64                   `json:"average_monthly_expense_cents"`
+	ProjectedReserveBalanceCents    int64                   `json:"projected_reserve_balance_cents"`
+	ProjectedShortfallCents         int64                   `json:"projected_shortfall_cents"`
+	RecommendedMonthlyIncreaseCents int64                   `json:"recommended_monthly_increase_cents"`
+	RecommendedIncreasePct          int                     `json:"recommended_increase_pct"`
 }
 
 //nolint:govet // Keep response DTO fields grouped by API meaning rather than field packing.
 type DashboardResponse struct {
-	LevyForecast        *LevyForecastInfo `json:"levy_forecast"`
+	LevyForecast       *LevyForecastInfo `json:"levy_forecast"`
 	ReserveFund        *ReserveFundInfo  `json:"reserve_fund"`
 	LevySummary        *LevySummaryInfo  `json:"levy_summary"`
 	BudgetLines        []BudgetLineInfo  `json:"budget_lines"`

@@ -59,3 +59,12 @@ SELECT COUNT(*) FROM maintenance_requests
 WHERE scheme_id = $1
   AND status NOT IN ('resolved', 'pending_approval')
   AND created_at + (sla_hours || ' hours')::interval < NOW();
+
+-- name: AssignMaintenanceContractorProfile :one
+UPDATE maintenance_requests
+SET contractor_id    = sqlc.arg(contractor_id),
+    contractor_name  = sqlc.arg(contractor_name),
+    contractor_phone = sqlc.arg(contractor_phone),
+    status           = 'in_progress'
+WHERE id = sqlc.arg(id)
+RETURNING *;

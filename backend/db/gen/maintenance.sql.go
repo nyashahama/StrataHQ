@@ -19,7 +19,7 @@ SET contractor_name  = $2,
     contractor_phone = $3,
     status           = 'in_progress'
 WHERE id = $1
-RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at
+RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id
 `
 
 type AssignMaintenanceContractorParams struct {
@@ -46,6 +46,52 @@ func (q *Queries) AssignMaintenanceContractor(ctx context.Context, arg AssignMai
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ResolvedAt,
+		&i.ContractorID,
+	)
+	return i, err
+}
+
+const assignMaintenanceContractorProfile = `-- name: AssignMaintenanceContractorProfile :one
+UPDATE maintenance_requests
+SET contractor_id    = $1,
+    contractor_name  = $2,
+    contractor_phone = $3,
+    status           = 'in_progress'
+WHERE id = $4
+RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id
+`
+
+type AssignMaintenanceContractorProfileParams struct {
+	ContractorID    pgtype.UUID `json:"contractor_id"`
+	ContractorName  pgtype.Text `json:"contractor_name"`
+	ContractorPhone pgtype.Text `json:"contractor_phone"`
+	ID              uuid.UUID   `json:"id"`
+}
+
+func (q *Queries) AssignMaintenanceContractorProfile(ctx context.Context, arg AssignMaintenanceContractorProfileParams) (MaintenanceRequest, error) {
+	row := q.db.QueryRow(ctx, assignMaintenanceContractorProfile,
+		arg.ContractorID,
+		arg.ContractorName,
+		arg.ContractorPhone,
+		arg.ID,
+	)
+	var i MaintenanceRequest
+	err := row.Scan(
+		&i.ID,
+		&i.SchemeID,
+		&i.UnitID,
+		&i.Title,
+		&i.Description,
+		&i.Category,
+		&i.Status,
+		&i.ContractorName,
+		&i.ContractorPhone,
+		&i.SlaHours,
+		&i.SubmittedByUnit,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ResolvedAt,
+		&i.ContractorID,
 	)
 	return i, err
 }
@@ -82,7 +128,7 @@ INSERT INTO maintenance_requests (
     scheme_id, unit_id, title, description, category, sla_hours, submitted_by_unit
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at
+RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id
 `
 
 type CreateMaintenanceRequestParams struct {
@@ -121,12 +167,13 @@ func (q *Queries) CreateMaintenanceRequest(ctx context.Context, arg CreateMainte
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ResolvedAt,
+		&i.ContractorID,
 	)
 	return i, err
 }
 
 const getMaintenanceRequest = `-- name: GetMaintenanceRequest :one
-SELECT id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at FROM maintenance_requests
+SELECT id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id FROM maintenance_requests
 WHERE id = $1
 LIMIT 1
 `
@@ -149,12 +196,13 @@ func (q *Queries) GetMaintenanceRequest(ctx context.Context, id uuid.UUID) (Main
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ResolvedAt,
+		&i.ContractorID,
 	)
 	return i, err
 }
 
 const listMaintenanceRequestsByScheme = `-- name: ListMaintenanceRequestsByScheme :many
-SELECT id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at FROM maintenance_requests
+SELECT id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id FROM maintenance_requests
 WHERE scheme_id = $1
 ORDER BY created_at DESC
 `
@@ -183,6 +231,7 @@ func (q *Queries) ListMaintenanceRequestsByScheme(ctx context.Context, schemeID 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ResolvedAt,
+			&i.ContractorID,
 		); err != nil {
 			return nil, err
 		}
@@ -195,7 +244,7 @@ func (q *Queries) ListMaintenanceRequestsByScheme(ctx context.Context, schemeID 
 }
 
 const listMaintenanceRequestsDetailedByScheme = `-- name: ListMaintenanceRequestsDetailedByScheme :many
-SELECT mr.id, mr.scheme_id, mr.unit_id, mr.title, mr.description, mr.category, mr.status, mr.contractor_name, mr.contractor_phone, mr.sla_hours, mr.submitted_by_unit, mr.created_at, mr.updated_at, mr.resolved_at, u.identifier AS unit_identifier, u.owner_name
+SELECT mr.id, mr.scheme_id, mr.unit_id, mr.title, mr.description, mr.category, mr.status, mr.contractor_name, mr.contractor_phone, mr.sla_hours, mr.submitted_by_unit, mr.created_at, mr.updated_at, mr.resolved_at, mr.contractor_id, u.identifier AS unit_identifier, u.owner_name
 FROM maintenance_requests mr
 LEFT JOIN units u ON u.id = mr.unit_id
 WHERE mr.scheme_id = $1
@@ -217,6 +266,7 @@ type ListMaintenanceRequestsDetailedBySchemeRow struct {
 	CreatedAt       time.Time           `json:"created_at"`
 	UpdatedAt       time.Time           `json:"updated_at"`
 	ResolvedAt      pgtype.Timestamptz  `json:"resolved_at"`
+	ContractorID    pgtype.UUID         `json:"contractor_id"`
 	UnitIdentifier  pgtype.Text         `json:"unit_identifier"`
 	OwnerName       pgtype.Text         `json:"owner_name"`
 }
@@ -245,6 +295,7 @@ func (q *Queries) ListMaintenanceRequestsDetailedByScheme(ctx context.Context, s
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ResolvedAt,
+			&i.ContractorID,
 			&i.UnitIdentifier,
 			&i.OwnerName,
 		); err != nil {
@@ -259,7 +310,7 @@ func (q *Queries) ListMaintenanceRequestsDetailedByScheme(ctx context.Context, s
 }
 
 const listOpenMaintenanceRequestsByScheme = `-- name: ListOpenMaintenanceRequestsByScheme :many
-SELECT id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at FROM maintenance_requests
+SELECT id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id FROM maintenance_requests
 WHERE scheme_id = $1
   AND status != 'resolved'
 ORDER BY created_at DESC
@@ -289,6 +340,7 @@ func (q *Queries) ListOpenMaintenanceRequestsByScheme(ctx context.Context, schem
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ResolvedAt,
+			&i.ContractorID,
 		); err != nil {
 			return nil, err
 		}
@@ -305,7 +357,7 @@ UPDATE maintenance_requests
 SET status      = 'resolved',
     resolved_at = NOW()
 WHERE id = $1
-RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at
+RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id
 `
 
 func (q *Queries) ResolveMaintenanceRequest(ctx context.Context, id uuid.UUID) (MaintenanceRequest, error) {
@@ -326,6 +378,7 @@ func (q *Queries) ResolveMaintenanceRequest(ctx context.Context, id uuid.UUID) (
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ResolvedAt,
+		&i.ContractorID,
 	)
 	return i, err
 }
@@ -334,7 +387,7 @@ const updateMaintenanceStatus = `-- name: UpdateMaintenanceStatus :one
 UPDATE maintenance_requests
 SET status = $2
 WHERE id = $1
-RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at
+RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id
 `
 
 type UpdateMaintenanceStatusParams struct {
@@ -360,6 +413,7 @@ func (q *Queries) UpdateMaintenanceStatus(ctx context.Context, arg UpdateMainten
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ResolvedAt,
+		&i.ContractorID,
 	)
 	return i, err
 }

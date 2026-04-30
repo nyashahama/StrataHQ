@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	_ "embed"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,12 +15,21 @@ import (
 	"github.com/stratahq/backend/internal/platform/response"
 )
 
+//go:embed openapi.json
+var openAPIDocument []byte
+
 type Handler struct {
 	service *Service
 }
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
+}
+
+func (h *Handler) OpenAPIDocument(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openAPIDocument)
 }
 
 type createAPIClientRequest struct {

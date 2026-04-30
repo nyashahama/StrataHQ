@@ -84,6 +84,12 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 		r.Handle("/metrics", promhttp.Handler())
 	}
 
+	// Open API routes (public, rate-limited, outside /api/v1)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PerEndpointRateLimit(rdb, "open-api", 300, 1*time.Minute))
+		r.Mount("/api/open/v1", h.Integrations.OpenRoutes())
+	})
+
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public routes
@@ -114,10 +120,6 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 				r.Use(middleware.PerEndpointRateLimit(rdb, "earlyaccess", 3, 1*time.Minute))
 				r.Use(middleware.AuditEvents(auditRecorder, logger))
 				r.Mount("/", h.EarlyAccess.PublicRoutes())
-			})
-			r.Group(func(r chi.Router) {
-				r.Use(middleware.PerEndpointRateLimit(rdb, "open-api", 300, 1*time.Minute))
-				r.Mount("/open/v1", h.Integrations.OpenRoutes())
 			})
 		})
 

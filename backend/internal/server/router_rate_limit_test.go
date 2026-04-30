@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -187,6 +188,25 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 
 	if !hasLogin || !hasRefresh {
 		t.Fatalf("FAIL: Both 'auth-login' and 'auth-refresh' prefixes required. Found: %v", prefixes)
+	}
+}
+
+func TestRouterMountsOpenAPIRoutes(t *testing.T) {
+	cfg := &config.Config{}
+	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
+	rdb := newTestRedis(t)
+
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/open/v1/openapi.json", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("openapi.json: status=%d body=%s", w.Code, w.Body)
+	}
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("openapi.json content-type: %q", w.Header().Get("Content-Type"))
 	}
 }
 

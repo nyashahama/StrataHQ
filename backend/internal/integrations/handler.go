@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -33,9 +34,10 @@ func (h *Handler) OpenAPIDocument(w http.ResponseWriter, r *http.Request) {
 }
 
 type createAPIClientRequest struct {
-	Name      string   `json:"name"`
-	SchemeIDs []string `json:"scheme_ids"`
-	Scopes    []string `json:"scopes"`
+	Name      string     `json:"name"`
+	SchemeIDs []string   `json:"scheme_ids"`
+	Scopes    []string   `json:"scopes"`
+	ExpiresAt *time.Time `json:"expires_at"`
 }
 
 func (h *Handler) CreateAPIClient(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +55,7 @@ func (h *Handler) CreateAPIClient(w http.ResponseWriter, r *http.Request) {
 		Name:      strings.TrimSpace(req.Name),
 		SchemeIDs: req.SchemeIDs,
 		Scopes:    req.Scopes,
+		ExpiresAt: req.ExpiresAt,
 	}
 	result, err := h.service.CreateAPIClient(r.Context(), identity, input)
 	if err != nil {

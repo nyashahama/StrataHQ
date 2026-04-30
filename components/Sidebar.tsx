@@ -149,6 +149,15 @@ function ClipboardIcon() {
   )
 }
 
+function BriefcaseIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2" y="4" width="10" height="8" rx="1" />
+      <path d="M5 4V3a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1" />
+    </svg>
+  )
+}
+
 // --- Nav item type ---
 
 interface NavItem {
@@ -176,6 +185,7 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
       { icon: <GridIcon />, label: 'Overview', href: base, exactMatch: true },
       { icon: <CreditCardIcon />, label: 'Levy & Payments', href: `${base}/levy` },
       { icon: <WrenchIcon />, label: 'Maintenance', href: `${base}/maintenance` },
+      { icon: <BriefcaseIcon />, label: 'Contractors', href: `${base}/contractors` },
       { icon: <VoteIcon />, label: 'AGM & Voting', href: `${base}/agm` },
       { icon: <MegaphoneIcon />, label: 'Communications', href: `${base}/communications` },
       { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },
@@ -192,6 +202,7 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
       { icon: <GridIcon />, label: 'Overview', href: base, exactMatch: true },
       { icon: <CreditCardIcon />, label: 'Levy & Payments', href: `${base}/levy` },
       { icon: <WrenchIcon />, label: 'Maintenance', href: `${base}/maintenance` },
+      { icon: <BriefcaseIcon />, label: 'Contractors', href: `${base}/contractors` },
       { icon: <VoteIcon />, label: 'AGM & Voting', href: `${base}/agm` },
       { icon: <MegaphoneIcon />, label: 'Communications', href: `${base}/communications` },
       { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },
@@ -207,7 +218,7 @@ function getNavItems(role: SidebarRole, schemeId?: string): NavItem[] {
   return [
     { icon: <GridIcon />, label: 'Overview', href: base, exactMatch: true },
     { icon: <CreditCardIcon />, label: 'My Levy', href: `${base}/levy` },
-    { icon: <WrenchIcon />, label: 'Maintenance', href: `${base}/maintenance` },
+      { icon: <WrenchIcon />, label: 'Maintenance', href: `${base}/maintenance` },
     { icon: <VoteIcon />, label: 'AGM & Voting', href: `${base}/agm` },
     { icon: <MegaphoneIcon />, label: 'Notices', href: `${base}/communications` },
     { icon: <FolderIcon />, label: 'Documents', href: `${base}/documents` },

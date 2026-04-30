@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/integrations"
 )
 
 func newTestRedis(t *testing.T) *redis.Client {
@@ -30,6 +32,12 @@ func newTestRedis(t *testing.T) *redis.Client {
 	return rdb
 }
 
+func testHandlers() Handlers {
+	return Handlers{
+		Integrations: integrations.NewHandler(integrations.NewService(nil)),
+	}
+}
+
 func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
@@ -43,7 +51,7 @@ func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) 
 		rdb.Del(ctx, existingKeys...)
 	}
 
-	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
 
 	testIP := "192.0.2.1"
 
@@ -88,7 +96,7 @@ func TestRouterUsesDedicatedRateLimitPrefixesForAIAndWebhooks(t *testing.T) {
 		rdb.Del(ctx, existingKeys...)
 	}
 
-	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
 	testIP := "192.0.2.44"
 
 	requests := []struct {
@@ -136,7 +144,7 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 		rdb.Del(ctx, existingKeys...)
 	}
 
-	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
 
 	testIP := "192.0.2.1"
 
@@ -180,6 +188,25 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 
 	if !hasLogin || !hasRefresh {
 		t.Fatalf("FAIL: Both 'auth-login' and 'auth-refresh' prefixes required. Found: %v", prefixes)
+	}
+}
+
+func TestRouterMountsOpenAPIRoutes(t *testing.T) {
+	cfg := &config.Config{}
+	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
+	rdb := newTestRedis(t)
+
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/open/v1/openapi.json", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("openapi.json: status=%d body=%s", w.Code, w.Body)
+	}
+	if w.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("openapi.json content-type: %q", w.Header().Get("Content-Type"))
 	}
 }
 

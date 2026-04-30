@@ -28,3 +28,27 @@ func TestSupabaseRLSHardeningMigrationExists(t *testing.T) {
 		}
 	}
 }
+
+func TestWhatsAppMaintenanceInboxRLS(t *testing.T) {
+	path := "../../db/migrations/00027_whatsapp_maintenance_inbox.sql"
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+
+	sql := string(content)
+
+	required := []string{
+		"CREATE TABLE whatsapp_message_media",
+		"ALTER TABLE whatsapp_message_media ENABLE ROW LEVEL SECURITY",
+		"CREATE TABLE whatsapp_maintenance_intakes",
+		"ALTER TABLE whatsapp_maintenance_intakes ENABLE ROW LEVEL SECURITY",
+	}
+
+	for _, token := range required {
+		if !strings.Contains(sql, token) {
+			t.Fatalf("missing expected SQL token: %q", token)
+		}
+	}
+}

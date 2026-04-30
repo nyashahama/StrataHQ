@@ -19,6 +19,9 @@ export const schemeKeys = {
   financials: (schemeId: string, period: string) =>
     ["scheme", schemeId, "financials", period] as const,
   maintenance: (schemeId: string) => ["scheme", schemeId, "maintenance"] as const,
+  contractors: (schemeId: string) => ["contractors", schemeId] as const,
+  contractorMarketplace: (schemeId: string, trade?: string) =>
+    ["contractors", "marketplace", schemeId, trade ?? "all"] as const,
   levy: (schemeId: string) => ["scheme", schemeId, "levy"] as const,
   agm: (schemeId: string) => ["scheme", schemeId, "agm"] as const,
   agmMembers: (schemeId: string) => ["scheme", schemeId, "agm", "members"] as const,

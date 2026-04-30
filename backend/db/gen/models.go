@@ -924,6 +924,36 @@ type ComplianceItem struct {
 	UpdatedAt   time.Time          `json:"updated_at"`
 }
 
+type Contractor struct {
+	ID              uuid.UUID           `json:"id"`
+	OrgID           uuid.UUID           `json:"org_id"`
+	Name            string              `json:"name"`
+	Trade           MaintenanceCategory `json:"trade"`
+	Phone           pgtype.Text         `json:"phone"`
+	Email           pgtype.Text         `json:"email"`
+	Suburb          string              `json:"suburb"`
+	City            string              `json:"city"`
+	Province        string              `json:"province"`
+	PublicProfile   bool                `json:"public_profile"`
+	Vetted          bool                `json:"vetted"`
+	Active          bool                `json:"active"`
+	Notes           pgtype.Text         `json:"notes"`
+	CreatedByUserID pgtype.UUID         `json:"created_by_user_id"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
+}
+
+type ContractorReview struct {
+	ID                   uuid.UUID   `json:"id"`
+	ContractorID         uuid.UUID   `json:"contractor_id"`
+	SchemeID             uuid.UUID   `json:"scheme_id"`
+	MaintenanceRequestID uuid.UUID   `json:"maintenance_request_id"`
+	Rating               int32       `json:"rating"`
+	Comment              pgtype.Text `json:"comment"`
+	CreatedByUserID      uuid.UUID   `json:"created_by_user_id"`
+	CreatedAt            time.Time   `json:"created_at"`
+}
+
 type EarlyAccessRequest struct {
 	ID         uuid.UUID          `json:"id"`
 	FullName   string             `json:"full_name"`
@@ -933,6 +963,26 @@ type EarlyAccessRequest struct {
 	Status     EarlyAccessStatus  `json:"status"`
 	CreatedAt  time.Time          `json:"created_at"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+}
+
+type IntegrationApiClient struct {
+	ID              uuid.UUID          `json:"id"`
+	OrgID           uuid.UUID          `json:"org_id"`
+	Name            string             `json:"name"`
+	KeyPrefix       string             `json:"key_prefix"`
+	KeyHash         string             `json:"key_hash"`
+	Scopes          []string           `json:"scopes"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
+	LastUsedAt      pgtype.Timestamptz `json:"last_used_at"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
+}
+
+type IntegrationApiClientScheme struct {
+	ClientID uuid.UUID `json:"client_id"`
+	SchemeID uuid.UUID `json:"scheme_id"`
 }
 
 type Invitation struct {
@@ -996,6 +1046,7 @@ type MaintenanceRequest struct {
 	CreatedAt       time.Time           `json:"created_at"`
 	UpdatedAt       time.Time           `json:"updated_at"`
 	ResolvedAt      pgtype.Timestamptz  `json:"resolved_at"`
+	ContractorID    pgtype.UUID         `json:"contractor_id"`
 }
 
 type Notice struct {
@@ -1087,6 +1138,13 @@ type Scheme struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type SchemeContractor struct {
+	SchemeID     uuid.UUID `json:"scheme_id"`
+	ContractorID uuid.UUID `json:"contractor_id"`
+	Preferred    bool      `json:"preferred"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 type SchemeDocument struct {
 	ID               uuid.UUID          `json:"id"`
 	SchemeID         uuid.UUID          `json:"scheme_id"`
@@ -1140,6 +1198,22 @@ type WhatsappBroadcast struct {
 	CreatedAt      time.Time             `json:"created_at"`
 }
 
+type WhatsappMaintenanceIntake struct {
+	ID                   uuid.UUID           `json:"id"`
+	SchemeID             uuid.UUID           `json:"scheme_id"`
+	ThreadID             uuid.UUID           `json:"thread_id"`
+	MessageID            uuid.UUID           `json:"message_id"`
+	UnitID               uuid.UUID           `json:"unit_id"`
+	MaintenanceRequestID pgtype.UUID         `json:"maintenance_request_id"`
+	Status               string              `json:"status"`
+	Category             MaintenanceCategory `json:"category"`
+	Title                string              `json:"title"`
+	Description          string              `json:"description"`
+	MediaCount           int32               `json:"media_count"`
+	CreatedAt            time.Time           `json:"created_at"`
+	UpdatedAt            time.Time           `json:"updated_at"`
+}
+
 type WhatsappMessage struct {
 	ID                   uuid.UUID             `json:"id"`
 	ThreadID             uuid.UUID             `json:"thread_id"`
@@ -1148,6 +1222,16 @@ type WhatsappMessage struct {
 	MaintenanceRequestID pgtype.UUID           `json:"maintenance_request_id"`
 	NoticeID             pgtype.UUID           `json:"notice_id"`
 	CreatedAt            time.Time             `json:"created_at"`
+}
+
+type WhatsappMessageMedium struct {
+	ID               uuid.UUID   `json:"id"`
+	MessageID        uuid.UUID   `json:"message_id"`
+	Provider         string      `json:"provider"`
+	ProviderMediaSid pgtype.Text `json:"provider_media_sid"`
+	MediaUrl         string      `json:"media_url"`
+	ContentType      pgtype.Text `json:"content_type"`
+	CreatedAt        time.Time   `json:"created_at"`
 }
 
 type WhatsappThread struct {

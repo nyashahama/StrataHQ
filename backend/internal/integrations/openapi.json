@@ -1,0 +1,244 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "StrataHQ Open API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api/open/v1"
+    }
+  ],
+  "security": [
+    {
+      "IntegrationBearer": []
+    }
+  ],
+  "paths": {
+    "/openapi.json": {
+      "get": {
+        "security": [],
+        "summary": "OpenAPI contract",
+        "responses": {
+          "200": {
+            "description": "OpenAPI document"
+          }
+        }
+      }
+    },
+    "/schemes": {
+      "get": {
+        "summary": "List granted schemes",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/schemes/{schemeId}": {
+      "get": {
+        "summary": "Get one granted scheme",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SchemeID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/schemes/{schemeId}/units": {
+      "get": {
+        "summary": "List units",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SchemeID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListResponse"
+          }
+        }
+      }
+    },
+    "/schemes/{schemeId}/levy-periods": {
+      "get": {
+        "summary": "List levy periods",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SchemeID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListResponse"
+          }
+        }
+      }
+    },
+    "/schemes/{schemeId}/levy-accounts": {
+      "get": {
+        "summary": "List levy accounts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SchemeID"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "name": "period_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "updated_since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListResponse"
+          }
+        }
+      }
+    },
+    "/schemes/{schemeId}/levy-payments": {
+      "get": {
+        "summary": "List levy payments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SchemeID"
+          },
+          {
+            "$ref": "#/components/parameters/Page"
+          },
+          {
+            "$ref": "#/components/parameters/PerPage"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListResponse"
+          }
+        }
+      }
+    },
+    "/schemes/{schemeId}/financials": {
+      "get": {
+        "summary": "Get scheme financials",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SchemeID"
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ObjectResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "IntegrationBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Use an integration API key in the Authorization header."
+      }
+    },
+    "parameters": {
+      "SchemeID": {
+        "name": "schemeId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "PerPage": {
+        "name": "per_page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        }
+      }
+    },
+    "responses": {
+      "ObjectResponse": {
+        "description": "Successful object response using the standard response envelope"
+      },
+      "ListResponse": {
+        "description": "Successful list response using the standard response envelope and pagination metadata"
+      },
+      "ErrorResponse": {
+        "description": "Standard error envelope"
+      }
+    }
+  }
+}

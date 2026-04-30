@@ -17,7 +17,6 @@ on:
       - "proxy.ts"
       - "middleware.ts"
   pull_request:
-    branches: [main]
     paths:
       - "app/**"
       - "components/**"

@@ -18,6 +18,31 @@ function formatRand(cents: number): string {
   return `R ${(cents / 100).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`
 }
 
+function forecastStatusLabel(status: string): string {
+  switch (status) {
+    case 'shortfall_risk':
+      return 'Shortfall risk'
+    case 'insufficient_data':
+      return 'Insufficient data'
+    case 'watch':
+      return 'Watch'
+    default:
+      return 'Healthy'
+  }
+}
+
+function forecastStatusClass(status: string): string {
+  switch (status) {
+    case 'shortfall_risk':
+      return 'bg-red-bg text-red'
+    case 'watch':
+    case 'insufficient_data':
+      return 'bg-yellowbg text-amber'
+    default:
+      return 'bg-green-bg text-green'
+  }
+}
+
 export default function FinancialsPage() {
   const { user } = useAuth()
   const { addToast } = useToast()
@@ -273,6 +298,82 @@ export default function FinancialsPage() {
           </div>
         ))}
       </div>
+
+      {dashboard?.levy_forecast && (
+        <div className="bg-surface border border-border rounded-lg px-6 py-5 mb-6">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[13px] font-semibold text-ink">Predictive levy outlook</span>
+                <span className={`rounded-full px-2 py-[2px] text-[10px] font-semibold ${forecastStatusClass(dashboard.levy_forecast.status)}`}>
+                  {forecastStatusLabel(dashboard.levy_forecast.status)}
+                </span>
+              </div>
+              <p className="text-[12px] text-muted">
+                {dashboard.levy_forecast.months_projected}-month projection using {dashboard.levy_forecast.data_points.length} historical period{dashboard.levy_forecast.data_points.length === 1 ? '' : 's'}.
+              </p>
+            </div>
+            <span className="rounded-full bg-page px-2 py-[2px] text-[10px] font-semibold text-muted">
+              {dashboard.levy_forecast.confidence} confidence
+            </span>
+          </div>
+
+          <p className="text-[13px] text-ink leading-relaxed mb-4">
+            At the current collection rate of <strong>{dashboard.levy_forecast.average_collection_rate_pct}%</strong>,
+            the reserve fund is projected to be <strong>{formatRand(Math.max(dashboard.levy_forecast.projected_reserve_balance_cents, 0))}</strong> in {dashboard.levy_forecast.months_projected} months.
+            {dashboard.levy_forecast.projected_shortfall_cents > 0 ? (
+              <> This is <strong className="text-red">{formatRand(dashboard.levy_forecast.projected_shortfall_cents)}</strong> below target.</>
+            ) : (
+              <> This remains on or above the current reserve target.</>
+            )}
+          </p>
+
+          {dashboard.levy_forecast.recommended_monthly_increase_cents > 0 && (
+            <div className="bg-page/60 border border-border rounded-lg px-4 py-3 mb-4">
+              <div className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-1">Recommended levy increase</div>
+              <div className="text-[18px] font-semibold text-ink font-serif">
+                {formatRand(dashboard.levy_forecast.recommended_monthly_increase_cents)} per unit/month
+                <span className="ml-2 text-[12px] font-sans text-muted">({dashboard.levy_forecast.recommended_increase_pct}%)</span>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between text-[11px] text-muted">
+              <span>Projected reserve</span>
+              <span>Target: {formatRand(reserveFund?.target_cents ?? 0)}</span>
+            </div>
+            <div className="h-3 overflow-hidden rounded-full bg-border">
+              <div
+                className={dashboard.levy_forecast.projected_shortfall_cents > 0 ? 'h-full rounded-full bg-red' : 'h-full rounded-full bg-green'}
+                style={{
+                  width: `${Math.min(
+                    100,
+                    reserveFund && reserveFund.target_cents > 0
+                      ? Math.max(0, Math.round((dashboard.levy_forecast.projected_reserve_balance_cents / reserveFund.target_cents) * 100))
+                      : 0,
+                  )}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-[13px]">
+            <div className="bg-page/50 border border-border rounded-lg px-4 py-3">
+              <div className="text-muted text-[11px] mb-1">Avg monthly income</div>
+              <div className="font-semibold text-ink">{formatRand(dashboard.levy_forecast.average_monthly_income_cents)}</div>
+            </div>
+            <div className="bg-page/50 border border-border rounded-lg px-4 py-3">
+              <div className="text-muted text-[11px] mb-1">Avg monthly expense</div>
+              <div className="font-semibold text-ink">{formatRand(dashboard.levy_forecast.average_monthly_expense_cents)}</div>
+            </div>
+            <div className="bg-page/50 border border-border rounded-lg px-4 py-3">
+              <div className="text-muted text-[11px] mb-1">Current levy</div>
+              <div className="font-semibold text-ink">{formatRand(dashboard.levy_forecast.current_monthly_levy_cents)}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reserve fund bar */}
       <div className="bg-surface border border-border rounded-lg px-6 py-5 mb-6">

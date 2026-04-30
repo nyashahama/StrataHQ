@@ -26,6 +26,7 @@ type createRequest struct {
 
 //nolint:govet // Keep request DTO fields grouped by API meaning rather than field packing.
 type assignRequest struct {
+	ContractorID    *string `json:"contractor_id"`
 	ContractorPhone *string `json:"contractor_phone"`
 	ContractorName  string  `json:"contractor_name"`
 }
@@ -86,6 +87,7 @@ func (h *Handler) Assign(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updated, err := h.service.Assign(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "id"), AssignInput{
+		ContractorID:    normalizeOptionalString(req.ContractorID),
 		ContractorName:  strings.TrimSpace(req.ContractorName),
 		ContractorPhone: normalizeOptionalString(req.ContractorPhone),
 	})

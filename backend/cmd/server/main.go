@@ -16,9 +16,11 @@ import (
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/compliance"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/contractors"
 	"github.com/stratahq/backend/internal/documents"
 	"github.com/stratahq/backend/internal/earlyaccess"
 	"github.com/stratahq/backend/internal/financials"
+	"github.com/stratahq/backend/internal/integrations"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/jobs"
 	"github.com/stratahq/backend/internal/levy"
@@ -112,11 +114,13 @@ func main() {
 
 	whatsAppService := whatsapp.NewServiceWithAudit(db, sender, logger, resourceAuditService)
 	whatsAppBot := whatsapp.NewBot(db)
-	whatsAppWebhook := whatsapp.NewWebhookHandler(db, sender, whatsAppBot, logger, cfg.TwilioAuthToken)
+	whatsAppWebhook := whatsapp.NewWebhookHandler(db, sender, whatsAppBot, whatsAppService, logger, cfg.TwilioAuthToken)
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewServiceWithAudit(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry, resourceAuditService)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
+	integrationsService := integrations.NewService(db)
+	contractorService := contractors.NewService(db)
 
 	// Handlers
 	handlers := server.Handlers{
@@ -137,6 +141,8 @@ func main() {
 		Billing:         billing.NewHandler(billingService),
 		Invitation:      invitation.NewHandler(invitationService, cfg.AppBaseURL),
 		EarlyAccess:     earlyaccess.NewHandler(earlyAccessService),
+		Integrations:    integrations.NewHandler(integrationsService),
+		Contractors:     contractors.NewHandler(contractorService),
 	}
 
 	// Router & Server

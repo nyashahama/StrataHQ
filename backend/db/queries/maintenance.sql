@@ -36,7 +36,8 @@ RETURNING *;
 
 -- name: AssignMaintenanceContractor :one
 UPDATE maintenance_requests
-SET contractor_name  = $2,
+SET contractor_id    = NULL,
+    contractor_name  = $2,
     contractor_phone = $3,
     status           = 'in_progress'
 WHERE id = $1

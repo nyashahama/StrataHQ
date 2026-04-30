@@ -23,6 +23,7 @@ var (
 
 //nolint:govet // Keep API response fields grouped by meaning rather than field packing.
 type RequestInfo struct {
+	ContractorID    *string    `json:"contractor_id"`
 	ContractorName  *string    `json:"contractor_name"`
 	ContractorPhone *string    `json:"contractor_phone"`
 	ResolvedAt      *time.Time `json:"resolved_at"`
@@ -60,6 +61,7 @@ type CreateInput struct {
 
 //nolint:govet // Keep input DTO fields grouped by domain meaning rather than field packing.
 type AssignInput struct {
+	ContractorID    *string
 	ContractorName  string
 	ContractorPhone *string
 }
@@ -211,8 +213,11 @@ func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, 
 	if err != nil {
 		return nil, err
 	}
-	if auth.IsResidentRole(access.role) || input.ContractorName == "" {
+	if auth.IsResidentRole(access.role) {
 		return nil, ErrForbidden
+	}
+	if input.ContractorID == nil && input.ContractorName == "" {
+		return nil, ErrInvalidInput
 	}
 
 	request, err := s.mustGetRequest(ctx, requestID)
@@ -226,6 +231,55 @@ func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, 
 	beforeInfo, err := s.enrichRequest(ctx, request)
 	if err != nil {
 		return nil, err
+	}
+
+	if input.ContractorID != nil {
+		contractorUUID, err := uuid.Parse(*input.ContractorID)
+		if err != nil {
+			return nil, ErrInvalidInput
+		}
+		contractor, err := s.db.Q.ContractorAssignableToScheme(ctx, dbgen.ContractorAssignableToSchemeParams{
+			ContractorID: contractorUUID,
+			SchemeID:     access.scheme.ID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrForbidden
+			}
+			return nil, err
+		}
+		updated, err := s.db.Q.AssignMaintenanceContractorProfile(ctx, dbgen.AssignMaintenanceContractorProfileParams{
+			ID:              request.ID,
+			ContractorID:    pgtype.UUID{Bytes: contractor.ID, Valid: true},
+			ContractorName:  pgtype.Text{String: contractor.Name, Valid: true},
+			ContractorPhone: contractor.Phone,
+		})
+		if err != nil {
+			return nil, err
+		}
+		afterInfo, enrichErr := s.enrichRequest(ctx, updated)
+		if enrichErr != nil {
+			return nil, enrichErr
+		}
+		if s.auditor != nil {
+			beforeName := ""
+			if beforeInfo.ContractorName != nil {
+				beforeName = *beforeInfo.ContractorName
+			}
+			beforePhone := beforeInfo.ContractorPhone
+			_ = s.auditor.RecordResourceEvent(ctx, maintenanceRequestAssignedAuditEvent(maintenanceAuditInput{
+				SchemeID:       access.scheme.ID.String(),
+				OrgID:          access.scheme.OrgID.String(),
+				ActorUserID:    identity.UserID,
+				ActorRole:      access.role,
+				RequestID:      updated.ID.String(),
+				Title:          afterInfo.Title,
+				Status:         afterInfo.Status,
+				ContractorID:   afterInfo.ContractorID,
+				ContractorName: afterInfo.ContractorName,
+			}, beforeName, beforePhone))
+		}
+		return afterInfo, nil
 	}
 
 	phone := pgtype.Text{}
@@ -260,6 +314,7 @@ func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, 
 			RequestID:      updated.ID.String(),
 			Title:          afterInfo.Title,
 			Status:         afterInfo.Status,
+			ContractorID:   afterInfo.ContractorID,
 			ContractorName: afterInfo.ContractorName,
 		}, beforeContractorName, beforeInfo.ContractorPhone))
 	}
@@ -405,6 +460,7 @@ func (s *Service) enrichRequest(ctx context.Context, request dbgen.MaintenanceRe
 
 	now := time.Now()
 	return &RequestInfo{
+		ContractorID:    uuidTextPointer(request.ContractorID),
 		ContractorName:  textPointer(request.ContractorName),
 		ContractorPhone: textPointer(request.ContractorPhone),
 		ResolvedAt:      timePointer(request.ResolvedAt),
@@ -433,6 +489,7 @@ func mapRequestRow(row dbgen.ListMaintenanceRequestsDetailedBySchemeRow, now tim
 	}
 
 	return RequestInfo{
+		ContractorID:    uuidTextPointer(row.ContractorID),
 		ContractorName:  textPointer(row.ContractorName),
 		ContractorPhone: textPointer(row.ContractorPhone),
 		ResolvedAt:      timestamptzPointer(row.ResolvedAt),
@@ -459,6 +516,14 @@ func textPointer(value pgtype.Text) *string {
 	}
 	copy := value.String
 	return &copy
+}
+
+func uuidTextPointer(value pgtype.UUID) *string {
+	if !value.Valid {
+		return nil
+	}
+	s := uuid.UUID(value.Bytes).String()
+	return &s
 }
 
 func timePointer(value pgtype.Timestamptz) *time.Time {
@@ -530,6 +595,7 @@ type maintenanceAuditInput struct {
 	Category       string
 	Status         string
 	SlaHours       int32
+	ContractorID   *string
 	ContractorName *string
 }
 
@@ -564,6 +630,9 @@ func maintenanceRequestAssignedAuditEvent(input maintenanceAuditInput, beforeCon
 	afterState := map[string]any{
 		"title":  input.Title,
 		"status": input.Status,
+	}
+	if input.ContractorID != nil {
+		afterState["contractor_id"] = *input.ContractorID
 	}
 	if input.ContractorName != nil {
 		afterState["contractor_name"] = *input.ContractorName

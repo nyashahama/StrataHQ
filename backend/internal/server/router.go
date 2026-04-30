@@ -16,6 +16,7 @@ import (
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/compliance"
+	"github.com/stratahq/backend/internal/contractors"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/documents"
 	"github.com/stratahq/backend/internal/earlyaccess"
@@ -46,6 +47,7 @@ type Handlers struct {
 	WhatsApp        *whatsapp.Handler
 	WhatsAppWebhook *whatsapp.WebhookHandler
 	Billing         *billing.Handler
+	Contractors     *contractors.Handler
 	Invitation      *invitation.Handler
 	EarlyAccess     *earlyaccess.Handler
 	Integrations    *integrations.Handler
@@ -152,6 +154,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 			r.Mount("/whatsapp", h.WhatsApp.Routes())
 			r.Mount("/billing", h.Billing.Routes())
 			r.Mount("/admin/early-access", h.EarlyAccess.ProtectedRoutes())
+			r.Mount("/contractors", h.Contractors.Routes())
 			r.Mount("/audit", h.Audit.Routes())
 			r.Mount("/integrations/api-clients", h.Integrations.AdminRoutes())
 		})

@@ -15,6 +15,7 @@ import (
 	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/communications"
 	"github.com/stratahq/backend/internal/compliance"
+	"github.com/stratahq/backend/internal/contractors"
 	"github.com/stratahq/backend/internal/config"
 	"github.com/stratahq/backend/internal/documents"
 	"github.com/stratahq/backend/internal/earlyaccess"
@@ -119,6 +120,7 @@ func main() {
 	invitationService := invitation.NewServiceWithAudit(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry, resourceAuditService)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
 	integrationsService := integrations.NewService(db)
+	contractorService := contractors.NewService(db)
 
 	// Handlers
 	handlers := server.Handlers{
@@ -140,6 +142,7 @@ func main() {
 		Invitation:      invitation.NewHandler(invitationService, cfg.AppBaseURL),
 		EarlyAccess:     earlyaccess.NewHandler(earlyAccessService),
 		Integrations:    integrations.NewHandler(integrationsService),
+		Contractors:     contractors.NewHandler(contractorService),
 	}
 
 	// Router & Server

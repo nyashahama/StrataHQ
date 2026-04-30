@@ -20,6 +20,7 @@ import (
 	"github.com/stratahq/backend/internal/documents"
 	"github.com/stratahq/backend/internal/earlyaccess"
 	"github.com/stratahq/backend/internal/financials"
+	"github.com/stratahq/backend/internal/integrations"
 	"github.com/stratahq/backend/internal/invitation"
 	"github.com/stratahq/backend/internal/levy"
 	"github.com/stratahq/backend/internal/maintenance"
@@ -47,6 +48,7 @@ type Handlers struct {
 	Billing         *billing.Handler
 	Invitation      *invitation.Handler
 	EarlyAccess     *earlyaccess.Handler
+	Integrations    *integrations.Handler
 }
 
 func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, auditRecorder audit.Recorder, h Handlers) *chi.Mux {
@@ -81,6 +83,12 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 	} else {
 		r.Handle("/metrics", promhttp.Handler())
 	}
+
+	// Open API routes (public, rate-limited, outside /api/v1)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.PerEndpointRateLimit(rdb, "open-api", 300, 1*time.Minute))
+		r.Mount("/api/open/v1", h.Integrations.OpenRoutes())
+	})
 
 	// API v1
 	r.Route("/api/v1", func(r chi.Router) {
@@ -145,6 +153,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 			r.Mount("/billing", h.Billing.Routes())
 			r.Mount("/admin/early-access", h.EarlyAccess.ProtectedRoutes())
 			r.Mount("/audit", h.Audit.Routes())
+			r.Mount("/integrations/api-clients", h.Integrations.AdminRoutes())
 		})
 	})
 

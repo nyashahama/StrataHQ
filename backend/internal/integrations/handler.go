@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/stratahq/backend/internal/auth"
 	dbgen "github.com/stratahq/backend/db/gen"
+	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/response"
 )
 

@@ -238,9 +238,9 @@ func (s *Service) AuthenticateAPIKey(ctx context.Context, raw string) (Identity,
 		return Identity{}, err
 	}
 	identity := Identity{
-		ClientID: client.ID.String(),
-		OrgID:    client.OrgID.String(),
-		Scopes:   client.Scopes,
+		ClientID:  client.ID.String(),
+		OrgID:     client.OrgID.String(),
+		Scopes:    client.Scopes,
 		SchemeIDs: make([]string, 0, len(schemes)),
 	}
 	for _, schemeID := range schemes {

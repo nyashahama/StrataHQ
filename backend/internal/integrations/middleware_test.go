@@ -8,9 +8,9 @@ import (
 
 func TestIntegrationIdentityContext(t *testing.T) {
 	identity := Identity{
-		ClientID: "client-1",
-		OrgID: "org-1",
-		Scopes: []string{"read:schemes"},
+		ClientID:  "client-1",
+		OrgID:     "org-1",
+		Scopes:    []string{"read:schemes"},
 		SchemeIDs: []string{"scheme-1"},
 	}
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

@@ -13,6 +13,7 @@ export type MaintenanceStatus =
   | "resolved";
 
 export interface MaintenanceRequestInfo {
+  contractor_id?: string | null;
   contractor_name?: string | null;
   contractor_phone?: string | null;
   resolved_at?: string | null;

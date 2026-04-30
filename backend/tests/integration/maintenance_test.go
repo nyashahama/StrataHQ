@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/contractors"
 	"github.com/stratahq/backend/internal/maintenance"
 )
 
@@ -132,5 +133,62 @@ func TestMaintenance_AdminResidentAndTrusteeFlow(t *testing.T) {
 	adminDashboard = decodeSuccess[maintenance.DashboardResponse](t, w)
 	if adminDashboard.OpenCount != 1 || adminDashboard.ResolvedThisMonth != 1 {
 		t.Fatalf("unexpected post-resolve dashboard counts: %+v", adminDashboard)
+	}
+}
+
+func TestMaintenance_AssignsContractorProfile(t *testing.T) {
+	accessToken, _ := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+	h := newMaintenanceHandler(t)
+	ch := newContractorsHandler(t)
+
+	contractorBody, _ := json.Marshal(map[string]any{
+		"name":       "AquaFix Plumbing",
+		"trade":      "plumbing",
+		"phone":      "+27 21 555 0199",
+		"suburb":     "Sea Point",
+		"city":       "Cape Town",
+		"province":   "Western Cape",
+		"active":     true,
+		"vetted":     true,
+		"scheme_ids": []string{schemeID},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/contractors", bytes.NewReader(contractorBody))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w := httptest.NewRecorder()
+	ch.Create(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create contractor: status=%d body=%s", w.Code, w.Body)
+	}
+	contractor := decodeSuccess[contractors.ContractorInfo](t, w)
+
+	createBody, _ := json.Marshal(map[string]string{
+		"title": "Leaking tap", "description": "Kitchen tap is leaking", "category": "plumbing",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID, bytes.NewReader(createBody))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	w = httptest.NewRecorder()
+	h.Create(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create maintenance: status=%d body=%s", w.Code, w.Body)
+	}
+	created := decodeSuccess[maintenance.RequestInfo](t, w)
+
+	assignBody, _ := json.Marshal(map[string]string{"contractor_id": contractor.ID})
+	req = httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID+"/"+created.ID+"/assign", bytes.NewReader(assignBody))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID, "id": created.ID})
+	w = httptest.NewRecorder()
+	h.Assign(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("assign profile: status=%d body=%s", w.Code, w.Body)
+	}
+	assigned := decodeSuccess[maintenance.RequestInfo](t, w)
+	if assigned.ContractorID == nil || *assigned.ContractorID != contractor.ID {
+		t.Fatalf("contractor_id = %v, want %s", assigned.ContractorID, contractor.ID)
+	}
+	if assigned.ContractorName == nil || *assigned.ContractorName != "AquaFix Plumbing" {
+		t.Fatalf("contractor name not copied: %+v", assigned)
 	}
 }

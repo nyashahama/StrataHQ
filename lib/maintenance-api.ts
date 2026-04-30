@@ -41,7 +41,8 @@ export async function assignMaintenanceRequest(
   schemeId: string,
   requestId: string,
   input: {
-    contractor_name: string;
+    contractor_id?: string | null;
+    contractor_name?: string;
     contractor_phone?: string | null;
   },
 ): Promise<MaintenanceRequestInfo> {

@@ -924,6 +924,36 @@ type ComplianceItem struct {
 	UpdatedAt   time.Time          `json:"updated_at"`
 }
 
+type Contractor struct {
+	ID              uuid.UUID           `json:"id"`
+	OrgID           uuid.UUID           `json:"org_id"`
+	Name            string              `json:"name"`
+	Trade           MaintenanceCategory `json:"trade"`
+	Phone           pgtype.Text         `json:"phone"`
+	Email           pgtype.Text         `json:"email"`
+	Suburb          string              `json:"suburb"`
+	City            string              `json:"city"`
+	Province        string              `json:"province"`
+	PublicProfile   bool                `json:"public_profile"`
+	Vetted          bool                `json:"vetted"`
+	Active          bool                `json:"active"`
+	Notes           pgtype.Text         `json:"notes"`
+	CreatedByUserID pgtype.UUID         `json:"created_by_user_id"`
+	CreatedAt       time.Time           `json:"created_at"`
+	UpdatedAt       time.Time           `json:"updated_at"`
+}
+
+type ContractorReview struct {
+	ID                   uuid.UUID   `json:"id"`
+	ContractorID         uuid.UUID   `json:"contractor_id"`
+	SchemeID             uuid.UUID   `json:"scheme_id"`
+	MaintenanceRequestID uuid.UUID   `json:"maintenance_request_id"`
+	Rating               int32       `json:"rating"`
+	Comment              pgtype.Text `json:"comment"`
+	CreatedByUserID      uuid.UUID   `json:"created_by_user_id"`
+	CreatedAt            time.Time   `json:"created_at"`
+}
+
 type EarlyAccessRequest struct {
 	ID         uuid.UUID          `json:"id"`
 	FullName   string             `json:"full_name"`
@@ -1016,6 +1046,7 @@ type MaintenanceRequest struct {
 	CreatedAt       time.Time           `json:"created_at"`
 	UpdatedAt       time.Time           `json:"updated_at"`
 	ResolvedAt      pgtype.Timestamptz  `json:"resolved_at"`
+	ContractorID    pgtype.UUID         `json:"contractor_id"`
 }
 
 type Notice struct {
@@ -1105,6 +1136,13 @@ type Scheme struct {
 	UnitCount int32     `json:"unit_count"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type SchemeContractor struct {
+	SchemeID     uuid.UUID `json:"scheme_id"`
+	ContractorID uuid.UUID `json:"contractor_id"`
+	Preferred    bool      `json:"preferred"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type SchemeDocument struct {

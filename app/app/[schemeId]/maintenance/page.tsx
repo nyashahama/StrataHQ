@@ -13,6 +13,8 @@ import {
   getMaintenanceDashboard,
   resolveMaintenanceRequest,
 } from '@/lib/maintenance-api'
+import { searchContractorMarketplace } from '@/lib/contractors-api'
+import type { ContractorInfo } from '@/lib/contractors'
 import type { MaintenanceDashboard, MaintenanceRequestInfo } from '@/lib/maintenance'
 import { useToast } from '@/lib/toast'
 
@@ -56,6 +58,8 @@ export default function MaintenancePage() {
   const [jobForm, setJobForm] = useState(EMPTY_JOB_FORM)
   const [assignJobId, setAssignJobId] = useState<string | null>(null)
   const [assignForm, setAssignForm] = useState(EMPTY_ASSIGN_FORM)
+  const [selectedContractorId, setSelectedContractorId] = useState<string | null>(null)
+  const [useCustomContractor, setUseCustomContractor] = useState(false)
   const [savingCreate, setSavingCreate] = useState(false)
   const [savingAssign, setSavingAssign] = useState(false)
   const [resolvingId, setResolvingId] = useState<string | null>(null)
@@ -73,6 +77,19 @@ export default function MaintenancePage() {
   const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<MaintenanceDashboard>({
     queryKey: schemeKeys.maintenance(schemeId),
     queryFn: () => getMaintenanceDashboard(schemeId),
+    staleTime: 30_000,
+  })
+
+  const requests = dashboard?.requests ?? []
+  const assigningRequest = requests.find(request => request.id === assignJobId)
+
+  const { data: contractorOptions = [] } = useAuthenticatedQuery<ContractorInfo[]>({
+    queryKey: schemeKeys.contractorMarketplace(schemeId, assigningRequest?.category),
+    enabled: canManage && assignJobId !== null,
+    queryFn: () => searchContractorMarketplace({
+      scheme_id: schemeId,
+      trade: assigningRequest?.category,
+    }),
     staleTime: 30_000,
   })
 
@@ -110,15 +127,27 @@ export default function MaintenancePage() {
   }
 
   async function handleAssign() {
-    if (!assignJobId || !assignForm.name.trim()) return
+    if (!assignJobId) return
+    if (useCustomContractor && !assignForm.name.trim()) return
+    if (!useCustomContractor && !selectedContractorId) return
 
     setSavingAssign(true)
     try {
-      await assignMaintenanceRequest(schemeId, assignJobId, {
-        contractor_name: assignForm.name.trim(),
-        contractor_phone: assignForm.phone.trim() || null,
-      })
+      await assignMaintenanceRequest(
+        schemeId,
+        assignJobId,
+        useCustomContractor
+          ? {
+              contractor_name: assignForm.name.trim(),
+              contractor_phone: assignForm.phone.trim() || null,
+            }
+          : {
+              contractor_id: selectedContractorId,
+            },
+      )
       setAssignJobId(null)
+      setSelectedContractorId(null)
+      setUseCustomContractor(false)
       setAssignForm(EMPTY_ASSIGN_FORM)
       await refreshDashboard()
       addToast('Job approved and contractor assigned', 'success')
@@ -147,8 +176,6 @@ export default function MaintenancePage() {
       setResolvingId(null)
     }
   }
-
-  const requests = dashboard?.requests ?? []
 
   if (isLoading) {
     return (
@@ -293,6 +320,8 @@ export default function MaintenancePage() {
                     onClick={() => {
                       setAssignJobId(request.id)
                       setAssignForm(EMPTY_ASSIGN_FORM)
+                      setSelectedContractorId(null)
+                      setUseCustomContractor(false)
                     }}
                     className="text-[11px] text-accent font-medium hover:underline"
                   >
@@ -304,6 +333,8 @@ export default function MaintenancePage() {
                     onClick={() => {
                       setAssignJobId(request.id)
                       setAssignForm(EMPTY_ASSIGN_FORM)
+                      setSelectedContractorId(null)
+                      setUseCustomContractor(false)
                     }}
                     className="text-[11px] text-accent font-medium hover:underline"
                   >
@@ -333,33 +364,69 @@ export default function MaintenancePage() {
       <Modal open={assignJobId !== null} onClose={() => !savingAssign && setAssignJobId(null)} title="Assign contractor">
         <div className="flex flex-col gap-4">
           <p className="text-[13px] text-muted">Assign a contractor to move this job into progress.</p>
-          <div>
-            <label className="text-[12px] font-semibold text-ink block mb-1">Contractor name *</label>
-            <input
-              type="text"
-              value={assignForm.name}
-              onChange={event => setAssignForm(current => ({ ...current, name: event.target.value }))}
-              placeholder="e.g. AquaFix Plumbing"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
-            />
+          <div className="flex flex-col gap-2">
+            {contractorOptions.map(contractor => (
+              <button
+                key={contractor.id}
+                type="button"
+                onClick={() => {
+                  setUseCustomContractor(false)
+                  setSelectedContractorId(contractor.id)
+                }}
+                className={`text-left border rounded px-3 py-2 ${selectedContractorId === contractor.id ? 'border-accent bg-accent-bg' : 'border-border bg-surface'}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[13px] font-semibold text-ink">{contractor.name}</span>
+                  {contractor.vetted && <span className="text-[10px] font-semibold px-2 py-[2px] rounded-full bg-green-bg text-green">Vetted</span>}
+                </div>
+                <div className="text-[11px] text-muted mt-1">
+                  {contractor.suburb} · {contractor.phone ?? 'No phone'} · {contractor.average_rating > 0 ? `${contractor.average_rating.toFixed(1)} rating` : 'No rating yet'}
+                </div>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setUseCustomContractor(true)
+                setSelectedContractorId(null)
+              }}
+              className={`text-left border rounded px-3 py-2 ${useCustomContractor ? 'border-accent bg-accent-bg' : 'border-border bg-surface'}`}
+            >
+              <div className="text-[13px] font-semibold text-ink">Use custom contractor</div>
+              <div className="text-[11px] text-muted mt-1">Enter name and phone for a one-off assignment.</div>
+            </button>
           </div>
-          <div>
-            <label className="text-[12px] font-semibold text-ink block mb-1">Contractor phone</label>
-            <input
-              type="tel"
-              value={assignForm.phone}
-              onChange={event => setAssignForm(current => ({ ...current, phone: event.target.value }))}
-              placeholder="+27 21 555 0199"
-              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
-            />
-          </div>
+          {useCustomContractor && (
+            <>
+              <div>
+                <label className="text-[12px] font-semibold text-ink block mb-1">Contractor name *</label>
+                <input
+                  type="text"
+                  value={assignForm.name}
+                  onChange={event => setAssignForm(current => ({ ...current, name: event.target.value }))}
+                  placeholder="e.g. AquaFix Plumbing"
+                  className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-ink block mb-1">Contractor phone</label>
+                <input
+                  type="tel"
+                  value={assignForm.phone}
+                  onChange={event => setAssignForm(current => ({ ...current, phone: event.target.value }))}
+                  placeholder="+27 21 555 0199"
+                  className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
+                />
+              </div>
+            </>
+          )}
           <div className="flex justify-end gap-3 pt-1">
             <button onClick={() => setAssignJobId(null)} className="text-[12px] text-muted hover:text-ink px-3 py-2">
               Cancel
             </button>
             <button
               onClick={handleAssign}
-              disabled={!assignForm.name.trim() || savingAssign}
+              disabled={(useCustomContractor ? !assignForm.name.trim() : !selectedContractorId) || savingAssign}
               className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {savingAssign ? 'Saving…' : 'Assign contractor'}

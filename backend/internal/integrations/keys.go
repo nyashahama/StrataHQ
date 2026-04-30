@@ -36,7 +36,7 @@ func GenerateAPIKey() (GeneratedAPIKey, error) {
 }
 
 func ParseAPIKeyPrefix(raw string) (string, error) {
-	parts := strings.Split(raw, "_")
+	parts := strings.SplitN(raw, "_", 4)
 	if len(parts) != 4 || parts[0] != "shq" || parts[1] != "live" || parts[2] == "" || parts[3] == "" {
 		return "", ErrInvalidAPIKey
 	}

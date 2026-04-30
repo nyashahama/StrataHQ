@@ -3,6 +3,9 @@ package integrations
 import (
 	"context"
 	"net/http"
+	"strings"
+
+	"github.com/stratahq/backend/internal/platform/response"
 )
 
 type contextKey string
@@ -44,4 +47,21 @@ func (i Identity) CanAccessScheme(schemeID string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) APIKeyAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := r.Header.Get("Authorization")
+		parts := strings.SplitN(header, " ", 2)
+		if len(parts) != 2 || parts[0] != "Bearer" {
+			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing integration api key")
+			return
+		}
+		identity, err := s.AuthenticateAPIKey(r.Context(), parts[1])
+		if err != nil {
+			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid integration api key")
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(ContextWithIdentity(r.Context(), identity)))
+	})
 }

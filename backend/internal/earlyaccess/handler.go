@@ -120,16 +120,24 @@ func writeHTML(w http.ResponseWriter, status int, body string) {
 	}
 }
 
+func decisionPage(title, body, actionURL, actionLabel string) string {
+	return "<!DOCTYPE html><html><body><h2>" + title + "</h2><p>" + body + "</p><form method=\"POST\" action=\"" + actionURL + "\"><button type=\"submit\">" + actionLabel + "</button></form></body></html>"
+}
+
+func messagePage(title, body string) string {
+	return "<!DOCTYPE html><html><body><h2>" + title + "</h2><p>" + body + "</p></body></html>"
+}
+
 func (h *Handler) ApproveWithTokenPage(w http.ResponseWriter, r *http.Request) {
 	sig := r.URL.Query().Get("sig")
 	expStr := r.URL.Query().Get("exp")
 	if _, err := strconv.ParseInt(expStr, 10, 64); err != nil || sig == "" {
-		writeHTML(w, http.StatusBadRequest, `<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`)
+		writeHTML(w, http.StatusBadRequest, messagePage("Invalid link", "This link is malformed."))
 		return
 	}
 
 	actionURL := htmlEscapeAttribute(r.URL.RequestURI())
-	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2>Approve request</h2><p>Confirm that you want to approve this early access request.</p><form method="POST" action="`+actionURL+`"><button type="submit" style="background:#16a34a;color:white;border:0;border-radius:8px;padding:12px 18px;font:inherit;cursor:pointer">Approve request</button></form></body></html>`)
+	writeHTML(w, http.StatusOK, decisionPage("Approve request", "Confirm that you want to approve this early access request.", actionURL, "Approve request"))
 }
 
 func (h *Handler) ApproveWithToken(w http.ResponseWriter, r *http.Request) {
@@ -138,33 +146,33 @@ func (h *Handler) ApproveWithToken(w http.ResponseWriter, r *http.Request) {
 	expStr := r.URL.Query().Get("exp")
 	exp, err := strconv.ParseInt(expStr, 10, 64)
 	if err != nil || sig == "" {
-		writeHTML(w, http.StatusBadRequest, `<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`)
+		writeHTML(w, http.StatusBadRequest, messagePage("Invalid link", "This link is malformed."))
 		return
 	}
 	_, err = h.service.ApproveByToken(r.Context(), id, sig, exp)
 	if err != nil {
 		if err == ErrInvalidToken {
-			writeHTML(w, http.StatusUnauthorized, `<html><body style="font-family:sans-serif;padding:40px"><h2>Link expired</h2><p>This approve link is invalid or has expired.</p></body></html>`)
+			writeHTML(w, http.StatusUnauthorized, messagePage("Link expired", "This approve link is invalid or has expired."))
 		} else if err == ErrNotFound {
-			writeHTML(w, http.StatusNotFound, `<html><body style="font-family:sans-serif;padding:40px"><h2>Not found</h2><p>This request no longer exists.</p></body></html>`)
+			writeHTML(w, http.StatusNotFound, messagePage("Not found", "This request no longer exists."))
 		} else {
-			writeHTML(w, http.StatusInternalServerError, `<html><body style="font-family:sans-serif;padding:40px"><h2>Error</h2><p>Something went wrong. Please try again.</p></body></html>`)
+			writeHTML(w, http.StatusInternalServerError, messagePage("Error", "Something went wrong. Please try again."))
 		}
 		return
 	}
-	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2 style="color:#16a34a">Approved</h2><p>The early access request has been approved. The user will receive an email to set their password.</p></body></html>`)
+	writeHTML(w, http.StatusOK, messagePage("Approved", "The early access request has been approved. The user will receive an email to set their password."))
 }
 
 func (h *Handler) RejectWithTokenPage(w http.ResponseWriter, r *http.Request) {
 	sig := r.URL.Query().Get("sig")
 	expStr := r.URL.Query().Get("exp")
 	if _, err := strconv.ParseInt(expStr, 10, 64); err != nil || sig == "" {
-		writeHTML(w, http.StatusBadRequest, `<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`)
+		writeHTML(w, http.StatusBadRequest, messagePage("Invalid link", "This link is malformed."))
 		return
 	}
 
 	actionURL := htmlEscapeAttribute(r.URL.RequestURI())
-	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2>Reject request</h2><p>Confirm that you want to reject this early access request.</p><form method="POST" action="`+actionURL+`"><button type="submit" style="background:#dc2626;color:white;border:0;border-radius:8px;padding:12px 18px;font:inherit;cursor:pointer">Reject request</button></form></body></html>`)
+	writeHTML(w, http.StatusOK, decisionPage("Reject request", "Confirm that you want to reject this early access request.", actionURL, "Reject request"))
 }
 
 func (h *Handler) RejectWithToken(w http.ResponseWriter, r *http.Request) {
@@ -173,21 +181,21 @@ func (h *Handler) RejectWithToken(w http.ResponseWriter, r *http.Request) {
 	expStr := r.URL.Query().Get("exp")
 	exp, err := strconv.ParseInt(expStr, 10, 64)
 	if err != nil || sig == "" {
-		writeHTML(w, http.StatusBadRequest, `<html><body style="font-family:sans-serif;padding:40px"><h2>Invalid link</h2><p>This link is malformed.</p></body></html>`)
+		writeHTML(w, http.StatusBadRequest, messagePage("Invalid link", "This link is malformed."))
 		return
 	}
 	_, err = h.service.RejectByToken(r.Context(), id, sig, exp)
 	if err != nil {
 		if err == ErrInvalidToken {
-			writeHTML(w, http.StatusUnauthorized, `<html><body style="font-family:sans-serif;padding:40px"><h2>Link expired</h2><p>This reject link is invalid or has expired.</p></body></html>`)
+			writeHTML(w, http.StatusUnauthorized, messagePage("Link expired", "This reject link is invalid or has expired."))
 		} else if err == ErrNotFound {
-			writeHTML(w, http.StatusNotFound, `<html><body style="font-family:sans-serif;padding:40px"><h2>Not found</h2><p>This request no longer exists.</p></body></html>`)
+			writeHTML(w, http.StatusNotFound, messagePage("Not found", "This request no longer exists."))
 		} else {
-			writeHTML(w, http.StatusInternalServerError, `<html><body style="font-family:sans-serif;padding:40px"><h2>Error</h2><p>Something went wrong. Please try again.</p></body></html>`)
+			writeHTML(w, http.StatusInternalServerError, messagePage("Error", "Something went wrong. Please try again."))
 		}
 		return
 	}
-	writeHTML(w, http.StatusOK, `<html><body style="font-family:sans-serif;padding:40px"><h2 style="color:#dc2626">Rejected</h2><p>The early access request has been rejected.</p></body></html>`)
+	writeHTML(w, http.StatusOK, messagePage("Rejected", "The early access request has been rejected."))
 }
 
 func htmlEscapeAttribute(value string) string {

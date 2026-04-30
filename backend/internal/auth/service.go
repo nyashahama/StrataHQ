@@ -29,6 +29,8 @@ var (
 	ErrWeakPassword       = errors.New("password does not meet requirements")
 )
 
+const passwordResetTTL = time.Hour
+
 // Response types returned by the service.
 
 type UserInfo struct {
@@ -256,7 +258,14 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
-	return s.db.Q.RevokeRefreshToken(ctx, HashRefreshToken(refreshToken))
+	rows, err := s.db.Q.RevokeRefreshToken(ctx, HashRefreshToken(refreshToken))
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrInvalidToken
+	}
+	return nil
 }
 
 func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, error) {
@@ -483,7 +492,7 @@ func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 	token := hex.EncodeToString(b)
 
 	key := "pwreset:" + HashRefreshToken(token)
-	if err := s.cache.Set(ctx, key, user.ID.String(), time.Hour).Err(); err != nil {
+	if err := s.cache.Set(ctx, key, user.ID.String(), passwordResetTTL).Err(); err != nil {
 		return err
 	}
 
@@ -504,7 +513,7 @@ func (s *Service) IssuePasswordResetURL(ctx context.Context, email, appBaseURL s
 	}
 	token := hex.EncodeToString(tokenBytes)
 	key := "pwreset:" + HashRefreshToken(token)
-	if err := s.cache.Set(ctx, key, user.ID.String(), 24*time.Hour).Err(); err != nil {
+	if err := s.cache.Set(ctx, key, user.ID.String(), passwordResetTTL).Err(); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%s/auth/reset-password?token=%s", appBaseURL, token), nil

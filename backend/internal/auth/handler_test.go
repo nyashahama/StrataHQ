@@ -347,13 +347,25 @@ func TestLogout_NoContent(t *testing.T) {
 
 func TestLogout_Idempotent(t *testing.T) {
 	svc := &mockService{logoutFn: func(_ context.Context, _ string) error {
-		return errors.New("not found")
+		return ErrInvalidToken
 	}}
 	req := httptest.NewRequest(http.MethodPost, "/logout", body(t, map[string]string{"refresh_token": "gone"}))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Logout(w, req)
 	if w.Code != http.StatusNoContent {
 		t.Errorf("status = %d, want 204 even on service error", w.Code)
+	}
+}
+
+func TestLogout_ReturnsServerErrorWhenRevocationFails(t *testing.T) {
+	svc := &mockService{logoutFn: func(_ context.Context, _ string) error {
+		return errors.New("db unavailable")
+	}}
+	req := httptest.NewRequest(http.MethodPost, "/logout", body(t, map[string]string{"refresh_token": "tok"}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Logout(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", w.Code)
 	}
 }
 

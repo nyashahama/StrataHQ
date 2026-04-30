@@ -47,7 +47,7 @@ func EarlyAccessApprovalEmail(name, setPasswordURL string) (subject, htmlBody st
     Set your password
   </a>
 </p>
-<p style="color:#71717a;font-size:13px">This link expires in 24 hours. If you didn't request access, you can safely ignore this email.</p>
+<p style="color:#71717a;font-size:13px">This link expires in 1 hour. If you didn't request access, you can safely ignore this email.</p>
 </body></html>`, name, setPasswordURL)
 	return
 }

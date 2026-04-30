@@ -163,7 +163,11 @@ export async function setupAction(data: {
     return { error: TEMP_UNAVAILABLE };
   }
 
-  if (!res.ok) return { error: "Setup failed — please try again" };
+  if (!res.ok) {
+    return {
+      error: await readApiError(res, "Setup failed — please try again"),
+    };
+  }
 
   const result = await readApiData<{
     org: { id: string; name: string; contact_email?: string | null; contact_phone?: string | null };
@@ -249,11 +253,19 @@ export async function acceptInviteAction(
   token: string,
   password: string,
 ): Promise<{ user: SessionUser } | { error: string }> {
-  const res = await fetch(`${BACKEND()}/api/v1/invitations/verify/${token}/accept`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password }),
-  });
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(
+      `${BACKEND()}/api/v1/invitations/verify/${token}/accept`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      },
+    );
+  } catch {
+    return { error: TEMP_UNAVAILABLE };
+  }
 
   if (!res.ok) {
     if (res.status === 401)

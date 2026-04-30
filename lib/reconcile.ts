@@ -35,7 +35,7 @@ export function parseBankStatementCSV(csv: string): ParsedTransaction[] {
   if (lines.length < 2) return []
 
   // Detect column indices from header
-  const header = lines[0].toLowerCase()
+  const header = lines[0]!.toLowerCase()
   const cols = header.split(',').map(c => c.replace(/["\s]/g, ''))
 
   const dateIdx = cols.findIndex(c => c.includes('date'))
@@ -54,23 +54,33 @@ export function parseBankStatementCSV(csv: string): ParsedTransaction[] {
   const transactions: ParsedTransaction[] = []
 
   for (let i = 1; i < lines.length; i++) {
-    const row = splitCSVRow(lines[i])
+    const rawLine = lines[i]
+    if (!rawLine) continue
+
+    const row = splitCSVRow(rawLine)
     if (row.length <= Math.max(dateIdx, descIdx, amtIdx)) continue
 
-    const amtRaw = row[amtIdx].replace(/[",\s]/g, '')
+    const amtValue = row[amtIdx]
+    const dateValue = row[dateIdx]
+    const descValue = row[descIdx]
+    if (amtValue === undefined || dateValue === undefined || descValue === undefined) {
+      continue
+    }
+
+    const amtRaw = amtValue.replace(/[",\s]/g, '')
     const amount_cents = Math.round(parseFloat(amtRaw) * 100)
 
     if (isNaN(amount_cents) || amount_cents <= 0) continue // skip debits / non-numeric
 
-    const balRaw = balIdx !== -1 ? row[balIdx].replace(/[",\s]/g, '') : '0'
+    const balRaw = balIdx !== -1 ? (row[balIdx] ?? '0').replace(/[",\s]/g, '') : '0'
     const running_balance_cents = Math.round(parseFloat(balRaw) * 100) || 0
 
     transactions.push({
-      date: row[dateIdx].replace(/"/g, '').trim(),
-      description: row[descIdx].replace(/"/g, '').trim(),
+      date: dateValue.replace(/"/g, '').trim(),
+      description: descValue.replace(/"/g, '').trim(),
       amount_cents,
       running_balance_cents,
-      raw: lines[i],
+      raw: rawLine,
     })
   }
 
@@ -162,10 +172,11 @@ export function matchTransactions(
       a => !usedAccountIds.has(a.id) && tx.amount_cents === a.amount_cents && a.status !== 'paid'
     )
     if (exactAmountAccounts.length === 1) {
-      usedAccountIds.add(exactAmountAccounts[0].id)
+      const account = exactAmountAccounts[0]!
+      usedAccountIds.add(account.id)
       return buildMatch(
         tx,
-        exactAmountAccounts[0],
+        account,
         'low',
         'Exact amount match (no name/unit reference found)'
       )
@@ -184,7 +195,7 @@ export function matchTransactions(
 
 function extractSurname(ownerName: string): string {
   // Format is "Surname, F." or "van der Berg, L." — take everything before the comma
-  return ownerName.split(',')[0].trim()
+  return ownerName.split(',')[0]?.trim() ?? ''
 }
 
 function buildMatch(
@@ -217,6 +228,10 @@ export interface ReconcileSummary {
 }
 
 export function summariseMatches(matches: ReconcileMatch[]): ReconcileSummary {
+  const matched_amount_cents = matches.reduce((sum, match) => {
+    return match.account ? sum + match.transaction.amount_cents : sum
+  }, 0)
+
   return {
     total_transactions: matches.length,
     matched_high: matches.filter(m => m.confidence === 'high').length,
@@ -224,8 +239,6 @@ export function summariseMatches(matches: ReconcileMatch[]): ReconcileSummary {
     matched_low: matches.filter(m => m.confidence === 'low').length,
     unmatched: matches.filter(m => m.confidence === 'unmatched').length,
     total_amount_cents: matches.reduce((s, m) => s + m.transaction.amount_cents, 0),
-    matched_amount_cents: matches
-      .filter(m => m.account)
-      .reduce((s, m) => s + m.transaction.amount_cents, 0),
+    matched_amount_cents,
   }
 }

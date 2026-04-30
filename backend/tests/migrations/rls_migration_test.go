@@ -20,6 +20,13 @@ func TestSupabaseRLSHardeningMigrationExists(t *testing.T) {
 		"IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon')",
 		"IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated')",
 		"IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres')",
+		"GRANT ALL ON ALL TABLES IN SCHEMA public TO anon",
+		"GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon",
+		"GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated",
+		"GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated",
+		"ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated",
+		"ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated",
+		"ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated",
 	}
 
 	for _, token := range required {

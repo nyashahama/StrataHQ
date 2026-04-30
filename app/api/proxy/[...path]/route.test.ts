@@ -18,6 +18,7 @@ vi.mock("next/headers", () => ({
         return { value: mockAccessToken.current };
       }
       if (name === "sh_refresh") return { value: "valid-refresh-token" };
+      if (name === "sh_csrf") return { value: "expected-token" };
       return undefined;
     }),
     set: vi.fn(),
@@ -72,14 +73,16 @@ describe("proxyRequest", () => {
     expect(clearAuthCookies).not.toHaveBeenCalled();
 
     const firstCall = calls[0];
-    expect(firstCall.options.headers).toEqual(
+    expect(firstCall).toBeDefined();
+    expect(firstCall!.options.headers).toEqual(
       expect.objectContaining({
         Authorization: "Bearer expired-access-token",
       }),
     );
 
     const retryCall = calls[1];
-    expect(retryCall.options.headers).toEqual(
+    expect(retryCall).toBeDefined();
+    expect(retryCall!.options.headers).toEqual(
       expect.objectContaining({
         Authorization: "Bearer new-access-token",
       }),
@@ -171,6 +174,9 @@ describe("proxyRequest", () => {
 
     const req = new Request("http://localhost/api/proxy/api/v1/invitations", {
       method: "POST",
+      headers: {
+        "x-csrf-token": "expected-token",
+      },
       body: JSON.stringify({ full_name: "Test User" }),
     });
     const params = Promise.resolve({ path: ["api", "v1", "invitations"] });
@@ -201,6 +207,23 @@ describe("proxyRequest", () => {
       },
     });
     expect(clearAuthCookies).not.toHaveBeenCalled();
+  });
+
+  it("rejects mutating requests when the csrf token header is missing", async () => {
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { POST } = await import("./route");
+    const req = new Request("http://localhost/api/proxy/api/v1/invitations", {
+      method: "POST",
+      body: JSON.stringify({ full_name: "Test User" }),
+    });
+    const params = Promise.resolve({ path: ["api", "v1", "invitations"] });
+
+    const response = await POST(req as unknown as import("next/server").NextRequest, { params });
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("returns 503 when the post-refresh retry aborts", async () => {

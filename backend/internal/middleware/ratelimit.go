@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,7 +23,7 @@ func RateLimit(rdb *redis.Client, limit int, window time.Duration) func(http.Han
 
 			ip := clientIP(r)
 			key := fmt.Sprintf("ratelimit:%s", ip)
-			ctx := context.Background()
+			ctx := r.Context()
 
 			count, err := rdb.Incr(ctx, key).Result()
 			if err != nil {
@@ -58,7 +57,7 @@ func PerEndpointRateLimit(rdb *redis.Client, prefix string, limit int, window ti
 
 			ip := clientIP(r)
 			key := fmt.Sprintf("ratelimit:%s:%s", prefix, ip)
-			ctx := context.Background()
+			ctx := r.Context()
 
 			count, err := rdb.Incr(ctx, key).Result()
 			if err != nil {

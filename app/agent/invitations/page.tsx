@@ -105,14 +105,18 @@ export default function InvitationsPage() {
 
   const invitations = rawInvitations.map(enrichInvitation);
   const trusteeCount = invitations.filter((inv) => inv.role === "trustee").length;
-  const nextExpiry = [...invitations].sort(
-    (a, b) =>
-      new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime(),
-  )[0];
+  const nextExpiry =
+    invitations.length === 0
+      ? null
+      : [...invitations].sort(
+          (a, b) =>
+            new Date(a.expires_at).getTime() - new Date(b.expires_at).getTime(),
+        )[0] ?? null;
 
   useEffect(() => {
-    if (showCompose && schemes.length > 0 && !form.scheme_id) {
-      setForm((current) => ({ ...current, scheme_id: schemes[0].scheme_id }));
+    const firstScheme = schemes[0]
+    if (showCompose && firstScheme && !form.scheme_id) {
+      setForm((current) => ({ ...current, scheme_id: firstScheme.scheme_id }));
     }
   }, [showCompose, schemes, form.scheme_id]);
 

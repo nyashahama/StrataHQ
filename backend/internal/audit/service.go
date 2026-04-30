@@ -61,6 +61,8 @@ INSERT INTO audit_events (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 
+const recordRetryAttempts = 3
+
 func (s *Service) Record(ctx context.Context, event Event) error {
 	if s == nil || s.db == nil {
 		return nil
@@ -76,18 +78,27 @@ func (s *Service) Record(ctx context.Context, event Event) error {
 		routePattern = strings.TrimSpace(event.Path)
 	}
 
-	_, err := s.db.Exec(ctx, insertAuditEvent,
-		parseOptionalUUID(event.ActorUserID),
-		parseOptionalUUID(event.OrgID),
-		strings.TrimSpace(event.ActorRole),
-		strings.TrimSpace(event.Method),
-		strings.TrimSpace(event.Path),
-		routePattern,
-		event.StatusCode,
-		strings.TrimSpace(event.IPAddress),
-		strings.TrimSpace(event.UserAgent),
-		occurredAt,
-	)
+	var err error
+	for attempt := 0; attempt < recordRetryAttempts; attempt++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		_, err = s.db.Exec(ctx, insertAuditEvent,
+			parseOptionalUUID(event.ActorUserID),
+			parseOptionalUUID(event.OrgID),
+			strings.TrimSpace(event.ActorRole),
+			strings.TrimSpace(event.Method),
+			strings.TrimSpace(event.Path),
+			routePattern,
+			event.StatusCode,
+			strings.TrimSpace(event.IPAddress),
+			strings.TrimSpace(event.UserAgent),
+			occurredAt,
+		)
+		if err == nil {
+			return nil
+		}
+	}
 	return err
 }
 

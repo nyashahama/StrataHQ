@@ -47,7 +47,7 @@ func AuditEvents(recorder audit.Recorder, logger *slog.Logger) func(http.Handler
 				event.ActorRole = identity.Role
 			}
 
-			if err := recorder.Record(context.WithoutCancel(r.Context()), event); err != nil {
+			if err := recordAuditEvent(context.WithoutCancel(r.Context()), recorder, event); err != nil {
 				logger.Error("record audit event",
 					"error", err,
 					"method", event.Method,
@@ -58,6 +58,17 @@ func AuditEvents(recorder audit.Recorder, logger *slog.Logger) func(http.Handler
 			}
 		})
 	}
+}
+
+func recordAuditEvent(ctx context.Context, recorder audit.Recorder, event audit.Event) error {
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		err = recorder.Record(ctx, event)
+		if err == nil {
+			return nil
+		}
+	}
+	return err
 }
 
 func shouldAuditRequest(method string) bool {

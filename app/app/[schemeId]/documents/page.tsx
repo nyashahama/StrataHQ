@@ -41,11 +41,19 @@ function groupByCategory(docs: SchemeDocumentInfo[]): Record<string, SchemeDocum
   const order = Object.values(CATEGORY_LABELS)
   const grouped = docs.reduce((acc, doc) => {
     const key = CATEGORY_LABELS[doc.category]
-    if (!acc[key]) acc[key] = []
-    acc[key].push(doc)
+    const existing = acc[key] ?? []
+    existing.push(doc)
+    acc[key] = existing
     return acc
   }, {} as Record<string, SchemeDocumentInfo[]>)
-  return Object.fromEntries(order.filter(key => grouped[key]).map(key => [key, grouped[key]]))
+  const ordered: Record<string, SchemeDocumentInfo[]> = {}
+  for (const key of order) {
+    const docsForKey = grouped[key]
+    if (docsForKey) {
+      ordered[key] = docsForKey
+    }
+  }
+  return ordered
 }
 
 const EMPTY_FORM = {

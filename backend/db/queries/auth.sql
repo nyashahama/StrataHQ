@@ -79,7 +79,7 @@ WHERE token = $1
   AND expires_at > NOW()
 RETURNING *;
 
--- name: RevokeRefreshToken :exec
+-- name: RevokeRefreshToken :execrows
 UPDATE refresh_tokens
 SET revoked = TRUE
 WHERE token = $1;

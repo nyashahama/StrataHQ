@@ -217,8 +217,10 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "refresh_token is required")
 		return
 	}
-	// Idempotent — ignore service errors (token may already be revoked)
-	_ = h.service.Logout(r.Context(), req.RefreshToken)
+	if err := h.service.Logout(r.Context(), req.RefreshToken); err != nil && err != ErrInvalidToken {
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "logout failed")
+		return
+	}
 	response.NoContent(w)
 }
 

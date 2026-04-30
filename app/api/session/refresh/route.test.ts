@@ -21,6 +21,7 @@ describe("POST /api/session/refresh", () => {
     cookieGet.mockImplementation((name: string) => {
       if (name === "sh_access") return { value: "expired-access-token" };
       if (name === "sh_refresh") return { value: "valid-refresh-token" };
+      if (name === "sh_csrf") return { value: "expected-token" };
       return undefined;
     });
 
@@ -56,7 +57,12 @@ describe("POST /api/session/refresh", () => {
     );
 
     const { POST } = await import("./route");
-    const response = await POST();
+    const response = await POST(
+      new Request("http://localhost/api/session/refresh", {
+        method: "POST",
+        headers: { "x-csrf-token": "expected-token" },
+      }),
+    );
 
     expect(response.status).toBe(200);
 
@@ -71,6 +77,7 @@ describe("POST /api/session/refresh", () => {
     cookieGet.mockImplementation((name: string) => {
       if (name === "sh_access") return { value: "access-token" };
       if (name === "sh_refresh") return { value: "refresh-token" };
+      if (name === "sh_csrf") return { value: "expected-token" };
       return undefined;
     });
 
@@ -105,7 +112,12 @@ describe("POST /api/session/refresh", () => {
     );
 
     const { POST } = await import("./route");
-    const response = await POST();
+    const response = await POST(
+      new Request("http://localhost/api/session/refresh", {
+        method: "POST",
+        headers: { "x-csrf-token": "expected-token" },
+      }),
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -131,6 +143,7 @@ describe("POST /api/session/refresh", () => {
     cookieGet.mockImplementation((name: string) => {
       if (name === "sh_access") return { value: "access-token" };
       if (name === "sh_refresh") return { value: "refresh-token" };
+      if (name === "sh_csrf") return { value: "expected-token" };
       return undefined;
     });
 
@@ -158,7 +171,12 @@ describe("POST /api/session/refresh", () => {
     );
 
     const { POST } = await import("./route");
-    await POST();
+    await POST(
+      new Request("http://localhost/api/session/refresh", {
+        method: "POST",
+        headers: { "x-csrf-token": "expected-token" },
+      }),
+    );
 
     expect(cookieSet).toHaveBeenCalledWith(
       "sh_session",
@@ -171,6 +189,7 @@ describe("POST /api/session/refresh", () => {
     cookieGet.mockImplementation((name: string) => {
       if (name === "sh_access") return { value: "old-access-token" };
       if (name === "sh_refresh") return { value: "old-refresh-token" };
+      if (name === "sh_csrf") return { value: "expected-token" };
       return undefined;
     });
 
@@ -198,7 +217,12 @@ describe("POST /api/session/refresh", () => {
     );
 
     const { POST } = await import("./route");
-    await POST();
+    await POST(
+      new Request("http://localhost/api/session/refresh", {
+        method: "POST",
+        headers: { "x-csrf-token": "expected-token" },
+      }),
+    );
 
     expect(cookieSet).toHaveBeenCalledWith(
       "sh_access",
@@ -215,6 +239,7 @@ describe("POST /api/session/refresh", () => {
   it("returns 503 with a shaped error when refresh is temporarily unavailable", async () => {
     cookieGet.mockImplementation((name: string) => {
       if (name === "sh_refresh") return { value: "refresh-token" };
+      if (name === "sh_csrf") return { value: "expected-token" };
       return undefined;
     });
 
@@ -226,13 +251,40 @@ describe("POST /api/session/refresh", () => {
     );
 
     const { POST } = await import("./route");
-    const response = await POST();
+    const response = await POST(
+      new Request("http://localhost/api/session/refresh", {
+        method: "POST",
+        headers: { "x-csrf-token": "expected-token" },
+      }),
+    );
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
       error: {
         code: "UPSTREAM_UNAVAILABLE",
         message: "Temporary service issue. Please retry.",
+      },
+    });
+  });
+
+  it("rejects refresh when the csrf token is missing", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_csrf") return { value: "expected-token" };
+      return undefined;
+    });
+
+    const { POST } = await import("./route");
+    const response = await POST(
+      new Request("http://localhost/api/session/refresh", {
+        method: "POST",
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: "FORBIDDEN",
+        message: "Invalid CSRF token",
       },
     });
   });

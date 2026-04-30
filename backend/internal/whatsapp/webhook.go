@@ -26,21 +26,36 @@ type WebhookHandler struct {
 	logger        *slog.Logger
 	authToken     string
 	skipSigVerify bool
+	workerCtx     context.Context
+	cancelWorkers context.CancelFunc
+	workerSlots   chan struct{}
 }
 
+const webhookWorkerCapacity = 64
+
 func NewWebhookHandler(db *database.Pool, sender MessageSender, bot *Bot, service *Service, logger *slog.Logger, authToken string) *WebhookHandler {
+	workerCtx, cancelWorkers := context.WithCancel(context.Background())
 	return &WebhookHandler{
-		db:        db,
-		sender:    sender,
-		bot:       bot,
-		service:   service,
-		logger:    logger,
-		authToken: authToken,
+		db:            db,
+		sender:        sender,
+		bot:           bot,
+		service:       service,
+		logger:        logger,
+		authToken:     authToken,
+		workerCtx:     workerCtx,
+		cancelWorkers: cancelWorkers,
+		workerSlots:   make(chan struct{}, webhookWorkerCapacity),
 	}
 }
 
 func (h *WebhookHandler) SetSkipSigVerify(v bool) {
 	h.skipSigVerify = v
+}
+
+func (h *WebhookHandler) Close() {
+	if h.cancelWorkers != nil {
+		h.cancelWorkers()
+	}
 }
 
 func (h *WebhookHandler) Routes() *chi.Mux {
@@ -114,13 +129,29 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 
 	phoneNumber := strings.TrimPrefix(from, "whatsapp:")
 
-	go h.processMessage(phoneNumber, body, profileName, media)
+	select {
+	case h.workerSlots <- struct{}{}:
+	default:
+		response.Error(w, http.StatusServiceUnavailable, response.CodeInternalError, "webhook processor busy")
+		return
+	}
+
+	go func() {
+		defer func() {
+			<-h.workerSlots
+		}()
+		h.processMessage(phoneNumber, body, profileName, media)
+	}()
 
 	w.WriteHeader(http.StatusOK)
 }
 
 func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string, media []inboundMedia) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	workerCtx := h.workerCtx
+	if workerCtx == nil {
+		workerCtx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(workerCtx, 30*time.Second)
 	defer cancel()
 
 	threads, lookupErr := h.db.Q.GetConnectedWhatsAppThreadByPhone(ctx, pgtype.Text{String: phoneNumber, Valid: true})

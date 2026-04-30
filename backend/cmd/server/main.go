@@ -115,6 +115,7 @@ func main() {
 	whatsAppService := whatsapp.NewServiceWithAudit(db, sender, logger, resourceAuditService)
 	whatsAppBot := whatsapp.NewBot(db)
 	whatsAppWebhook := whatsapp.NewWebhookHandler(db, sender, whatsAppBot, whatsAppService, logger, cfg.TwilioAuthToken)
+	defer whatsAppWebhook.Close()
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
 	invitationService := invitation.NewServiceWithAudit(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry, resourceAuditService)

@@ -116,3 +116,35 @@ func TestAuditEvents_LogsRecorderFailureWithRequestID(t *testing.T) {
 		t.Fatalf("audit failure log missing request_id: %s", buf.String())
 	}
 }
+
+func TestAuditEvents_RetriesRecorderFailure(t *testing.T) {
+	recorder := &flakyAuditRecorder{failuresRemaining: 1}
+	logger := slog.New(slog.NewTextHandler(&discardWriter{}, nil))
+	handler := AuditEvents(recorder, logger)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/org", nil)
+	req.RemoteAddr = "127.0.0.1:8080"
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+
+	if recorder.calls != 2 {
+		t.Fatalf("recorder calls = %d, want 2", recorder.calls)
+	}
+}
+
+type flakyAuditRecorder struct {
+	failuresRemaining int
+	calls             int
+}
+
+func (f *flakyAuditRecorder) Record(_ context.Context, _ audit.Event) error {
+	f.calls++
+	if f.failuresRemaining > 0 {
+		f.failuresRemaining--
+		return errors.New("temporary audit failure")
+	}
+	return nil
+}

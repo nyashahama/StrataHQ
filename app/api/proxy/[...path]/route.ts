@@ -115,12 +115,39 @@ function shouldRetry(method: string, status: number): boolean {
   return method === "GET" && (status === 502 || status === 503 || status === 504);
 }
 
+function forbiddenResponse(message: string) {
+  return new Response(
+    JSON.stringify({
+      error: {
+        code: "FORBIDDEN",
+        message,
+      },
+    }),
+    {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    },
+  );
+}
+
+function requiresCSRFProtection(method: string): boolean {
+  return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+}
+
 async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   const startedAt = performance.now();
   const requestId = getOrCreateRequestId(request.headers);
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("sh_access")?.value;
+  const csrfCookie = cookieStore.get("sh_csrf")?.value;
   const auth = request.headers.get("x-skip-auth") !== "true";
+  const csrfHeader = request.headers.get("x-csrf-token");
+
+  if (requiresCSRFProtection(request.method)) {
+    if (!csrfCookie || !csrfHeader || csrfHeader !== csrfCookie) {
+      return forbiddenResponse("Invalid CSRF token");
+    }
+  }
 
   const url = new URL(request.url);
   const backendPath = buildAllowedBackendProxyPath(pathSegments, url.search);

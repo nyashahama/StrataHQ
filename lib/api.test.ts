@@ -26,4 +26,29 @@ describe("apiFetch", () => {
       }),
     );
   });
+
+  it("adds the csrf header to mutating proxy requests", async () => {
+    Object.defineProperty(document, "cookie", {
+      configurable: true,
+      value: "sh_csrf=test-csrf-token",
+    });
+
+    const fetchMock = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { apiFetch } = await import("./api");
+    await apiFetch("/api/v1/schemes/scheme-1", {
+      method: "POST",
+      body: JSON.stringify({ name: "Scheme" }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/proxy/api/v1/schemes/scheme-1",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          "x-csrf-token": "test-csrf-token",
+        }),
+      }),
+    );
+  });
 });

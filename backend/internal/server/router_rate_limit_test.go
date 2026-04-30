@@ -131,6 +131,54 @@ func TestRouterUsesDedicatedRateLimitPrefixesForAIAndWebhooks(t *testing.T) {
 	}
 }
 
+func TestRouterAppliesDedicatedRateLimitPrefixesForPublicAuthEndpoints(t *testing.T) {
+	cfg := &config.Config{}
+	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
+	rdb := newTestRedis(t)
+
+	ctx := context.Background()
+	existingKeys, _ := rdb.Keys(ctx, "ratelimit:*").Result()
+	if len(existingKeys) > 0 {
+		rdb.Del(ctx, existingKeys...)
+	}
+
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
+	testIP := "192.0.2.88"
+
+	requests := []struct {
+		method string
+		path   string
+		body   string
+		prefix string
+	}{
+		{method: "POST", path: "/api/v1/auth/register", body: `{}`, prefix: "auth-register"},
+		{method: "POST", path: "/api/v1/auth/logout", body: `{}`, prefix: "auth-logout"},
+		{method: "POST", path: "/api/v1/auth/forgot-password", body: `{}`, prefix: "auth-forgot-password"},
+		{method: "POST", path: "/api/v1/auth/reset-password", body: `{}`, prefix: "auth-reset-password"},
+	}
+
+	for _, tc := range requests {
+		req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+		req.RemoteAddr = testIP + ":12345"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	keys, _ := rdb.Keys(ctx, "ratelimit:*").Result()
+	for _, tc := range requests {
+		found := false
+		for _, key := range keys {
+			if strings.HasPrefix(key, "ratelimit:"+tc.prefix+":") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("missing dedicated rate limit prefix %q in keys %v", tc.prefix, keys)
+		}
+	}
+}
+
 func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))

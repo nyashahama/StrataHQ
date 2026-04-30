@@ -1,16 +1,37 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 )
 
 func resetTrustedProxyCIDRsForTest() {
 	trustedCIDRs = nil
 	trustedCIDRsOnce = sync.Once{}
+}
+
+func newTestRedis(t *testing.T) *redis.Client {
+	t.Helper()
+
+	server, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("start miniredis: %v", err)
+	}
+	t.Cleanup(server.Close)
+
+	rdb := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() {
+		_ = rdb.Close()
+	})
+	return rdb
 }
 
 func TestPerEndpointRateLimitUsesDistinctPrefixes(t *testing.T) {
@@ -43,6 +64,66 @@ func TestPerEndpointRateLimitUsesDistinctPrefixes(t *testing.T) {
 	}
 	if wantRefreshKey != "ratelimit:refresh:192.0.2.1" {
 		t.Fatalf("refresh key incorrect: got %q, want %q", wantRefreshKey, "ratelimit:refresh:192.0.2.1")
+	}
+}
+
+func TestRateLimitUsesRequestContext(t *testing.T) {
+	rdb := newTestRedis(t)
+	handlerCalled := false
+	handler := RateLimit(rdb, 5, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req := httptest.NewRequest(http.MethodGet, "/healthz", nil).WithContext(ctx)
+	req.RemoteAddr = "192.0.2.10:12345"
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !handlerCalled {
+		t.Fatal("request handler should still run when Redis sees a cancelled request context")
+	}
+
+	keys, err := rdb.Keys(context.Background(), "ratelimit:*").Result()
+	if err != nil {
+		t.Fatalf("list rate limit keys: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Fatalf("expected no Redis keys when request context is cancelled, got %v", keys)
+	}
+}
+
+func TestPerEndpointRateLimitUsesRequestContext(t *testing.T) {
+	rdb := newTestRedis(t)
+	handlerCalled := false
+	handler := PerEndpointRateLimit(rdb, "auth-login", 5, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil).WithContext(ctx)
+	req.RemoteAddr = "192.0.2.11:12345"
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if !handlerCalled {
+		t.Fatal("request handler should still run when Redis sees a cancelled request context")
+	}
+
+	keys, err := rdb.Keys(context.Background(), "ratelimit:*").Result()
+	if err != nil {
+		t.Fatalf("list rate limit keys: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Fatalf("expected no Redis keys when request context is cancelled, got %v", keys)
 	}
 }
 

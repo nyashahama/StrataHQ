@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { logoutAction } from "./auth-actions";
+import { readBrowserCSRFToken } from "./csrf";
 import type { SessionUser } from "./session";
 
 interface AuthContextValue {
@@ -31,8 +32,10 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
 
     async function tryRefreshSession(attempt = 0): Promise<SessionUser | null> {
       try {
+        const csrfToken = readBrowserCSRFToken();
         const refreshResponse = await fetch("/api/session/refresh", {
           method: "POST",
+          headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
         });
         if (refreshResponse.status === 503 && attempt < MAX_REFRESH_RETRIES) {
           return tryRefreshSession(attempt + 1);

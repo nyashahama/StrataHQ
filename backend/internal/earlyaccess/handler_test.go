@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -81,5 +82,20 @@ func TestPublicRoutes_PostApproveMutatesOnce(t *testing.T) {
 	}
 	if svc.approveByTokenCalls != 1 {
 		t.Fatalf("approveByTokenCalls=%d, want 1", svc.approveByTokenCalls)
+	}
+}
+
+func TestPublicRoutes_ApprovePageHasNoInlineStyles(t *testing.T) {
+	svc := &stubService{}
+	router := NewHandler(svc).PublicRoutes()
+
+	exp := time.Now().Add(15 * time.Minute).Unix()
+	req := httptest.NewRequest(http.MethodGet, "/request-123/approve?exp="+strconv.FormatInt(exp, 10)+"&sig=test-signature", nil)
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if strings.Contains(w.Body.String(), "style=") {
+		t.Fatalf("approve page should not render inline styles: %s", w.Body.String())
 	}
 }

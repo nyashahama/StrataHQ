@@ -67,6 +67,7 @@ jobs:
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
           go install github.com/pressly/goose/v3/cmd/goose@latest
+          go install golang.org/x/vuln/cmd/govulncheck@latest
 
       - name: Generate sqlc
         run: cd db && sqlc generate
@@ -94,6 +95,9 @@ jobs:
 
       - name: Unit tests
         run: go test ./internal/... -v -race
+
+      - name: Vulnerability scan
+        run: govulncheck ./...
 
       - name: Integration tests
         run: go test ./tests/integration/... -v -race -tags=integration

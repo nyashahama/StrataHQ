@@ -32,6 +32,17 @@ const ACCESS_OPTS = {
   maxAge: 15 * 60,
 };
 
+const CSRF_OPTS = {
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: 30 * 24 * 60 * 60,
+};
+
+function issueCSRFToken(): string {
+  return crypto.randomUUID();
+}
+
 export async function writeAuthCookies(
   payload: AuthSessionPayload,
 ): Promise<SessionUser> {
@@ -40,6 +51,7 @@ export async function writeAuthCookies(
 
   cookieStore.set("sh_access", access_token, ACCESS_OPTS);
   cookieStore.set("sh_refresh", refresh_token, SESSION_OPTS);
+  cookieStore.set("sh_csrf", issueCSRFToken(), CSRF_OPTS);
   cookieStore.set(
     "sh_session",
     encodeURIComponent(JSON.stringify(session)),
@@ -92,5 +104,6 @@ export async function clearAuthCookies(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete("sh_access");
   cookieStore.delete("sh_refresh");
+  cookieStore.delete("sh_csrf");
   cookieStore.delete("sh_session");
 }

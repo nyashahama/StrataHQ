@@ -49,10 +49,10 @@ describe('parseBankStatementCSV', () => {
 
     const result = parseBankStatementCSV(csv)
     expect(result).toHaveLength(1)
-    expect(result[0].amount_cents).toBe(245000)
-    expect(result[0].description).toBe('UNIT 4B LEVY')
-    expect(result[0].date).toBe('2025-10-01')
-    expect(result[0].running_balance_cents).toBe(1000000)
+    expect(result[0]!.amount_cents).toBe(245000)
+    expect(result[0]!.description).toBe('UNIT 4B LEVY')
+    expect(result[0]!.date).toBe('2025-10-01')
+    expect(result[0]!.running_balance_cents).toBe(1000000)
   })
 
   it('skips rows with zero or negative amounts (debits)', () => {
@@ -64,7 +64,7 @@ describe('parseBankStatementCSV', () => {
 
     const result = parseBankStatementCSV(csv)
     expect(result).toHaveLength(1)
-    expect(result[0].description).toBe('UNIT 4B LEVY')
+    expect(result[0]!.description).toBe('UNIT 4B LEVY')
   })
 
   it('handles quoted fields containing commas', () => {
@@ -75,7 +75,7 @@ describe('parseBankStatementCSV', () => {
 
     const result = parseBankStatementCSV(csv)
     expect(result).toHaveLength(1)
-    expect(result[0].description).toBe('Smith, J. UNIT 5A')
+    expect(result[0]!.description).toBe('Smith, J. UNIT 5A')
   })
 
   it('handles alternative column names (Narration, Credit)', () => {
@@ -86,7 +86,7 @@ describe('parseBankStatementCSV', () => {
 
     const result = parseBankStatementCSV(csv)
     expect(result).toHaveLength(1)
-    expect(result[0].amount_cents).toBe(180000)
+    expect(result[0]!.amount_cents).toBe(180000)
   })
 
   it('handles missing balance column gracefully', () => {
@@ -97,7 +97,7 @@ describe('parseBankStatementCSV', () => {
 
     const result = parseBankStatementCSV(csv)
     expect(result).toHaveLength(1)
-    expect(result[0].running_balance_cents).toBe(0)
+    expect(result[0]!.running_balance_cents).toBe(0)
   })
 
   it('parses multiple rows correctly', () => {
@@ -127,23 +127,23 @@ describe('matchTransactions', () => {
   describe('HIGH confidence — unit identifier', () => {
     it('matches "UNIT 4B" pattern', () => {
       const result = matchTransactions([tx('UNIT 4B LEVY PAYMENT')], [makeAccount()])
-      expect(result[0].confidence).toBe('high')
-      expect(result[0].account?.id).toBe('acc-1')
+      expect(result[0]!.confidence).toBe('high')
+      expect(result[0]!.account?.id).toBe('acc-1')
     })
 
     it('matches "UNIT4B" (no space) pattern', () => {
       const result = matchTransactions([tx('UNIT4B OCT LEVY')], [makeAccount()])
-      expect(result[0].confidence).toBe('high')
+      expect(result[0]!.confidence).toBe('high')
     })
 
     it('matches "4B LEVY" pattern', () => {
       const result = matchTransactions([tx('4B LEVY PAYMENT')], [makeAccount()])
-      expect(result[0].confidence).toBe('high')
+      expect(result[0]!.confidence).toBe('high')
     })
 
     it('matches "/4B/" pattern', () => {
       const result = matchTransactions([tx('PAYMENT/4B/OCT2025')], [makeAccount()])
-      expect(result[0].confidence).toBe('high')
+      expect(result[0]!.confidence).toBe('high')
     })
   })
 
@@ -153,7 +153,7 @@ describe('matchTransactions', () => {
         [tx('SMITH OCT LEVY', 245000)],
         [makeAccount({ owner_name: 'Smith, J.' })]
       )
-      expect(result[0].confidence).toBe('medium')
+      expect(result[0]!.confidence).toBe('medium')
     })
 
     it('matches partial payment (less than full amount) with surname', () => {
@@ -161,7 +161,7 @@ describe('matchTransactions', () => {
         [tx('SMITH PART PAYMENT', 100000)],
         [makeAccount({ owner_name: 'Smith, J.', amount_cents: 245000 })]
       )
-      expect(result[0].confidence).toBe('medium')
+      expect(result[0]!.confidence).toBe('medium')
     })
 
     it('does not match if surname is too short (< 3 chars)', () => {
@@ -170,7 +170,7 @@ describe('matchTransactions', () => {
         [makeAccount({ owner_name: 'Li, J.', unit_identifier: 'X99' })]
       )
       // Short surname should not trigger medium match
-      expect(result[0].confidence).not.toBe('medium')
+      expect(result[0]!.confidence).not.toBe('medium')
     })
   })
 
@@ -180,7 +180,7 @@ describe('matchTransactions', () => {
         makeAccount({ id: 'acc-1', unit_identifier: 'Z1', owner_name: 'Jones, A.', amount_cents: 245000 }),
       ]
       const result = matchTransactions([tx('UNKNOWN PAYMENT', 245000)], accounts)
-      expect(result[0].confidence).toBe('low')
+      expect(result[0]!.confidence).toBe('low')
     })
 
     it('does not low-match when multiple accounts share the same amount', () => {
@@ -189,7 +189,7 @@ describe('matchTransactions', () => {
         makeAccount({ id: 'acc-2', unit_identifier: 'Z2', owner_name: 'Brown, B.', amount_cents: 245000 }),
       ]
       const result = matchTransactions([tx('UNKNOWN PAYMENT', 245000)], accounts)
-      expect(result[0].confidence).toBe('unmatched')
+      expect(result[0]!.confidence).toBe('unmatched')
     })
 
     it('does not low-match against already-paid accounts', () => {
@@ -197,7 +197,7 @@ describe('matchTransactions', () => {
         makeAccount({ id: 'acc-1', unit_identifier: 'Z1', owner_name: 'Jones, A.', status: 'paid' }),
       ]
       const result = matchTransactions([tx('UNKNOWN PAYMENT', 245000)], accounts)
-      expect(result[0].confidence).toBe('unmatched')
+      expect(result[0]!.confidence).toBe('unmatched')
     })
   })
 
@@ -207,8 +207,8 @@ describe('matchTransactions', () => {
         [tx('RANDOM GIBBERISH PAYMENT', 999)],
         [makeAccount()]
       )
-      expect(result[0].confidence).toBe('unmatched')
-      expect(result[0].account).toBeNull()
+      expect(result[0]!.confidence).toBe('unmatched')
+      expect(result[0]!.account).toBeNull()
     })
   })
 
@@ -218,8 +218,8 @@ describe('matchTransactions', () => {
       const txs = [tx('UNIT 4B PAYMENT'), tx('UNIT 4B PAYMENT')]
       const results = matchTransactions(txs, accounts)
       // First should match, second should be unmatched (account already used)
-      expect(results[0].confidence).toBe('high')
-      expect(results[1].confidence).toBe('unmatched')
+      expect(results[0]!.confidence).toBe('high')
+      expect(results[1]!.confidence).toBe('unmatched')
     })
   })
 
@@ -229,8 +229,8 @@ describe('matchTransactions', () => {
         [tx('UNIT 4B', 245000)],
         [makeAccount({ paid_cents: 0, amount_cents: 245000 })]
       )
-      expect(result[0].new_status).toBe('paid')
-      expect(result[0].new_paid_cents).toBe(245000)
+      expect(result[0]!.new_status).toBe('paid')
+      expect(result[0]!.new_paid_cents).toBe(245000)
     })
 
     it('sets status to "partial" when payment is less than full amount', () => {
@@ -238,7 +238,7 @@ describe('matchTransactions', () => {
         [tx('UNIT 4B', 100000)],
         [makeAccount({ paid_cents: 0, amount_cents: 245000 })]
       )
-      expect(result[0].new_status).toBe('partial')
+      expect(result[0]!.new_status).toBe('partial')
     })
 
     it('sets status to "paid" when partial + new payment covers full amount', () => {
@@ -246,8 +246,8 @@ describe('matchTransactions', () => {
         [tx('UNIT 4B', 145000)],
         [makeAccount({ paid_cents: 100000, amount_cents: 245000 })]
       )
-      expect(result[0].new_status).toBe('paid')
-      expect(result[0].new_paid_cents).toBe(245000)
+      expect(result[0]!.new_status).toBe('paid')
+      expect(result[0]!.new_paid_cents).toBe(245000)
     })
   })
 })

@@ -12,6 +12,7 @@ import (
 
 	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/integrations"
 )
 
 func newTestRedis(t *testing.T) *redis.Client {
@@ -30,6 +31,12 @@ func newTestRedis(t *testing.T) *redis.Client {
 	return rdb
 }
 
+func testHandlers() Handlers {
+	return Handlers{
+		Integrations: integrations.NewHandler(integrations.NewService(nil)),
+	}
+}
+
 func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) {
 	cfg := &config.Config{}
 	logger := slog.New(slog.NewJSONHandler(&nopWriter{}, &slog.HandlerOptions{}))
@@ -43,7 +50,7 @@ func TestRouterAppliesDistinctRateLimitPrefixesForLoginAndRefresh(t *testing.T) 
 		rdb.Del(ctx, existingKeys...)
 	}
 
-	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
 
 	testIP := "192.0.2.1"
 
@@ -88,7 +95,7 @@ func TestRouterUsesDedicatedRateLimitPrefixesForAIAndWebhooks(t *testing.T) {
 		rdb.Del(ctx, existingKeys...)
 	}
 
-	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
 	testIP := "192.0.2.44"
 
 	requests := []struct {
@@ -136,7 +143,7 @@ func TestDistinctRateLimitPrefixesRequiredForLoginVsRefresh(t *testing.T) {
 		rdb.Del(ctx, existingKeys...)
 	}
 
-	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, Handlers{})
+	router := NewRouter(cfg, logger, rdb, &silentRecorder{}, testHandlers())
 
 	testIP := "192.0.2.1"
 

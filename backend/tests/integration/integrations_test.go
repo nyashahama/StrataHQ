@@ -36,7 +36,7 @@ func TestOpenAPI_ReadsSchemeLevyAndFinancialDataWithAPIKey(t *testing.T) {
 	}
 	created := decodeSuccess[integrations.APIClientCreateResponse](t, w)
 
-	req = httptest.NewRequest(http.MethodGet, "/open/v1/schemes", nil)
+	req = httptest.NewRequest(http.MethodGet, "/schemes", nil)
 	req.Header.Set("Authorization", "Bearer "+created.APIKey)
 	w = httptest.NewRecorder()
 	h.OpenRoutes().ServeHTTP(w, req)

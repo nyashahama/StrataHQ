@@ -84,6 +84,7 @@ func TestIntegrations_AdminCreatesAndRevokesAPIClient(t *testing.T) {
 
 	revokeReq := httptest.NewRequest(http.MethodDelete, "/integrations/api-clients/"+created.ID, nil)
 	revokeReq = withAuthContext(revokeReq, accessToken, testJWTSigningKey)
+	revokeReq = withRouteParams(revokeReq, map[string]string{"clientId": created.ID})
 	w = httptest.NewRecorder()
 	h.RevokeAPIClient(w, revokeReq)
 	if w.Code != http.StatusOK {

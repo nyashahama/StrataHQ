@@ -26,6 +26,8 @@ CREATE INDEX idx_integration_api_clients_org_id
 CREATE INDEX idx_integration_api_clients_key_prefix
     ON integration_api_clients (key_prefix);
 
+ALTER TABLE integration_api_clients ENABLE ROW LEVEL SECURITY;
+
 CREATE TABLE integration_api_client_schemes (
     client_id UUID NOT NULL REFERENCES integration_api_clients(id) ON DELETE CASCADE,
     scheme_id UUID NOT NULL REFERENCES schemes(id) ON DELETE CASCADE,
@@ -34,6 +36,8 @@ CREATE TABLE integration_api_client_schemes (
 
 CREATE INDEX idx_integration_api_client_schemes_scheme_id
     ON integration_api_client_schemes (scheme_id);
+
+ALTER TABLE integration_api_client_schemes ENABLE ROW LEVEL SECURITY;
 
 -- +goose Down
 

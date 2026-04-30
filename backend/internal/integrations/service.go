@@ -108,8 +108,8 @@ func (s *Service) CreateAPIClient(ctx context.Context, identity auth.Identity, i
 		return nil, err
 	}
 	for _, schemeID := range schemeUUIDs {
-		if err := s.db.Q.LinkIntegrationAPIClientScheme(ctx, dbgen.LinkIntegrationAPIClientSchemeParams{ClientID: created.ID, SchemeID: schemeID}); err != nil {
-			return nil, err
+		if linkErr := s.db.Q.LinkIntegrationAPIClientScheme(ctx, dbgen.LinkIntegrationAPIClientSchemeParams{ClientID: created.ID, SchemeID: schemeID}); linkErr != nil {
+			return nil, linkErr
 		}
 	}
 	info, err := s.mapClient(ctx, created)

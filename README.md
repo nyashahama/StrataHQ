@@ -1,120 +1,250 @@
 # StrataHQ
 
-Property management software for South African sectional title schemes. Built for managing agents and trustees who run body corporates under the Sectional Titles Schemes Management Act (STSMA).
+StrataHQ is property management software for South African sectional title
+schemes. It is built for managing agents, trustees, and residents who need one
+place to run levy collection, maintenance, meetings, documents,
+communications, compliance, and scheme operations.
 
-## What It Does
+The repository contains the customer-facing Next.js app and the Go backend API
+that powers authenticated product workflows.
 
-- **Levy management** — create levy periods, track payments, reconcile bank statements
-- **Maintenance** — log and track maintenance requests from submission to resolution
-- **AGM & voting** — manage meetings, resolutions, and proxy assignments
-- **Document vault** — store and access scheme documents
-- **Financial reporting** — levy collection rates, expenditure tracking
-- **Communications** — send notices and updates to owners and residents
+## Product Scope
 
-## Monorepo Structure
+- Managing-agent portfolio dashboard with scheme-level attention items
+- Scheme overview for trustees, residents, and managing-agent users
+- Levy management, payment tracking, bank statement import, reconciliation, and
+  collection follow-up workflows
+- Maintenance request intake and tracking
+- AGM and resolution management
+- Document vault and document visibility controls
+- Financial reporting and scheme compliance views
+- Member, invitation, role, and profile management
+- Communications, WhatsApp maintenance inbox, and audit log features
+- Billing, early-access administration, AI copilot, and open API integration
+  foundations
 
-```
+## Repository Layout
+
+```text
 stratahq-app/
-├── app/                 # Next.js App Router — frontend
-│   ├── app/[schemeId]/  # Scheme-scoped views (levy, maintenance, AGM, etc.)
-│   ├── agent/           # Managing agent portfolio views
-│   ├── auth/            # Login, register, onboarding
-│   └── api/             # Next.js API routes (AI copilot, etc.)
-├── backend/             # Go REST API
-│   ├── cmd/server/      # Server entrypoint
-│   ├── internal/        # Domain packages (auth, scheme, levy, maintenance, billing)
-│   ├── db/              # Migrations, sqlc queries
-│   └── README.md        # Backend-specific docs
-├── components/          # Shared React components
-├── hooks/               # Shared React hooks
-├── lib/                 # Shared utilities
-└── docs/                # Architecture specs and implementation plans
+├── app/                    # Next.js App Router routes
+│   ├── app/[schemeId]/     # Scheme-scoped authenticated product area
+│   ├── agent/              # Managing-agent portfolio and settings routes
+│   ├── admin/              # Admin tools
+│   ├── api/                # Next.js API routes and backend proxy routes
+│   ├── auth/               # Login, registration, invitations, password reset
+│   └── early-access/       # Early-access signup flows
+├── backend/                # Go API, worker, migrations, and integration tests
+│   ├── cmd/server/         # API server entrypoint
+│   ├── cmd/worker/         # Background worker entrypoint
+│   ├── db/                 # Goose migrations, sqlc queries, generated code
+│   ├── internal/           # Backend domains and shared platform packages
+│   └── tests/              # Integration and load tests
+├── components/             # Shared React UI components
+├── hooks/                  # Shared React hooks
+├── lib/                    # Frontend API clients, auth helpers, utilities
+├── public/                 # Static assets
+└── docs/                   # Reliability docs, specs, plans, and roadmap notes
 ```
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 16 · React 19 · TypeScript · Tailwind CSS |
-| Backend | Go 1.24 · Chi · PostgreSQL 17 · pgx/v5 · sqlc · goose |
-| Caching | Redis 7 |
-| Auth | JWT (self-issued, Go backend) |
-| Payments | Stripe (hybrid — Stripe.js frontend + webhooks backend) |
+| --- | --- |
+| Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| Frontend data | Server actions, server components, React Query |
+| Backend | Go 1.24, Chi, pgx/v5, sqlc, goose |
+| Data stores | PostgreSQL 17, Redis 7 |
+| Auth | Backend-issued JWT access and refresh tokens |
+| Payments | Stripe |
 | Email | Resend |
-| AI | DeepSeek (OpenAI-compatible) |
-| Deployment | Vercel (frontend) · Render (backend) |
+| WhatsApp | Twilio WhatsApp |
+| AI | DeepSeek via OpenAI-compatible API |
+| Testing | Vitest, Testing Library, Go tests, integration tests, k6 |
 
-## Getting Started
+## Prerequisites
 
-### Frontend
+- Node.js 22 or newer
+- npm
+- Go 1.24 or newer
+- Docker and Docker Compose
+- sqlc
+- goose
+- golangci-lint, for backend linting
 
-```bash
-npm install
-cp .env.example .env.local   # fill in values
-npm run dev
-```
+## Quick Start
 
-Frontend runs at `http://localhost:3000`.
+1. Install frontend dependencies from the repository root:
 
-### Backend
+   ```bash
+   npm ci
+   ```
 
-```bash
-cd backend
-cp .env.example .env         # fill in values
-make docker-up               # start Postgres + Redis
-make migrate-up              # run migrations
-make generate                # generate sqlc code
-make run                     # start Go server
-```
+2. Create frontend environment variables:
 
-Backend runs at `http://localhost:8080`. See [`backend/README.md`](backend/README.md) for full docs.
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+   If `.env.local.example` is not present, create `.env.local` manually:
+
+   ```bash
+   BACKEND_URL=http://localhost:8080
+   NEXT_PUBLIC_API_URL=http://localhost:8080
+   ```
+
+3. Configure and start backend dependencies:
+
+   ```bash
+   cd backend
+   cp .env.example .env
+   make docker-up
+   make migrate-up
+   make generate
+   make seed
+   ```
+
+4. Start the backend API:
+
+   ```bash
+   cd backend
+   make run
+   ```
+
+   The API runs on `http://localhost:8080`.
+
+5. In another terminal, start the frontend:
+
+   ```bash
+   npm run dev
+   ```
+
+   The app runs on `http://localhost:3000`.
+
+## Local Development
+
+Frontend commands run from the repository root.
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the Next.js development server |
+| `npm run build` | Build the production frontend |
+| `npm run start` | Start the built frontend |
+| `npm run lint` | Run ESLint with zero warnings allowed |
+| `npm run typecheck` | Run TypeScript checks |
+| `npm test` | Run Vitest once |
+| `npm run test:watch` | Run Vitest in watch mode |
+
+Backend commands run from `backend/`.
+
+| Command | Description |
+| --- | --- |
+| `make run` | Start the Go API server |
+| `make worker` | Start the background worker |
+| `make build` | Build API and worker binaries |
+| `make test` | Run backend unit tests |
+| `make test-integration` | Run backend integration tests |
+| `make lint` | Run golangci-lint |
+| `make fmt` | Format Go code |
+| `make generate` | Regenerate sqlc code |
+| `make migrate-up` | Run pending database migrations |
+| `make migrate-down` | Roll back the latest migration |
+| `make seed` | Seed local demo data |
+| `make docker-up` | Start local Postgres and Redis |
+| `make docker-down` | Stop local Docker services |
+
+See [backend/README.md](backend/README.md) for backend API details, response
+format, endpoint notes, and domain development guidance.
 
 ## Environment Variables
 
-### Frontend (`.env.local`)
+### Frontend
+
+Create `.env.local` at the repository root.
+
+| Variable | Purpose | Local default |
+| --- | --- | --- |
+| `BACKEND_URL` | Server-side URL used by server components, server actions, and API routes | `http://localhost:8080` |
+| `NEXT_PUBLIC_API_URL` | Browser-visible API URL for client-side backend calls | `http://localhost:8080` |
+
+### Backend
+
+Create `backend/.env` from [backend/.env.example](backend/.env.example).
+Important variables include:
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection string |
+| `JWT_SECRET` | JWT signing secret |
+| `STRIPE_SECRET_KEY` | Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `RESEND_API_KEY` | Transactional email API key |
+| `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` | AI provider configuration |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins |
+| `APP_BASE_URL` | Frontend URL for callbacks and email links |
+| `BACKEND_BASE_URL` | Backend URL for backend-generated links |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_NUMBER` | WhatsApp integration settings |
+
+Never commit real secrets. Use local `.env` files for development and platform
+secret stores in production.
+
+## Authenticated App Areas
+
+- `/agent` shows the managing-agent portfolio dashboard.
+- `/agent/schemes`, `/agent/invitations`, `/agent/settings`, and
+  `/agent/setup` support portfolio administration.
+- `/app/[schemeId]` is the scheme overview.
+- `/app/[schemeId]/levy`, `/maintenance`, `/agm`, `/documents`,
+  `/financials`, `/members`, `/communications`, `/compliance`, `/contractors`,
+  `/whatsapp`, `/audit`, `/profile`, and `/settings` expose scheme modules.
+- `/auth/login`, `/auth/register`, `/auth/invite/[token]`,
+  `/auth/forgot-password`, and `/auth/reset-password` handle authentication.
+- `/admin/early-access` supports early-access administration.
+
+The frontend reads authenticated server-side data through `lib/server-api.ts`
+and proxies allowed `/api/v1/*` calls through `app/api/proxy/[...path]`.
+
+## Testing and Verification
+
+Run the checks that match your change before opening a PR or deploying:
 
 ```bash
-BACKEND_URL=http://localhost:8080
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
-
-`BACKEND_URL` is used by server-side code (server actions, API routes) to reach the Go backend. `NEXT_PUBLIC_API_URL` is used by client-side code when direct backend calls are needed.
-
-### Backend (`backend/.env`)
-
-See [`backend/.env.example`](backend/.env.example) for all required variables.
-
-## Development
-
-### Running both services locally
-
-```bash
-# Terminal 1 — backend
-cd backend && make docker-up && make run
-
-# Terminal 2 — frontend
-npm run dev
-```
-
-### Running tests
-
-```bash
-# Frontend
 npm run lint
-
-# Backend
-cd backend && make test
-cd backend && make test-integration   # requires Docker
+npm run typecheck
+npm test
 ```
 
-## Docs
+For backend changes:
 
-- [`docs/superpowers/specs/`](docs/superpowers/specs/) — architecture and feature design specs
-- [`docs/superpowers/plans/`](docs/superpowers/plans/) — implementation plans
-- [`backend/README.md`](backend/README.md) — Go backend documentation
-- [`backend/CONTRIBUTING.md`](backend/CONTRIBUTING.md) — contributing guide
-- [`TODOS.md`](TODOS.md) — deferred V2/V3 feature backlog
+```bash
+cd backend
+make test
+make test-integration
+```
+
+Integration tests require the local database and Redis services. Start them with
+`make docker-up` before running integration tests.
+
+## Documentation
+
+- [backend/README.md](backend/README.md) - backend setup, API overview, and
+  backend development workflow
+- [backend/CONTRIBUTING.md](backend/CONTRIBUTING.md) - backend contribution
+  guidance
+- [docs/production-reliability-runbook.md](docs/production-reliability-runbook.md)
+  - production reliability and load-test guidance
+- [docs/roadmap/](docs/roadmap/) - roadmap specs and implementation plans
+- [APP_TESTING.md](APP_TESTING.md), [DEMO_TESTING.md](DEMO_TESTING.md), and
+  [SECURITY_AUDIT.md](SECURITY_AUDIT.md) - additional testing and audit notes
+
+## Deployment Notes
+
+The frontend is designed for Vercel-style Next.js deployment. The backend is a
+containerized Go service with a separate worker and expects managed PostgreSQL
+and Redis in production. Configure production environment variables in the
+target platform and use TLS-enabled database connections.
 
 ## License
 
-Proprietary.
+Proprietary. All rights reserved.

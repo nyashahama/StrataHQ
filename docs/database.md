@@ -161,7 +161,7 @@ erDiagram
     schemes ||--o{ compliance_assessments : scores
 
     schemes ||--o{ whatsapp_threads : chats
-    units ||--o{ whatsapp_threads : chat_for
+    units ||--o| whatsapp_threads : chat_for
     whatsapp_threads ||--o{ whatsapp_messages : contains
     whatsapp_messages ||--o{ whatsapp_message_media : attaches
     whatsapp_messages ||--o| whatsapp_maintenance_intakes : intake_source

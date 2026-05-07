@@ -124,7 +124,7 @@ Script:
 6. Open the levy dashboard and show payment/reconciliation workflows.
 7. Open maintenance and show request triage.
 8. Briefly show AGM, documents, or compliance to demonstrate governance coverage.
-9. Close on the showcase package materials in this repo: the README entry point plus the architecture, API, database, engineering decisions, and local setup docs once they are added.
+9. Close on the showcase package materials in this repo: the README entry point plus the architecture, API, database, engineering decisions, and local setup docs.
 
 Recording checklist:
 

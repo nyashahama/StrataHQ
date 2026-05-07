@@ -1,6 +1,6 @@
 # StrataHQ Case Study
 
-StrataHQ is a South African sectional-title property management platform. This case study is written as a technical-first portfolio summary and should be read alongside [docs/architecture.md](docs/architecture.md) and [docs/engineering-decisions.md](docs/engineering-decisions.md).
+StrataHQ is a South African sectional-title property management platform. This case study is written as a technical-first portfolio summary and should be read alongside [architecture.md](architecture.md) and [engineering-decisions.md](engineering-decisions.md).
 
 ## Problem
 
@@ -43,7 +43,7 @@ This is not a marketing prototype. The repo contains the UI, API, schema migrati
 
 ## Core Workflows / Demo Walkthrough
 
-The current demo path, also documented in [docs/demo.md](docs/demo.md), is easiest to understand from the managing-agent role.
+The current demo path, also documented in [demo.md](demo.md), is easiest to understand from the managing-agent role.
 
 1. Log in as the managing-agent demo user.
 2. Open the portfolio dashboard and review scheme-level attention items.
@@ -68,7 +68,7 @@ At a high level:
 - A separate Go worker processes asynchronous jobs such as reminders and bank import work.
 - External providers include Stripe, Resend, Twilio WhatsApp, and an OpenAI-compatible AI provider.
 
-The architecture is described in more detail in [docs/architecture.md](docs/architecture.md).
+The architecture is described in more detail in [architecture.md](architecture.md).
 
 ## Engineering Decisions
 
@@ -82,7 +82,7 @@ The main engineering choices were made to keep product complexity explicit inste
 - Background work runs in a separate worker instead of inside request handlers.
 - Security and audit controls are treated as shared platform concerns.
 
-The tradeoffs behind those decisions are documented in [docs/engineering-decisions.md](docs/engineering-decisions.md).
+The tradeoffs behind those decisions are documented in [engineering-decisions.md](engineering-decisions.md).
 
 ## Current Status
 

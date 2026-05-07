@@ -1,6 +1,6 @@
 # StrataHQ Engineering Decisions
 
-This document records the main engineering choices in StrataHQ and the tradeoffs they introduce. For the current system layout, see [docs/architecture.md](docs/architecture.md).
+This document records the main engineering choices in StrataHQ and the tradeoffs they introduce. For the current system layout, see [architecture.md](architecture.md).
 
 ## 1. Next.js frontend with a backend proxy
 
@@ -140,7 +140,7 @@ The repository treats security and auditability as platform-level concerns rathe
 - security headers middleware
 - audit event recording middleware and resource-level audit event services
 - webhook signature verification for Stripe and Twilio-facing integrations
-- row-level-security hardening called out in [docs/database.md](docs/database.md)
+- row-level-security hardening called out in [database.md](database.md)
 
 Why this choice:
 

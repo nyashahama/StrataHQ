@@ -63,3 +63,15 @@ func TestInboundReturnsServiceUnavailableWhenWorkerQueueIsFull(t *testing.T) {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusServiceUnavailable)
 	}
 }
+
+func TestWebhookHandlerHasAuthToken(t *testing.T) {
+	handlerWithToken := NewWebhookHandler(nil, nil, nil, nil, slog.Default(), "twilio-token")
+	if !handlerWithToken.HasAuthToken() {
+		t.Fatal("expected HasAuthToken to return true when token is configured")
+	}
+
+	handlerWithoutToken := NewWebhookHandler(nil, nil, nil, nil, slog.Default(), "")
+	if handlerWithoutToken.HasAuthToken() {
+		t.Fatal("expected HasAuthToken to return false when token is missing")
+	}
+}

@@ -58,6 +58,10 @@ func (h *WebhookHandler) Close() {
 	}
 }
 
+func (h *WebhookHandler) HasAuthToken() bool {
+	return strings.TrimSpace(h.authToken) != ""
+}
+
 func (h *WebhookHandler) Routes() *chi.Mux {
 	r := chi.NewRouter()
 	r.Post("/", h.Inbound)

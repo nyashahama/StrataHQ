@@ -36,7 +36,7 @@ Error responses use:
 | `GET` | `/readyz` | No | Readiness check for database and Redis |
 | `GET` | `/metrics` | Token when configured | Prometheus metrics |
 
-## Auth And Account
+## Auth/Account
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -78,7 +78,7 @@ Error responses use:
 | `POST` | `/api/v1/invitations/{id}/resend` | Org admin | Resend invitation |
 | `DELETE` | `/api/v1/invitations/{id}` | Org admin | Revoke invitation |
 
-## Levies And Collections
+## Levies/Collections
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -154,9 +154,9 @@ Error responses use:
 | `POST` | `/api/v1/early-access/{id}/approve` | Signed link | Approve request |
 | `GET` | `/api/v1/early-access/{id}/reject` | Signed link | Reject page |
 | `POST` | `/api/v1/early-access/{id}/reject` | Signed link | Reject request |
-| `GET` | `/api/v1/admin/early-access` | Configured admin user | List early-access requests |
-| `POST` | `/api/v1/admin/early-access/{id}/approve` | Configured admin user | Approve request |
-| `POST` | `/api/v1/admin/early-access/{id}/reject` | Configured admin user | Reject request |
+| `GET` | `/api/v1/admin/early-access` | Org admin with configured admin email | List early-access requests |
+| `POST` | `/api/v1/admin/early-access/{id}/approve` | Org admin with configured admin email | Approve request |
+| `POST` | `/api/v1/admin/early-access/{id}/reject` | Org admin with configured admin email | Reject request |
 | `POST` | `/api/v1/ai/copilot` | Non-resident; org admin for portfolio scope | AI copilot response |
 | `GET` | `/api/v1/audit/schemes/{schemeId}/events` | Admin or trustee | List scheme audit events |
 | `GET` | `/api/v1/integrations/api-clients` | Org admin | List API clients |

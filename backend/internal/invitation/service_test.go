@@ -214,6 +214,56 @@ func TestServiceCreateRejectsForeignScheme(t *testing.T) {
 	}
 }
 
+func TestServiceAcceptUsesConfiguredJWTClaims(t *testing.T) {
+	orgID := uuid.New()
+	schemeID := uuid.New()
+	store := &fakeInvitationStore{
+		invitationByToken: &dbgen.Invitation{
+			ID:        uuid.New(),
+			OrgID:     orgID,
+			SchemeID:  schemeID,
+			UnitID:    pgtype.UUID{},
+			Email:     "trustee@example.com",
+			FullName:  "Trustee User",
+			Role:      "trustee",
+			Token:     "accept-token",
+			Status:    "pending",
+			ExpiresAt: time.Now().Add(time.Hour),
+		},
+		getUserByEmailErr: pgx.ErrNoRows,
+		createdUser: &dbgen.User{
+			ID:       uuid.New(),
+			Email:    "trustee@example.com",
+			FullName: "Trustee User",
+		},
+	}
+	svc := &Service{
+		q:           store,
+		withTx:      func(ctx context.Context, fn func(q txStore) error) error { return fn(store) },
+		sender:      &notification.NoopSender{},
+		jwtSecret:   "unit-test-secret",
+		jwtIssuer:   "https://issuer.test",
+		jwtAudience: "tenant-aud",
+		jwtExpiry:   15 * time.Minute,
+	}
+
+	resp, err := svc.Accept(context.Background(), "accept-token", "StrongPassword!123")
+	if err != nil {
+		t.Fatalf("Accept() error = %v", err)
+	}
+
+	claims, err := auth.ValidateAccessToken(resp.AccessToken, svc.jwtSecret, svc.jwtIssuer, svc.jwtAudience)
+	if err != nil {
+		t.Fatalf("access token should validate with configured issuer/audience: %v", err)
+	}
+	if claims.Issuer != svc.jwtIssuer {
+		t.Fatalf("access token issuer = %q, want %q", claims.Issuer, svc.jwtIssuer)
+	}
+	if claims.Audience[0] != svc.jwtAudience {
+		t.Fatalf("access token audience = %q, want %q", claims.Audience[0], svc.jwtAudience)
+	}
+}
+
 func TestServiceCreateRejectsUnitOutsideScheme(t *testing.T) {
 	orgID := uuid.New()
 	schemeID := uuid.New()

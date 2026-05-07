@@ -31,6 +31,8 @@ func newEarlyAccessHandler(t *testing.T, adminEmail, adminSecret string) *earlya
 		sender,
 		testJWTSigningKey,
 		"http://localhost:3000",
+		"http://localhost:3000",
+		"stratahq-api",
 		15*time.Minute,
 		7*24*time.Hour,
 	)

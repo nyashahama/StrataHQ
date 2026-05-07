@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -24,6 +25,23 @@ type Claims struct {
 	OrgID string `json:"org_id"`
 	Role  string `json:"role"`
 	jwt.RegisteredClaims
+}
+
+const defaultJWTAudience = "stratahq-api"
+
+// ResolveJWTConfig normalizes JWT issuer/audience defaults for token creation.
+func ResolveJWTConfig(appBaseURL, issuer, audience string) (string, string) {
+	resolvedIssuer := strings.TrimSpace(issuer)
+	if resolvedIssuer == "" {
+		resolvedIssuer = strings.TrimSpace(appBaseURL)
+	}
+
+	resolvedAudience := strings.TrimSpace(audience)
+	if resolvedAudience == "" {
+		resolvedAudience = defaultJWTAudience
+	}
+
+	return resolvedIssuer, resolvedAudience
 }
 
 // GenerateAccessToken creates a signed HS256 JWT for the given user.

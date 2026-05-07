@@ -30,6 +30,24 @@ func TestGenerateAccessToken_ValidClaims(t *testing.T) {
 	}
 }
 
+func TestResolveJWTConfig(t *testing.T) {
+	issuer, audience := ResolveJWTConfig("https://app.local", "", "")
+	if issuer != "https://app.local" {
+		t.Errorf("issuer = %q, want %q", issuer, "https://app.local")
+	}
+	if audience != "stratahq-api" {
+		t.Errorf("audience = %q, want %q", audience, "stratahq-api")
+	}
+
+	issuer, audience = ResolveJWTConfig("https://app.local", "https://issuer.local", "aud.test")
+	if issuer != "https://issuer.local" {
+		t.Errorf("issuer override = %q, want %q", issuer, "https://issuer.local")
+	}
+	if audience != "aud.test" {
+		t.Errorf("audience override = %q, want %q", audience, "aud.test")
+	}
+}
+
 func TestValidateAccessToken_WrongSecret(t *testing.T) {
 	tok, _ := GenerateAccessToken("user-1", "org-1", "admin", "https://localhost:3000", "stratahq-api", "secret-a", 15*time.Minute)
 	_, err := ValidateAccessToken(tok, "secret-b", "", "")

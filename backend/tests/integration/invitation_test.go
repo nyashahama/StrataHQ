@@ -22,7 +22,7 @@ import (
 func newInvitationHandler(t *testing.T) (*invitation.Handler, *notification.NoopSender) {
 	t.Helper()
 	sender := &notification.NoopSender{}
-	svc := invitation.NewService(testPool, sender, "http://localhost:3000", testJWTSigningKey, 15*time.Minute, 7*24*time.Hour)
+	svc := invitation.NewService(testPool, sender, "http://localhost:3000", testJWTSigningKey, "http://localhost:3000", "stratahq-api", 15*time.Minute, 7*24*time.Hour)
 	return invitation.NewHandler(svc, "http://localhost:3000"), sender
 }
 

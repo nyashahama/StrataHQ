@@ -42,7 +42,7 @@ SEED_DEMO_PASSWORD='StrataDemo!2026' make seed
 
 ## Screenshot Inventory
 
-Screenshots are stored in `docs/assets/screenshots/` when captured from the seeded app or the public live demo.
+Showcase screenshots are intended to be captured from the local seeded app and stored in `docs/assets/screenshots/`.
 
 ## Screenshot Capture Status
 
@@ -50,10 +50,7 @@ Last attempted: 2026-05-07
 
 - Captured and verified: `landing-page.png`, `login-page.png`
 - Pending: all authenticated screenshots
-- Public screenshots were captured from `https://strata-hq-blue.vercel.app/`
-  with `npx playwright screenshot` and verified as real PNG files.
-- Authenticated capture is still blocked. The concrete issues from this attempt
-  were:
+- Local seeded-app capture is still blocked. The concrete issues from this attempt were:
   - `cd backend && make docker-up` failed because Docker could not bind Redis
     on `0.0.0.0:6379` (`address already in use`).
   - After starting `backend-postgres-1` directly and exporting `backend/.env`,
@@ -64,6 +61,9 @@ Last attempted: 2026-05-07
     context because the scriptable test runtime was unavailable
     (`Cannot find module '@playwright/test'`), so authenticated browser
     automation could not be completed as a fallback.
+- The two committed public screenshots were captured from
+  `https://strata-hq-blue.vercel.app/` with `npx playwright screenshot` as
+  temporary showcase images while the local seeded capture path remains blocked.
 
 Target screenshots:
 

@@ -37,7 +37,8 @@ Available public captures:
 - [Landing page](docs/assets/screenshots/landing-page.png)
 - [Login page](docs/assets/screenshots/login-page.png)
 
-Authenticated gallery capture is still pending. Current status, inventory, and
+These public images were captured from the live demo while the intended local
+seeded-app capture path remains blocked. Current status, inventory, and
 blockers are tracked in [`docs/demo.md`](docs/demo.md).
 
 ## Core Docs
@@ -175,21 +176,6 @@ make test-integration
 
 Integration tests require local PostgreSQL and Redis services. Start them with
 `make docker-up` before running integration tests.
-
-## Product Scope
-
-- Managing-agent portfolio dashboard with scheme-level attention items
-- Scheme overview for trustees, residents, and managing-agent users
-- Levy management, payment tracking, bank statement import, reconciliation, and
-  collection follow-up workflows
-- Maintenance request intake and tracking
-- AGM and resolution management
-- Document vault and document visibility controls
-- Financial reporting and scheme compliance views
-- Member, invitation, role, and profile management
-- Communications, WhatsApp maintenance inbox, and audit log features
-- Billing, early-access administration, AI copilot, and open API integration
-  foundations
 
 ## Prerequisites
 

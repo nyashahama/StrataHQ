@@ -152,7 +152,7 @@ erDiagram
 
     schemes ||--o{ scheme_documents : stores
     schemes ||--o{ notices : sends
-    users ||--o{ notices : authored
+    users o|--o{ notices : authored
 
     schemes ||--o{ budget_lines : budgets
     schemes ||--o| reserve_fund : reserves
@@ -166,17 +166,17 @@ erDiagram
     whatsapp_messages ||--o{ whatsapp_message_media : attaches
     whatsapp_messages ||--o| whatsapp_maintenance_intakes : intake_source
     schemes ||--o{ whatsapp_broadcasts : broadcasts
-    maintenance_requests ||--o{ whatsapp_messages : referenced_by
-    notices ||--o{ whatsapp_messages : referenced_by
+    maintenance_requests o|--o{ whatsapp_messages : referenced_by
+    notices o|--o{ whatsapp_messages : referenced_by
 
     orgs ||--o{ integration_api_clients : issues
     integration_api_clients ||--o{ integration_api_client_schemes : scoped_to
     schemes ||--o{ integration_api_client_schemes : permitted_for
 
-    orgs ||--o{ audit_events : audited
-    users ||--o{ audit_events : acts_in
+    orgs o|--o{ audit_events : audited
+    users o|--o{ audit_events : acts_in
     orgs ||--o{ resource_audit_events : resource_audit
-    users ||--o{ resource_audit_events : changes
+    users o|--o{ resource_audit_events : changes
 ```
 
 ## Data Access Pattern

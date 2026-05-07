@@ -4,24 +4,28 @@ The backend API is implemented in Go with Chi. Most product endpoints are mounte
 
 ## Response Envelope
 
-Success responses always wrap the payload in `data`:
+Standard JSON success responses use a `data` wrapper:
 
 ```json
 { "data": {} }
 ```
 
-List and paginated responses also include `meta`:
+List and paginated responses include `meta` only when the handler returns them through `response.JSONList`:
 
 ```json
 { "data": [], "meta": { "page": 1, "per_page": 50, "total": 123 } }
 ```
+
+Documented exceptions:
+- Some successful endpoints return `204 No Content`.
+- `GET /api/open/v1/openapi.json` serves the OpenAPI document directly instead of the standard JSON envelope.
 
 ## Error Envelope
 
 Error responses use:
 
 ```json
-{ "error": { "code": "VALIDATION_ERROR", "message": "Human-readable message" } }
+{ "error": { "code": "BAD_REQUEST", "message": "Human-readable message" } }
 ```
 
 ## Platform
@@ -30,7 +34,7 @@ Error responses use:
 | --- | --- | --- | --- |
 | `GET` | `/healthz` | No | Liveness check |
 | `GET` | `/readyz` | No | Readiness check for database and Redis |
-| `GET` | `/metrics` | Token in production when configured | Prometheus metrics |
+| `GET` | `/metrics` | Token when configured | Prometheus metrics |
 
 ## Auth And Account
 

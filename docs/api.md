@@ -4,7 +4,7 @@ The backend API is implemented in Go with Chi. Most product endpoints are mounte
 
 ## Response Envelope
 
-Standard JSON success responses use a `data` wrapper:
+The standard JSON API success envelope uses a `data` wrapper:
 
 ```json
 { "data": {} }
@@ -16,7 +16,7 @@ List and paginated responses include `meta` only when the handler returns them t
 { "data": [], "meta": { "page": 1, "per_page": 50, "total": 123 } }
 ```
 
-Documented exceptions:
+Documented exceptions outside the standard JSON API success envelope:
 - Some successful endpoints return `204 No Content`.
 - `GET /api/open/v1/openapi.json` serves the OpenAPI document directly instead of the standard JSON envelope.
 - The signed-link early-access flows render HTML pages instead of the standard JSON envelope:
@@ -24,16 +24,22 @@ Documented exceptions:
   - `POST /api/v1/early-access/{id}/approve`
   - `GET /api/v1/early-access/{id}/reject`
   - `POST /api/v1/early-access/{id}/reject`
+- `GET /metrics` serves Prometheus text output.
+- `GET /api/v1/whatsapp/webhooks` can return plain-text verification output or a bare `200 OK`.
+- `POST /api/v1/whatsapp/webhooks` returns a bare `200 OK` on successful inbound webhook handling.
 
 ## Error Envelope
 
-Standard API error responses use:
+Standard JSON API error responses use:
 
 ```json
 { "error": { "code": "BAD_REQUEST", "message": "Human-readable message" } }
 ```
 
-Exception: the signed-link early-access HTML flows return HTML error pages instead of JSON error bodies.
+Exceptions outside the standard JSON API error envelope:
+- The signed-link early-access flows return HTML error pages instead of JSON error bodies.
+- `GET /metrics` returns a plain-text unauthorized response when metrics token auth is configured and the token check fails.
+- `GET /api/v1/whatsapp/webhooks` can return plain-text or bare non-JSON responses during provider verification flows.
 
 ## Platform
 
@@ -164,7 +170,7 @@ Exception: the signed-link early-access HTML flows return HTML error pages inste
 | `GET` | `/api/v1/admin/early-access` | Org admin with configured admin email | List early-access requests |
 | `POST` | `/api/v1/admin/early-access/{id}/approve` | Org admin with configured admin email | Approve request |
 | `POST` | `/api/v1/admin/early-access/{id}/reject` | Org admin with configured admin email | Reject request |
-| `POST` | `/api/v1/ai/copilot` | Non-resident; org admin for portfolio scope | AI copilot response |
+| `POST` | `/api/v1/ai/copilot` | Org admin for portfolio scope; non-resident scheme member or org admin with scheme access for scheme scope | AI copilot response |
 | `GET` | `/api/v1/audit/schemes/{schemeId}/events` | Admin or trustee | List scheme audit events |
 | `GET` | `/api/v1/integrations/api-clients` | Org admin | List API clients |
 | `POST` | `/api/v1/integrations/api-clients` | Org admin | Create API client |

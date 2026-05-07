@@ -57,7 +57,7 @@ Target screenshots:
 | `agm-workflow.png` | AGM dashboard | `/app/[schemeId]/agm` |
 | `documents-compliance.png` | Documents or compliance workflow | `/app/[schemeId]/documents` or `/app/[schemeId]/compliance` |
 
-## Screenshot Capture Commands
+## Screenshot Capture Workflow
 
 Start the stack:
 
@@ -78,14 +78,16 @@ In another terminal:
 npm run dev
 ```
 
-Capture public screenshots:
+Save screenshots manually into `docs/assets/screenshots/` using your browser or OS screenshot tool:
 
-```bash
-npx playwright screenshot http://localhost:3000 docs/assets/screenshots/landing-page.png
-npx playwright screenshot http://localhost:3000/auth/login docs/assets/screenshots/login-page.png
-```
+1. Open `http://localhost:3000` and capture the public landing page.
+2. Open `http://localhost:3000/auth/login` and capture the login page.
+3. Use the browser window at a consistent desktop width.
+4. Log in as `agent@demo.stratahq.test`.
+5. Visit each authenticated route from the inventory table and capture it after the page fully loads.
+6. Name each image exactly as listed in the inventory table.
 
-Authenticated screenshots require logging in first. Use Playwright codegen or the browser to log in as `agent@demo.stratahq.test`, then capture the app views after session cookies are set.
+Authenticated screenshots do not require Playwright in this repo. Use a browser profile with only the demo session active so captures stay reproducible and free of personal UI chrome.
 
 ## Demo Video Script
 
@@ -103,7 +105,7 @@ Script:
 6. Open the levy dashboard and show payment/reconciliation workflows.
 7. Open maintenance and show request triage.
 8. Briefly show AGM, documents, or compliance to demonstrate governance coverage.
-9. Close on the README docs: architecture, API reference, database overview, engineering decisions, and local setup.
+9. Close on the showcase package materials in this repo: the README entry point plus the architecture, API, database, engineering decisions, and local setup docs once they are added.
 
 Recording checklist:
 

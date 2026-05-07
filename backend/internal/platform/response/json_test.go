@@ -2,6 +2,7 @@ package response
 
 import (
 	"encoding/json"
+	"strings"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -82,5 +83,26 @@ func TestError(t *testing.T) {
 	}
 	if resp.Err.Message != "invalid email" {
 		t.Errorf("error.message = %q, want %q", resp.Err.Message, "invalid email")
+	}
+}
+
+func TestDecodeJSONRejectsTrailingTokens(t *testing.T) {
+	payload := strings.NewReader(`{"name":"ok"} {"extra": "value"}`)
+
+	var out map[string]string
+	err := DecodeJSON(payload, &out)
+	if err == nil {
+		t.Fatal("expected error for trailing JSON tokens")
+	}
+}
+
+func TestDecodeJSONRejectsUnknownFields(t *testing.T) {
+	payload := strings.NewReader(` {"name":"ok", "unexpected":"x"}`)
+	var out struct {
+		Name string `json:"name"`
+	}
+	err := DecodeJSON(payload, &out)
+	if err == nil {
+		t.Fatal("expected error for unknown field")
 	}
 }

@@ -65,8 +65,11 @@ func DecodeJSON(r io.Reader, dst any) error {
 	if err := dec.Decode(dst); err != nil {
 		return err
 	}
-	if dec.More() {
-		return errors.New("trailing tokens after JSON value")
+	if err := dec.Decode(&struct{}{}); err != io.EOF {
+		if err == nil {
+			return errors.New("trailing tokens after JSON value")
+		}
+		return err
 	}
 	return nil
 }

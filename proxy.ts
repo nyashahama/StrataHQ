@@ -121,6 +121,10 @@ export function proxy(request: NextRequest) {
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()",
   );
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  );
 
   if (process.env.NODE_ENV === "production") {
     response.headers.set(

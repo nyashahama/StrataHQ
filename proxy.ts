@@ -19,6 +19,24 @@ function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 }
 
+function isAllowedOrigin(rawOrigin: string | null, request: NextRequest): boolean {
+  if (!rawOrigin) {
+    return false;
+  }
+
+  const allowedOrigins = [
+    request.nextUrl.origin,
+    ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
+  ];
+
+  try {
+    const parsed = new URL(rawOrigin);
+    return allowedOrigins.includes(parsed.origin);
+  } catch {
+    return false;
+  }
+}
+
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -26,19 +44,9 @@ export function proxy(request: NextRequest) {
   if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
     const origin = request.headers.get("origin");
     const referer = request.headers.get("referer");
-    if (!origin && !referer) {
+
+    if (!isAllowedOrigin(origin, request) && !isAllowedOrigin(referer, request)) {
       return new NextResponse("Forbidden", { status: 403 });
-    }
-    if (origin) {
-      const allowedOrigins = [
-        request.nextUrl.origin,
-        ...(process.env.NEXT_PUBLIC_APP_URL
-          ? [process.env.NEXT_PUBLIC_APP_URL]
-          : []),
-      ];
-      if (!allowedOrigins.includes(origin)) {
-        return new NextResponse("Forbidden", { status: 403 });
-      }
     }
   }
 

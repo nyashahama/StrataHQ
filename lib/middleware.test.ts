@@ -158,4 +158,21 @@ describe("proxy", () => {
       "http://localhost/auth/login?redirect=%2Fagent",
     );
   });
+
+  it("sets content security policy header", () => {
+    const request = new NextRequest("http://localhost/agent", {
+      headers: {
+        cookie: `${validSessionCookie}; sh_access=${mintJwt(
+          "user-1",
+          Math.floor(Date.now() / 1000) + 120,
+        )}; sh_csrf=token`,
+      },
+    });
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-security-policy")).toBe(
+      "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    );
+  });
 });

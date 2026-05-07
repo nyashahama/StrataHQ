@@ -1,27 +1,99 @@
 # StrataHQ
 
-StrataHQ is property management software for South African sectional title
-schemes. It is built for managing agents, trustees, and residents who need one
-place to run levy collection, maintenance, meetings, documents,
-communications, compliance, and scheme operations.
+StrataHQ is a sectional-title property management platform for South African
+managing agents, trustees, and residents. It brings levy operations,
+maintenance, governance, documents, communications, and compliance into one
+authenticated workspace backed by a Next.js frontend and Go API.
 
-The repository contains the customer-facing Next.js app and the Go backend API
-that powers authenticated product workflows.
+## Live Demo
 
-## Product Scope
+Demo URL: https://strata-hq-blue.vercel.app
 
-- Managing-agent portfolio dashboard with scheme-level attention items
-- Scheme overview for trustees, residents, and managing-agent users
-- Levy management, payment tracking, bank statement import, reconciliation, and
-  collection follow-up workflows
-- Maintenance request intake and tracking
-- AGM and resolution management
-- Document vault and document visibility controls
-- Financial reporting and scheme compliance views
-- Member, invitation, role, and profile management
-- Communications, WhatsApp maintenance inbox, and audit log features
-- Billing, early-access administration, AI copilot, and open API integration
-  foundations
+The public demo uses seeded fake data only.
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Managing agent | `agent@demo.stratahq.test` | `StrataDemo!2026` |
+| Trustee | `trustee@demo.stratahq.test` | `StrataDemo!2026` |
+| Resident | `resident@demo.stratahq.test` | `StrataDemo!2026` |
+
+## Core Workflows
+
+- Managing-agent portfolio oversight across multiple schemes
+- Levy collection, payment tracking, bank-statement import, and reconciliation
+- Maintenance request intake, triage, and progress tracking
+- AGM, resolutions, and governance workflows
+- Document vault, resident communications, and compliance visibility
+- Role-aware views for managing agents, trustees, and residents
+
+## Showcase Gallery
+
+Captured from the local seeded demo app on 2026-05-07.
+
+| Public entry points | Core operations |
+| --- | --- |
+| Landing page<br><img src="docs/assets/screenshots/landing-page.png" alt="StrataHQ landing page" width="420"> | Managing-agent portfolio<br><img src="docs/assets/screenshots/agent-portfolio-dashboard.png" alt="Managing-agent portfolio dashboard" width="420"> |
+| Login page<br><img src="docs/assets/screenshots/login-page.png" alt="StrataHQ login page" width="420"> | Scheme overview<br><img src="docs/assets/screenshots/scheme-overview.png" alt="Scheme overview dashboard" width="420"> |
+| Levy reconciliation<br><img src="docs/assets/screenshots/levy-reconciliation.png" alt="Levy reconciliation dashboard" width="420"> | Maintenance dashboard<br><img src="docs/assets/screenshots/maintenance-dashboard.png" alt="Maintenance dashboard" width="420"> |
+| AGM workflow<br><img src="docs/assets/screenshots/agm-workflow.png" alt="AGM workflow dashboard" width="420"> | Documents and compliance<br><img src="docs/assets/screenshots/documents-compliance.png" alt="Documents and compliance dashboard" width="420"> |
+
+## Core Docs
+
+- [Architecture](docs/architecture.md)
+- [API](docs/api.md)
+- [Database](docs/database.md)
+- [Engineering decisions](docs/engineering-decisions.md)
+- [Demo guide](docs/demo.md)
+- [Case study](docs/case-study.md)
+
+## Run Locally In 5 Minutes
+
+1. Install dependencies from the repository root:
+
+   ```bash
+   npm ci
+   ```
+
+2. Create frontend environment variables:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   If `.env.example` is not present, create `.env.local` manually:
+
+   ```bash
+   BACKEND_URL=http://localhost:8080
+   NEXT_PUBLIC_API_URL=http://localhost:8080
+   ```
+
+3. Start local backend services and seed demo data:
+
+   ```bash
+   cd backend
+   cp .env.example .env
+   make docker-up
+   set -a; source .env; set +a
+   make migrate-up
+   make generate
+   SEED_DEMO_PASSWORD='StrataDemo!2026' make seed
+   ```
+
+4. Run the backend API:
+
+   ```bash
+   cd backend
+   make run
+   ```
+
+5. In another terminal, run the frontend:
+
+   ```bash
+   npm run dev
+   ```
+
+Frontend: `http://localhost:3000`
+Backend API: `http://localhost:8080`
 
 ## Repository Layout
 
@@ -44,7 +116,7 @@ stratahq-app/
 ├── hooks/                  # Shared React hooks
 ├── lib/                    # Frontend API clients, auth helpers, utilities
 ├── public/                 # Static assets
-└── docs/                   # Reliability docs, specs, plans, and roadmap notes
+└── docs/                   # Showcase docs, reliability notes, specs, roadmap
 ```
 
 ## Tech Stack
@@ -53,7 +125,7 @@ stratahq-app/
 | --- | --- |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | Frontend data | Server actions, server components, React Query |
-| Backend | Go 1.24, Chi, pgx/v5, sqlc, goose |
+| Backend | Go 1.25.0+, Chi, pgx/v5, sqlc, goose |
 | Data stores | PostgreSQL 17, Redis 7 |
 | Auth | Backend-issued JWT access and refresh tokens |
 | Payments | Stripe |
@@ -62,64 +134,54 @@ stratahq-app/
 | AI | DeepSeek via OpenAI-compatible API |
 | Testing | Vitest, Testing Library, Go tests, integration tests, k6 |
 
+## Engineering Decisions Summary
+
+StrataHQ keeps the product UI in Next.js, core business logic in a Go backend,
+PostgreSQL as the source of truth, Redis for support concerns, typed SQL access
+through `sqlc`, and a separate worker for async jobs. The tradeoffs and
+rationale are documented in [docs/engineering-decisions.md](docs/engineering-decisions.md).
+
+## Release Status
+
+Planned showcase milestone: `v0.1.0-alpha`
+
+- Product surface is broad enough for end-to-end demos across agent, trustee,
+  and resident roles.
+- Demo and architecture docs are present on this branch for technical review.
+- No `v0.1.0-alpha` git tag has been cut yet on this branch.
+- Treat this repository state as alpha software rather than a hardened
+  production release.
+
+## Testing And Verification
+
+Run the checks that match your change before opening a PR or deploying:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+```
+
+For backend changes:
+
+```bash
+cd backend
+make test
+make test-integration
+```
+
+Integration tests require local PostgreSQL and Redis services. Start them with
+`make docker-up` before running integration tests.
+
 ## Prerequisites
 
 - Node.js 22 or newer
 - npm
-- Go 1.24 or newer
+- Go 1.25.0 or newer
 - Docker and Docker Compose
 - sqlc
 - goose
 - golangci-lint, for backend linting
-
-## Quick Start
-
-1. Install frontend dependencies from the repository root:
-
-   ```bash
-   npm ci
-   ```
-
-2. Create frontend environment variables:
-
-   ```bash
-   cp .env.local.example .env.local
-   ```
-
-   If `.env.local.example` is not present, create `.env.local` manually:
-
-   ```bash
-   BACKEND_URL=http://localhost:8080
-   NEXT_PUBLIC_API_URL=http://localhost:8080
-   ```
-
-3. Configure and start backend dependencies:
-
-   ```bash
-   cd backend
-   cp .env.example .env
-   make docker-up
-   make migrate-up
-   make generate
-   make seed
-   ```
-
-4. Start the backend API:
-
-   ```bash
-   cd backend
-   make run
-   ```
-
-   The API runs on `http://localhost:8080`.
-
-5. In another terminal, start the frontend:
-
-   ```bash
-   npm run dev
-   ```
-
-   The app runs on `http://localhost:3000`.
 
 ## Local Development
 
@@ -205,29 +267,18 @@ secret stores in production.
 The frontend reads authenticated server-side data through `lib/server-api.ts`
 and proxies allowed `/api/v1/*` calls through `app/api/proxy/[...path]`.
 
-## Testing and Verification
+## Reference Docs
 
-Run the checks that match your change before opening a PR or deploying:
-
-```bash
-npm run lint
-npm run typecheck
-npm test
-```
-
-For backend changes:
-
-```bash
-cd backend
-make test
-make test-integration
-```
-
-Integration tests require the local database and Redis services. Start them with
-`make docker-up` before running integration tests.
-
-## Documentation
-
+- [docs/architecture.md](docs/architecture.md) - system structure and major
+  components
+- [docs/api.md](docs/api.md) - API surface and integration details
+- [docs/database.md](docs/database.md) - schema and data model reference
+- [docs/engineering-decisions.md](docs/engineering-decisions.md) - rationale
+  and tradeoffs behind current architecture
+- [docs/demo.md](docs/demo.md) - demo accounts, walkthrough, and screenshot
+  guidance
+- [docs/case-study.md](docs/case-study.md) - showcase narrative and product
+  framing
 - [backend/README.md](backend/README.md) - backend setup, API overview, and
   backend development workflow
 - [backend/CONTRIBUTING.md](backend/CONTRIBUTING.md) - backend contribution

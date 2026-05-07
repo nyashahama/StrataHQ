@@ -150,7 +150,7 @@ Exceptions outside the standard JSON API error envelope:
 | `PATCH` | `/api/v1/whatsapp/{schemeId}/maintenance-intakes/{intakeId}` | Non-resident scheme member or org admin | Dismiss maintenance intake |
 | `GET` | `/api/v1/contractors` | Org admin, or non-resident with scheme access | List contractors; non-admin callers must pass `scheme_id` |
 | `POST` | `/api/v1/contractors` | Org admin | Create contractor |
-| `GET` | `/api/v1/contractors/marketplace` | Org admin, or non-resident with scheme access | Search marketplace contractors for `scheme_id` |
+| `GET` | `/api/v1/contractors/marketplace` | Org admin, or non-resident with scheme access | Search marketplace contractors; callers must pass `scheme_id` |
 | `PATCH` | `/api/v1/contractors/{contractorId}` | Org admin | Update contractor |
 | `POST` | `/api/v1/contractors/{contractorId}/reviews` | Org admin, or non-resident with scheme access | Create contractor review |
 

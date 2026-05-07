@@ -186,9 +186,9 @@ The repository uses a straight-through database flow:
 1. Add or change schema in `backend/db/migrations/`.
 2. Define the SQL operations in focused files under `backend/db/queries/` such as `auth.sql`, `levy.sql`, `maintenance.sql`, or `whatsapp.sql`.
 3. Run `sqlc` generation so typed query methods and models are refreshed under `backend/db/gen/`.
-4. Backend services in `backend/internal/*` call the generated query layer instead of embedding ad hoc SQL in handlers.
+4. Backend services in `backend/internal/*` primarily call the generated query layer, while a small number of infrastructure concerns still use focused direct SQL where that fits better, such as the raw `audit_events` insert in `backend/internal/audit/service.go`.
 
-This keeps schema evolution, query definitions, generated types, and service usage aligned in a single pipeline.
+This keeps schema evolution, query definitions, generated types, and most service usage aligned in a single pipeline without requiring every database touchpoint to route through the generated layer.
 
 ## Coverage Notes
 

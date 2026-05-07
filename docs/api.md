@@ -19,14 +19,21 @@ List and paginated responses include `meta` only when the handler returns them t
 Documented exceptions:
 - Some successful endpoints return `204 No Content`.
 - `GET /api/open/v1/openapi.json` serves the OpenAPI document directly instead of the standard JSON envelope.
+- The signed-link early-access flows render HTML pages instead of the standard JSON envelope:
+  - `GET /api/v1/early-access/{id}/approve`
+  - `POST /api/v1/early-access/{id}/approve`
+  - `GET /api/v1/early-access/{id}/reject`
+  - `POST /api/v1/early-access/{id}/reject`
 
 ## Error Envelope
 
-Error responses use:
+Standard API error responses use:
 
 ```json
 { "error": { "code": "BAD_REQUEST", "message": "Human-readable message" } }
 ```
+
+Exception: the signed-link early-access HTML flows return HTML error pages instead of JSON error bodies.
 
 ## Platform
 

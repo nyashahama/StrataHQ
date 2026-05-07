@@ -124,10 +124,10 @@ erDiagram
     schemes ||--o{ units : contains
     users ||--o{ scheme_memberships : joins
     schemes ||--o{ scheme_memberships : grants_access
-    units ||--o{ scheme_memberships : optional_unit
+    units o|--o{ scheme_memberships : optional_unit
     orgs ||--o{ invitations : sends
     schemes ||--o{ invitations : targets
-    units ||--o{ invitations : optional_unit
+    units o|--o{ invitations : optional_unit
 
     schemes ||--o{ levy_periods : bills
     levy_periods ||--o{ levy_accounts : creates
@@ -138,7 +138,7 @@ erDiagram
     bank_statement_imports ||--o{ bank_statement_rows : parses
 
     schemes ||--o{ maintenance_requests : receives
-    units ||--o{ maintenance_requests : raised_for
+    units o|--o{ maintenance_requests : raised_for
     orgs ||--o{ contractors : manages
     contractors ||--o{ contractor_reviews : reviewed_in
     schemes ||--o{ scheme_contractors : links

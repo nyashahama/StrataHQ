@@ -28,9 +28,14 @@ The public demo uses seeded fake data only.
 
 ## Showcase Gallery
 
-Seeded-app screenshot capture is still pending because the local demo stack
-could not be brought into a valid capture state on this branch. Current status,
-target images, and concrete blockers are tracked in [`docs/demo.md`](docs/demo.md).
+Captured from the local seeded demo app on 2026-05-07.
+
+| Public entry points | Core operations |
+| --- | --- |
+| Landing page<br><img src="docs/assets/screenshots/landing-page.png" alt="StrataHQ landing page" width="420"> | Managing-agent portfolio<br><img src="docs/assets/screenshots/agent-portfolio-dashboard.png" alt="Managing-agent portfolio dashboard" width="420"> |
+| Login page<br><img src="docs/assets/screenshots/login-page.png" alt="StrataHQ login page" width="420"> | Scheme overview<br><img src="docs/assets/screenshots/scheme-overview.png" alt="Scheme overview dashboard" width="420"> |
+| Levy reconciliation<br><img src="docs/assets/screenshots/levy-reconciliation.png" alt="Levy reconciliation dashboard" width="420"> | Maintenance dashboard<br><img src="docs/assets/screenshots/maintenance-dashboard.png" alt="Maintenance dashboard" width="420"> |
+| AGM workflow<br><img src="docs/assets/screenshots/agm-workflow.png" alt="AGM workflow dashboard" width="420"> | Documents and compliance<br><img src="docs/assets/screenshots/documents-compliance.png" alt="Documents and compliance dashboard" width="420"> |
 
 ## Core Docs
 

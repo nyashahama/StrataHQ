@@ -42,38 +42,29 @@ SEED_DEMO_PASSWORD='StrataDemo!2026' make seed
 
 ## Screenshot Inventory
 
-Showcase screenshots are intended to be captured from the local seeded app and stored in `docs/assets/screenshots/`.
+Showcase screenshots are captured from the local seeded app and stored in `docs/assets/screenshots/`.
 
 ## Screenshot Capture Status
 
-Last attempted: 2026-05-07
+Captured: 2026-05-07
 
-- Captured and verified: none committed yet
-- Pending: all public and authenticated screenshots
-- Local seeded-app capture is still blocked. The concrete issues from this attempt were:
-  - `cd backend && make docker-up` failed because Docker could not bind Redis
-    on `0.0.0.0:6379` (`address already in use`).
-  - After starting `backend-postgres-1` directly and exporting `backend/.env`,
-    both `make migrate-up` and `SEED_DEMO_PASSWORD='StrataDemo!2026' make seed`
-    failed against `localhost:5432` with PostgreSQL password authentication
-    errors for user `stratahq`.
-  - A temporary Playwright auth spec could not be executed from this repo
-    context because the scriptable test runtime was unavailable
-    (`Cannot find module '@playwright/test'`), so authenticated browser
-    automation could not be completed as a fallback.
+The committed screenshots were captured from a seeded local stack using the
+frontend at `http://localhost:3000`, the backend at `http://localhost:8080`,
+a temporary PostgreSQL container on `localhost:55432`, and host Redis on
+`localhost:6379`.
 
-Target screenshots:
+Captured screenshots:
 
 | File | View | URL | Status |
 | --- | --- | --- | --- |
-| `landing-page.png` | Public landing page | `/` | Pending |
-| `login-page.png` | Login page | `/auth/login` | Pending |
-| `agent-portfolio-dashboard.png` | Managing-agent portfolio dashboard | `/agent` | Pending |
-| `scheme-overview.png` | Scheme overview | `/app/[schemeId]` | Pending |
-| `levy-reconciliation.png` | Levy dashboard and reconciliation | `/app/[schemeId]/levy` | Pending |
-| `maintenance-dashboard.png` | Maintenance dashboard | `/app/[schemeId]/maintenance` | Pending |
-| `agm-workflow.png` | AGM dashboard | `/app/[schemeId]/agm` | Pending |
-| `documents-compliance.png` | Documents or compliance workflow | `/app/[schemeId]/documents` or `/app/[schemeId]/compliance` | Pending |
+| `landing-page.png` | Public landing page | `/` | Captured on 2026-05-07 |
+| `login-page.png` | Login page | `/auth/login` | Captured on 2026-05-07 |
+| `agent-portfolio-dashboard.png` | Managing-agent portfolio dashboard | `/agent` | Captured on 2026-05-07 |
+| `scheme-overview.png` | Scheme overview | `/app/[schemeId]` | Captured on 2026-05-07 |
+| `levy-reconciliation.png` | Levy dashboard and reconciliation | `/app/[schemeId]/levy` | Captured on 2026-05-07 |
+| `maintenance-dashboard.png` | Maintenance dashboard | `/app/[schemeId]/maintenance` | Captured on 2026-05-07 |
+| `agm-workflow.png` | AGM dashboard | `/app/[schemeId]/agm` | Captured on 2026-05-07 |
+| `documents-compliance.png` | Documents or compliance workflow | `/app/[schemeId]/documents` or `/app/[schemeId]/compliance` | Captured on 2026-05-07 |
 
 ## Screenshot Capture Workflow
 

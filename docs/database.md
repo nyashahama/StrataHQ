@@ -10,7 +10,7 @@ StrataHQ stores its durable application state in PostgreSQL. The schema source o
 - Status-heavy workflows use database enums or constrained text fields to keep state machines narrow and queryable.
 - Auditability and operations are first-class concerns: the schema includes request audit logs, resource-level audit trails, bank import workflows, WhatsApp intake records, and a background job queue.
 - Row level security is enabled across public tables by the Supabase hardening follow-up migrations (`00019`, `00023`) and reinforced on tables added later.
-- Many mutable domain tables keep `updated_at` current through the shared `set_updated_at()` trigger function created in `00001_init.sql`, while some workflow tables manage `updated_at` in application/query logic instead.
+- Many mutable domain tables keep `updated_at` current through the shared `set_updated_at()` trigger function created in `00001_init.sql`, but that behavior is not universal across every workflow table with an `updated_at` column.
 
 ## Domain Table Overview
 
@@ -175,6 +175,7 @@ erDiagram
 
     orgs o|--o{ audit_events : audited
     users o|--o{ audit_events : acts_in
+    schemes ||--o{ resource_audit_events : scoped_audit
     orgs ||--o{ resource_audit_events : resource_audit
     users o|--o{ resource_audit_events : changes
 ```

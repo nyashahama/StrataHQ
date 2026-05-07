@@ -22,23 +22,42 @@ func NewHandler(service Servicer) *Handler {
 
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		FullName   string `json:"full_name"`
-		Email      string `json:"email"`
-		SchemeName string `json:"scheme_name"`
-		UnitCount  int32  `json:"unit_count"`
+		FullName      string `json:"full_name"`
+		Email         string `json:"email"`
+		SchemeName    string `json:"scheme_name"`
+		UnitCount     int32  `json:"unit_count"`
+		HoneypotField string `json:"website"`
 	}
 	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	if req.FullName == "" || req.Email == "" || req.SchemeName == "" || req.UnitCount <= 0 {
+
+	fullName := strings.TrimSpace(req.FullName)
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	schemeName := strings.TrimSpace(req.SchemeName)
+
+	if fullName == "" || email == "" || schemeName == "" || req.UnitCount <= 0 {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "full_name, email, scheme_name, and unit_count are required")
 		return
 	}
+	if len(fullName) > 120 || len(schemeName) > 180 || len(email) > 254 || req.UnitCount > 100000 {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "full_name, email, scheme_name, and unit_count are required")
+		return
+	}
+	if !auth.ValidateEmail(email) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
+		return
+	}
+	if req.HoneypotField != "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request")
+		return
+	}
+
 	result, err := h.service.Submit(r.Context(), SubmitParams{
-		FullName:   req.FullName,
-		Email:      req.Email,
-		SchemeName: req.SchemeName,
+		FullName:   fullName,
+		Email:      email,
+		SchemeName: schemeName,
 		UnitCount:  req.UnitCount,
 	})
 	if err != nil {

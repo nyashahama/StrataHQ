@@ -4,10 +4,16 @@ The backend API is implemented in Go with Chi. Most product endpoints are mounte
 
 ## Response Envelope
 
-Success responses use:
+Success responses always wrap the payload in `data`:
 
 ```json
-{ "data": {}, "meta": {} }
+{ "data": {} }
+```
+
+List and paginated responses also include `meta`:
+
+```json
+{ "data": [], "meta": { "page": 1, "per_page": 50, "total": 123 } }
 ```
 
 ## Error Envelope
@@ -100,8 +106,8 @@ Error responses use:
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/agm/{schemeId}` | Scheme member or org admin | AGM dashboard |
 | `POST` | `/api/v1/agm/{schemeId}/meetings` | Org admin | Schedule meeting |
-| `POST` | `/api/v1/agm/{schemeId}/meetings/{meetingId}/proxy` | Trustee or resident | Assign proxy |
-| `POST` | `/api/v1/agm/{schemeId}/resolutions/{resolutionId}/vote` | Trustee or resident | Cast vote |
+| `POST` | `/api/v1/agm/{schemeId}/meetings/{meetingId}/proxy` | Non-admin scheme member | Assign proxy |
+| `POST` | `/api/v1/agm/{schemeId}/resolutions/{resolutionId}/vote` | Non-admin scheme member | Cast vote |
 | `GET` | `/api/v1/documents/{schemeId}` | Scheme member or org admin | List documents |
 | `POST` | `/api/v1/documents/{schemeId}` | Org admin | Create document record |
 | `DELETE` | `/api/v1/documents/{schemeId}/{id}` | Org admin | Delete document |
@@ -125,11 +131,11 @@ Error responses use:
 | `POST` | `/api/v1/whatsapp/{schemeId}/broadcasts` | Non-resident scheme member or org admin | Create broadcast |
 | `POST` | `/api/v1/whatsapp/{schemeId}/messages/{messageId}/maintenance-request` | Non-resident scheme member or org admin | Convert WhatsApp message to maintenance request |
 | `PATCH` | `/api/v1/whatsapp/{schemeId}/maintenance-intakes/{intakeId}` | Non-resident scheme member or org admin | Dismiss maintenance intake |
-| `GET` | `/api/v1/contractors` | Non-resident | List contractors |
+| `GET` | `/api/v1/contractors` | Org admin, or non-resident with scheme access | List contractors |
 | `POST` | `/api/v1/contractors` | Org admin | Create contractor |
-| `GET` | `/api/v1/contractors/marketplace` | Non-resident | Search marketplace contractors |
+| `GET` | `/api/v1/contractors/marketplace` | Non-resident with scheme access | Search marketplace contractors |
 | `PATCH` | `/api/v1/contractors/{contractorId}` | Org admin | Update contractor |
-| `POST` | `/api/v1/contractors/{contractorId}/reviews` | Non-resident | Create contractor review |
+| `POST` | `/api/v1/contractors/{contractorId}/reviews` | Non-resident with scheme access | Create contractor review |
 
 ## Billing/Early Access/AI/Audit/Integrations
 
@@ -144,9 +150,9 @@ Error responses use:
 | `POST` | `/api/v1/early-access/{id}/approve` | Signed link | Approve request |
 | `GET` | `/api/v1/early-access/{id}/reject` | Signed link | Reject page |
 | `POST` | `/api/v1/early-access/{id}/reject` | Signed link | Reject request |
-| `GET` | `/api/v1/admin/early-access` | Org admin | List early-access requests |
-| `POST` | `/api/v1/admin/early-access/{id}/approve` | Org admin | Approve request |
-| `POST` | `/api/v1/admin/early-access/{id}/reject` | Org admin | Reject request |
+| `GET` | `/api/v1/admin/early-access` | Configured admin user | List early-access requests |
+| `POST` | `/api/v1/admin/early-access/{id}/approve` | Configured admin user | Approve request |
+| `POST` | `/api/v1/admin/early-access/{id}/reject` | Configured admin user | Reject request |
 | `POST` | `/api/v1/ai/copilot` | Non-resident; org admin for portfolio scope | AI copilot response |
 | `GET` | `/api/v1/audit/schemes/{schemeId}/events` | Admin or trustee | List scheme audit events |
 | `GET` | `/api/v1/integrations/api-clients` | Org admin | List API clients |
@@ -162,10 +168,10 @@ Open API routes are mounted under `/api/open/v1`. The OpenAPI document is public
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/api/open/v1/openapi.json` | No | OpenAPI document |
-| `GET` | `/api/open/v1/schemes` | API key | List permitted schemes |
-| `GET` | `/api/open/v1/schemes/{schemeId}` | API key | Get scheme |
-| `GET` | `/api/open/v1/schemes/{schemeId}/units` | API key | List units |
-| `GET` | `/api/open/v1/schemes/{schemeId}/levy-periods` | API key | List levy periods |
-| `GET` | `/api/open/v1/schemes/{schemeId}/levy-accounts` | API key | List levy accounts |
-| `GET` | `/api/open/v1/schemes/{schemeId}/levy-payments` | API key | List levy payments |
-| `GET` | `/api/open/v1/schemes/{schemeId}/financials` | API key | Financial summary |
+| `GET` | `/api/open/v1/schemes` | API key (read:schemes) | List permitted schemes |
+| `GET` | `/api/open/v1/schemes/{schemeId}` | API key (read:schemes + scheme grant) | Get scheme |
+| `GET` | `/api/open/v1/schemes/{schemeId}/units` | API key (read:schemes + scheme grant) | List units |
+| `GET` | `/api/open/v1/schemes/{schemeId}/levy-periods` | API key (read:schemes + scheme grant) | List levy periods |
+| `GET` | `/api/open/v1/schemes/{schemeId}/levy-accounts` | API key (read:levies + scheme grant) | List levy accounts |
+| `GET` | `/api/open/v1/schemes/{schemeId}/levy-payments` | API key (read:levies + scheme grant) | List levy payments |
+| `GET` | `/api/open/v1/schemes/{schemeId}/financials` | API key (read:financials + scheme grant) | Financial summary |

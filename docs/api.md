@@ -36,10 +36,10 @@ Error responses use:
 | `POST` | `/api/v1/auth/logout` | No | Log out and revoke refresh token |
 | `POST` | `/api/v1/auth/forgot-password` | No | Request password reset |
 | `POST` | `/api/v1/auth/reset-password` | No | Complete password reset |
-| `POST` | `/api/v1/onboarding/setup` | Yes | Complete org and scheme onboarding |
+| `POST` | `/api/v1/onboarding/setup` | Org admin | Complete org and scheme onboarding |
 | `GET` | `/api/v1/auth/me` | Yes | Current user profile |
 | `PATCH` | `/api/v1/auth/profile` | Yes | Update user profile |
-| `PATCH` | `/api/v1/auth/org` | Yes | Update organization |
+| `PATCH` | `/api/v1/auth/org` | Org admin | Update organization |
 | `POST` | `/api/v1/auth/change-password` | Yes | Change password |
 
 ## Schemes/Units/Members
@@ -47,15 +47,15 @@ Error responses use:
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/schemes` | Yes | List schemes visible to the user |
-| `POST` | `/api/v1/schemes` | Yes | Create scheme |
+| `POST` | `/api/v1/schemes` | Org admin | Create scheme |
 | `GET` | `/api/v1/schemes/{id}` | Yes | Get scheme detail |
-| `PUT` | `/api/v1/schemes/{id}` | Yes | Update scheme |
-| `DELETE` | `/api/v1/schemes/{id}` | Yes | Delete scheme |
+| `PUT` | `/api/v1/schemes/{id}` | Org admin | Update scheme |
+| `DELETE` | `/api/v1/schemes/{id}` | Org admin | Delete scheme |
 | `GET` | `/api/v1/schemes/{id}/units` | Yes | List scheme units |
-| `POST` | `/api/v1/schemes/{id}/units` | Yes | Create unit |
-| `PUT` | `/api/v1/schemes/{id}/units/{unitId}` | Yes | Update unit |
+| `POST` | `/api/v1/schemes/{id}/units` | Org admin | Create unit |
+| `PUT` | `/api/v1/schemes/{id}/units/{unitId}` | Org admin | Update unit |
 | `GET` | `/api/v1/schemes/{id}/members` | Yes | List scheme members |
-| `PATCH` | `/api/v1/schemes/{id}/members/{userId}` | Yes | Update member role or unit assignment |
+| `PATCH` | `/api/v1/schemes/{id}/members/{userId}` | Org admin | Update member role or unit assignment |
 
 ## Invitations
 
@@ -63,10 +63,10 @@ Error responses use:
 | --- | --- | --- | --- |
 | `GET` | `/api/v1/invitations/verify/{token}` | No | Verify invitation token |
 | `POST` | `/api/v1/invitations/verify/{token}/accept` | No | Accept invitation |
-| `POST` | `/api/v1/invitations` | Yes | Create invitation |
-| `GET` | `/api/v1/invitations` | Yes | List invitations |
-| `POST` | `/api/v1/invitations/{id}/resend` | Yes | Resend invitation |
-| `DELETE` | `/api/v1/invitations/{id}` | Yes | Revoke invitation |
+| `POST` | `/api/v1/invitations` | Org admin | Create invitation |
+| `GET` | `/api/v1/invitations` | Org admin | List invitations |
+| `POST` | `/api/v1/invitations/{id}/resend` | Org admin | Resend invitation |
+| `DELETE` | `/api/v1/invitations/{id}` | Org admin | Revoke invitation |
 
 ## Levies And Collections
 
@@ -135,9 +135,9 @@ Error responses use:
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/billing/checkout` | Yes | Create Stripe checkout session |
-| `POST` | `/api/v1/billing/portal` | Yes | Create Stripe portal session |
-| `GET` | `/api/v1/billing/subscription` | Yes | Get subscription state |
+| `POST` | `/api/v1/billing/checkout` | Org admin | Create Stripe checkout session |
+| `POST` | `/api/v1/billing/portal` | Org admin | Create Stripe portal session |
+| `GET` | `/api/v1/billing/subscription` | Org admin | Get subscription state |
 | `POST` | `/api/v1/billing/webhooks/stripe` | No | Stripe webhook |
 | `POST` | `/api/v1/early-access` | No | Submit early-access request |
 | `GET` | `/api/v1/early-access/{id}/approve` | Signed link | Approve page |
@@ -149,9 +149,9 @@ Error responses use:
 | `POST` | `/api/v1/admin/early-access/{id}/reject` | Admin | Reject request |
 | `POST` | `/api/v1/ai/copilot` | Yes | AI copilot response |
 | `GET` | `/api/v1/audit/schemes/{schemeId}/events` | Yes | List scheme audit events |
-| `GET` | `/api/v1/integrations/api-clients` | Yes | List API clients |
-| `POST` | `/api/v1/integrations/api-clients` | Yes | Create API client |
-| `DELETE` | `/api/v1/integrations/api-clients/{clientId}` | Yes | Revoke API client |
+| `GET` | `/api/v1/integrations/api-clients` | Org admin | List API clients |
+| `POST` | `/api/v1/integrations/api-clients` | Org admin | Create API client |
+| `DELETE` | `/api/v1/integrations/api-clients/{clientId}` | Org admin | Revoke API client |
 | `GET` | `/api/v1/whatsapp/webhooks` | No | Verify inbound WhatsApp webhook |
 | `POST` | `/api/v1/whatsapp/webhooks` | No | Receive inbound WhatsApp webhook payloads |
 

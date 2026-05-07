@@ -6,7 +6,7 @@ import (
 	"github.com/stratahq/backend/internal/platform/response"
 )
 
-const maxBodyBytes = 1 << 20 // 1 MiB
+const maxBodyBytes = 10 << 20 // 10 MiB
 
 func MaxBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

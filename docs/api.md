@@ -33,7 +33,7 @@ Documented exceptions outside the standard JSON API success envelope:
 Standard JSON API error responses use this shape. Example `400 BAD_REQUEST` body:
 
 ```json
-{ "error": { "code": "BAD_REQUEST", "message": "Human-readable message" } }
+{ "error": { "code": "BAD_REQUEST", "message": "Human-readable message", "requestId": "req_123" } }
 ```
 
 Exceptions outside the standard JSON API error envelope:
@@ -100,7 +100,7 @@ Exceptions outside the standard JSON API error envelope:
 | `GET` | `/api/v1/levies/{schemeId}/attention` | Non-resident scheme member or org admin | Scheme attention queue |
 | `GET` | `/api/v1/levies/{schemeId}/accounts/{accountId}/events` | Non-resident scheme member or org admin | Collection event history |
 | `POST` | `/api/v1/levies/{schemeId}/accounts/{accountId}/events` | Non-resident scheme member or org admin | Record collection event |
-| `GET` | `/api/v1/levies/{schemeId}/accounts/{accountId}/reminder-draft` | Authenticated user | Generate reminder draft |
+| `GET` | `/api/v1/levies/{schemeId}/accounts/{accountId}/reminder-draft` | Authenticated user (current implementation) | Generate reminder draft; current implementation does not enforce scheme membership |
 | `POST` | `/api/v1/levies/{schemeId}/accounts/{accountId}/reminders` | Non-resident scheme member or org admin | Send reminder |
 | `POST` | `/api/v1/levies/{schemeId}/periods` | Org admin | Create levy period |
 | `POST` | `/api/v1/levies/{schemeId}/reconcile` | Org admin | Reconcile payments |
@@ -148,9 +148,9 @@ Exceptions outside the standard JSON API error envelope:
 | `POST` | `/api/v1/whatsapp/{schemeId}/broadcasts` | Non-resident scheme member or org admin | Create broadcast |
 | `POST` | `/api/v1/whatsapp/{schemeId}/messages/{messageId}/maintenance-request` | Non-resident scheme member or org admin | Convert WhatsApp message to maintenance request |
 | `PATCH` | `/api/v1/whatsapp/{schemeId}/maintenance-intakes/{intakeId}` | Non-resident scheme member or org admin | Dismiss maintenance intake |
-| `GET` | `/api/v1/contractors` | Org admin, or non-resident with scheme access | List contractors |
+| `GET` | `/api/v1/contractors` | Org admin, or non-resident with scheme access | List contractors; non-admin callers must pass `scheme_id` |
 | `POST` | `/api/v1/contractors` | Org admin | Create contractor |
-| `GET` | `/api/v1/contractors/marketplace` | Org admin, or non-resident with scheme access | Search marketplace contractors |
+| `GET` | `/api/v1/contractors/marketplace` | Org admin, or non-resident with scheme access | Search marketplace contractors for `scheme_id` |
 | `PATCH` | `/api/v1/contractors/{contractorId}` | Org admin | Update contractor |
 | `POST` | `/api/v1/contractors/{contractorId}/reviews` | Org admin, or non-resident with scheme access | Create contractor review |
 

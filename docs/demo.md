@@ -42,20 +42,41 @@ SEED_DEMO_PASSWORD='StrataDemo!2026' make seed
 
 ## Screenshot Inventory
 
-Screenshots are stored in `docs/assets/screenshots/` when captured from the seeded app.
+Screenshots are stored in `docs/assets/screenshots/` when captured from the seeded app or the public live demo.
+
+## Screenshot Capture Status
+
+Last attempted: 2026-05-07
+
+- Captured and verified: `landing-page.png`, `login-page.png`
+- Pending: all authenticated screenshots
+- Public screenshots were captured from `https://strata-hq-blue.vercel.app/`
+  with `npx playwright screenshot` and verified as real PNG files.
+- Authenticated capture is still blocked. The concrete issues from this attempt
+  were:
+  - `cd backend && make docker-up` failed because Docker could not bind Redis
+    on `0.0.0.0:6379` (`address already in use`).
+  - After starting `backend-postgres-1` directly and exporting `backend/.env`,
+    both `make migrate-up` and `SEED_DEMO_PASSWORD='StrataDemo!2026' make seed`
+    failed against `localhost:5432` with PostgreSQL password authentication
+    errors for user `stratahq`.
+  - A temporary Playwright auth spec could not be executed from this repo
+    context because the scriptable test runtime was unavailable
+    (`Cannot find module '@playwright/test'`), so authenticated browser
+    automation could not be completed as a fallback.
 
 Target screenshots:
 
-| File | View | URL |
-| --- | --- | --- |
-| `landing-page.png` | Public landing page | `/` |
-| `login-page.png` | Login page | `/auth/login` |
-| `agent-portfolio-dashboard.png` | Managing-agent portfolio dashboard | `/agent` |
-| `scheme-overview.png` | Scheme overview | `/app/[schemeId]` |
-| `levy-reconciliation.png` | Levy dashboard and reconciliation | `/app/[schemeId]/levy` |
-| `maintenance-dashboard.png` | Maintenance dashboard | `/app/[schemeId]/maintenance` |
-| `agm-workflow.png` | AGM dashboard | `/app/[schemeId]/agm` |
-| `documents-compliance.png` | Documents or compliance workflow | `/app/[schemeId]/documents` or `/app/[schemeId]/compliance` |
+| File | View | URL | Status |
+| --- | --- | --- | --- |
+| `landing-page.png` | Public landing page | `/` | Captured on 2026-05-07 |
+| `login-page.png` | Login page | `/auth/login` | Captured on 2026-05-07 |
+| `agent-portfolio-dashboard.png` | Managing-agent portfolio dashboard | `/agent` | Pending |
+| `scheme-overview.png` | Scheme overview | `/app/[schemeId]` | Pending |
+| `levy-reconciliation.png` | Levy dashboard and reconciliation | `/app/[schemeId]/levy` | Pending |
+| `maintenance-dashboard.png` | Maintenance dashboard | `/app/[schemeId]/maintenance` | Pending |
+| `agm-workflow.png` | AGM dashboard | `/app/[schemeId]/agm` | Pending |
+| `documents-compliance.png` | Documents or compliance workflow | `/app/[schemeId]/documents` or `/app/[schemeId]/compliance` | Pending |
 
 ## Screenshot Capture Workflow
 
@@ -67,6 +88,7 @@ cp .env.example .env.local
 cd backend
 cp .env.example .env
 make docker-up
+set -a; source .env; set +a
 make migrate-up
 SEED_DEMO_PASSWORD='StrataDemo!2026' make seed
 make run

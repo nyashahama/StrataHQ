@@ -26,15 +26,21 @@ The public demo uses seeded fake data only.
 - Document vault, resident communications, and compliance visibility
 - Role-aware views for managing agents, trustees, and residents
 
-## Screenshots
+## Showcase Gallery
 
-Screenshot inventory and capture guidance live in
-[`docs/demo.md`](docs/demo.md). Captured showcase images belong in
-`docs/assets/screenshots/`, including seeded demo views such as the landing
-page, login page, portfolio dashboard, scheme overview, levy workflows, and
-maintenance or governance screens.
+Public showcase captures currently available in `docs/assets/screenshots/`:
 
-## Technical Documentation
+![StrataHQ login page](docs/assets/screenshots/login-page.png)
+
+Available public captures:
+
+- [Landing page](docs/assets/screenshots/landing-page.png)
+- [Login page](docs/assets/screenshots/login-page.png)
+
+Authenticated gallery capture is still pending. Current status, inventory, and
+blockers are tracked in [`docs/demo.md`](docs/demo.md).
+
+## Core Docs
 
 - [Architecture](docs/architecture.md)
 - [API](docs/api.md)
@@ -70,6 +76,7 @@ maintenance or governance screens.
    cd backend
    cp .env.example .env
    make docker-up
+   set -a; source .env; set +a
    make migrate-up
    make generate
    SEED_DEMO_PASSWORD='StrataDemo!2026' make seed
@@ -121,7 +128,7 @@ stratahq-app/
 | --- | --- |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | Frontend data | Server actions, server components, React Query |
-| Backend | Go 1.25.9+, Chi, pgx/v5, sqlc, goose |
+| Backend | Go 1.25.0+, Chi, pgx/v5, sqlc, goose |
 | Data stores | PostgreSQL 17, Redis 7 |
 | Auth | Backend-issued JWT access and refresh tokens |
 | Payments | Stripe |
@@ -139,11 +146,12 @@ rationale are documented in [docs/engineering-decisions.md](docs/engineering-dec
 
 ## Release Status
 
-Current showcase release: `v0.1.0-alpha`
+Planned showcase milestone: `v0.1.0-alpha`
 
 - Product surface is broad enough for end-to-end demos across agent, trustee,
   and resident roles.
 - Demo and architecture docs are present on this branch for technical review.
+- No `v0.1.0-alpha` git tag has been cut yet on this branch.
 - Treat this repository state as alpha software rather than a hardened
   production release.
 
@@ -187,7 +195,7 @@ Integration tests require local PostgreSQL and Redis services. Start them with
 
 - Node.js 22 or newer
 - npm
-- Go 1.25.9 or newer
+- Go 1.25.0 or newer
 - Docker and Docker Compose
 - sqlc
 - goose
@@ -277,7 +285,7 @@ secret stores in production.
 The frontend reads authenticated server-side data through `lib/server-api.ts`
 and proxies allowed `/api/v1/*` calls through `app/api/proxy/[...path]`.
 
-## Documentation
+## Reference Docs
 
 - [docs/architecture.md](docs/architecture.md) - system structure and major
   components

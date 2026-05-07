@@ -48,8 +48,8 @@ Showcase screenshots are intended to be captured from the local seeded app and s
 
 Last attempted: 2026-05-07
 
-- Captured and verified: `landing-page.png`, `login-page.png`
-- Pending: all authenticated screenshots
+- Captured and verified: none committed yet
+- Pending: all public and authenticated screenshots
 - Local seeded-app capture is still blocked. The concrete issues from this attempt were:
   - `cd backend && make docker-up` failed because Docker could not bind Redis
     on `0.0.0.0:6379` (`address already in use`).
@@ -61,16 +61,13 @@ Last attempted: 2026-05-07
     context because the scriptable test runtime was unavailable
     (`Cannot find module '@playwright/test'`), so authenticated browser
     automation could not be completed as a fallback.
-- The two committed public screenshots were captured from
-  `https://strata-hq-blue.vercel.app/` with `npx playwright screenshot` as
-  temporary showcase images while the local seeded capture path remains blocked.
 
 Target screenshots:
 
 | File | View | URL | Status |
 | --- | --- | --- | --- |
-| `landing-page.png` | Public landing page | `/` | Captured on 2026-05-07 |
-| `login-page.png` | Login page | `/auth/login` | Captured on 2026-05-07 |
+| `landing-page.png` | Public landing page | `/` | Pending |
+| `login-page.png` | Login page | `/auth/login` | Pending |
 | `agent-portfolio-dashboard.png` | Managing-agent portfolio dashboard | `/agent` | Pending |
 | `scheme-overview.png` | Scheme overview | `/app/[schemeId]` | Pending |
 | `levy-reconciliation.png` | Levy dashboard and reconciliation | `/app/[schemeId]/levy` | Pending |

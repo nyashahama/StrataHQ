@@ -28,18 +28,9 @@ The public demo uses seeded fake data only.
 
 ## Showcase Gallery
 
-Public showcase captures currently available in `docs/assets/screenshots/`:
-
-![StrataHQ login page](docs/assets/screenshots/login-page.png)
-
-Available public captures:
-
-- [Landing page](docs/assets/screenshots/landing-page.png)
-- [Login page](docs/assets/screenshots/login-page.png)
-
-These public images were captured from the live demo while the intended local
-seeded-app capture path remains blocked. Current status, inventory, and
-blockers are tracked in [`docs/demo.md`](docs/demo.md).
+Seeded-app screenshot capture is still pending because the local demo stack
+could not be brought into a valid capture state on this branch. Current status,
+target images, and concrete blockers are tracked in [`docs/demo.md`](docs/demo.md).
 
 ## Core Docs
 

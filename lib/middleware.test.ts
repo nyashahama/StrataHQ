@@ -3,7 +3,39 @@ import { NextRequest } from "next/server";
 
 import { proxy } from "@/proxy";
 
+function base64Url(value: string): string {
+  return Buffer.from(value)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
+}
+
+function mintJwt(subject: string, expSeconds: number): string {
+  const header = base64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = base64Url(JSON.stringify({ sub: subject, exp: expSeconds }));
+  return `${header}.${payload}.sig`;
+}
+
+function encodedSessionCookie(session: Record<string, unknown>): string {
+  return `sh_session=${encodeURIComponent(JSON.stringify(session))}`;
+}
+
+function getSetCookieValue(headers: Headers): string {
+  return headers.get("set-cookie") ?? "";
+}
+
 describe("proxy", () => {
+  const validSession = {
+    id: "user-1",
+    email: "user@example.com",
+    full_name: "User One",
+    role: "admin",
+    wizard_complete: false,
+    scheme_memberships: [],
+  };
+  const validSessionCookie = encodedSessionCookie(validSession);
+
   it("blocks mutating requests when both Origin and Referer are missing", () => {
     const request = new NextRequest("http://localhost/agent", {
       headers: {
@@ -21,7 +53,10 @@ describe("proxy", () => {
     const request = new NextRequest("http://localhost/agent", {
       method: "POST",
       headers: {
-        cookie: "sh_session=fake-session",
+        cookie: `${validSessionCookie}; sh_access=${mintJwt(
+          "user-1",
+          Math.floor(Date.now() / 1000) + 120,
+        )}; sh_csrf=token`,
         referer: "http://localhost/account",
       },
     });
@@ -46,10 +81,65 @@ describe("proxy", () => {
     expect(response.status).toBe(403);
   });
 
-  it("allows protected pages when session cookie exists (API handles token refresh)", () => {
+  it("clears auth cookies when session cookie is missing", () => {
     const request = new NextRequest("http://localhost/agent", {
       headers: {
-        cookie: "sh_session=fake-session",
+        referer: "http://localhost/account",
+      },
+      method: "POST",
+    });
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(307);
+    const setCookie = getSetCookieValue(response.headers);
+    expect(setCookie).toContain("sh_session=;");
+    expect(setCookie).toContain("sh_access=;");
+    expect(setCookie).toContain("sh_refresh=;");
+    expect(setCookie).toContain("sh_csrf=;");
+  });
+
+  it("clears auth cookies when access token is missing", () => {
+    const request = new NextRequest("http://localhost/agent", {
+      headers: {
+        referer: "http://localhost/account",
+        cookie:
+          `${validSessionCookie}; sh_csrf=token`,
+      },
+      method: "POST",
+    });
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(307);
+    const setCookie = getSetCookieValue(response.headers);
+    expect(setCookie).toContain("sh_session=;");
+  });
+
+  it("clears auth cookies when access token is expired", () => {
+    const expiredAccess = mintJwt("user-1", Math.floor(Date.now() / 1000) - 60);
+    const request = new NextRequest("http://localhost/agent", {
+      headers: {
+        origin: "http://localhost",
+        cookie:
+          `${validSessionCookie}; sh_access=${expiredAccess}; sh_csrf=token`,
+      },
+      method: "POST",
+    });
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(307);
+    const setCookie = getSetCookieValue(response.headers);
+    expect(setCookie).toContain("sh_session=;");
+    expect(setCookie).toContain("sh_access=");
+  });
+
+  it("allows protected pages when session cookie exists (API handles token refresh)", () => {
+    const accessToken = mintJwt("user-1", Math.floor(Date.now() / 1000) + 60);
+    const request = new NextRequest("http://localhost/agent", {
+      headers: {
+        cookie: `${validSessionCookie}; sh_access=${accessToken}; sh_csrf=token`,
       },
     });
 

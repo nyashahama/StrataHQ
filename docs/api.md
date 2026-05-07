@@ -10,6 +10,8 @@ Success responses use:
 { "data": {}, "meta": {} }
 ```
 
+## Error Envelope
+
 Error responses use:
 
 ```json
@@ -40,7 +42,7 @@ Error responses use:
 | `PATCH` | `/api/v1/auth/org` | Yes | Update organization |
 | `POST` | `/api/v1/auth/change-password` | Yes | Change password |
 
-## Schemes, Units, And Members
+## Schemes/Units/Members
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -92,7 +94,7 @@ Error responses use:
 | `POST` | `/api/v1/maintenance/{schemeId}/{id}/assign` | Yes | Assign request |
 | `POST` | `/api/v1/maintenance/{schemeId}/{id}/resolve` | Yes | Resolve request |
 
-## Governance, Documents, And Reporting
+## Governance/Documents/Reporting
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -107,7 +109,7 @@ Error responses use:
 | `PUT` | `/api/v1/financials/{schemeId}/budget-lines` | Yes | Upsert budget line |
 | `PUT` | `/api/v1/financials/{schemeId}/reserve-fund` | Yes | Update reserve fund |
 
-## Communications, Compliance, WhatsApp, And Contractors
+## Communications/Compliance/WhatsApp/Contractors
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -129,7 +131,7 @@ Error responses use:
 | `PATCH` | `/api/v1/contractors/{contractorId}` | Yes | Update contractor |
 | `POST` | `/api/v1/contractors/{contractorId}/reviews` | Yes | Create contractor review |
 
-## Billing, Early Access, AI, Audit, And Integrations
+## Billing/Early Access/AI/Audit/Integrations
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |

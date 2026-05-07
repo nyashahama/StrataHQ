@@ -17,7 +17,12 @@ describe("apiFetch", () => {
 
     expect(response.status).toBe(401);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
+    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    expect(firstCall).toBeDefined();
+    if (!firstCall) {
+      throw new Error("apiFetch should call fetch");
+    }
+    const [, requestInit] = firstCall;
     const headers = new Headers(requestInit.headers);
     expect(headers.get("x-skip-auth")).toBe("true");
   });
@@ -42,7 +47,12 @@ describe("apiFetch", () => {
       expect.anything(),
     );
 
-    const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
+    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    expect(firstCall).toBeDefined();
+    if (!firstCall) {
+      throw new Error("apiFetch should call fetch");
+    }
+    const [, requestInit] = firstCall;
     const headers = new Headers(requestInit.headers);
     expect(headers.get("x-csrf-token")).toBe("test-csrf-token");
     expect(headers.get("Content-Type")).toBe("application/json");
@@ -62,8 +72,12 @@ describe("apiFetch", () => {
       body: form,
     });
 
-    const callArgs = fetchMock.mock.calls[0];
-    const requestInit = callArgs[1] as RequestInit;
+    const firstCall = fetchMock.mock.calls[0] as [string, RequestInit] | undefined;
+    expect(firstCall).toBeDefined();
+    if (!firstCall) {
+      throw new Error("apiFetch should call fetch");
+    }
+    const [, requestInit] = firstCall;
     const headers = new Headers(requestInit.headers);
 
     expect(headers.has("Content-Type")).toBe(false);

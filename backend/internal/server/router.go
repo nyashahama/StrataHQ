@@ -111,8 +111,10 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 				r.Mount("/billing/webhooks", h.Billing.WebhookRoutes())
 			})
 			r.Group(func(r chi.Router) {
-				r.Use(middleware.PerEndpointRateLimit(rdb, "twilio-webhook", 120, 1*time.Minute))
-				r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
+				if h.WhatsAppWebhook != nil && h.WhatsAppWebhook.HasAuthToken() {
+					r.Use(middleware.PerEndpointRateLimit(rdb, "twilio-webhook", 120, 1*time.Minute))
+					r.Mount("/whatsapp/webhooks", h.WhatsAppWebhook.Routes())
+				}
 			})
 			r.Group(func(r chi.Router) {
 				r.Use(middleware.AuditEvents(auditRecorder, logger))

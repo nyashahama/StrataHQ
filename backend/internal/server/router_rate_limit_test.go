@@ -13,7 +13,9 @@ import (
 
 	"github.com/stratahq/backend/internal/audit"
 	"github.com/stratahq/backend/internal/config"
+	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/integrations"
+	"github.com/stratahq/backend/internal/whatsapp"
 )
 
 func newTestRedis(t *testing.T) *redis.Client {
@@ -33,8 +35,12 @@ func newTestRedis(t *testing.T) *redis.Client {
 }
 
 func testHandlers() Handlers {
+	billingService := billing.NewService(nil, nil, "")
+	billingHandler := billing.NewHandler(billingService)
 	return Handlers{
 		Integrations: integrations.NewHandler(integrations.NewService(nil)),
+		Billing:      billingHandler,
+		WhatsAppWebhook: whatsapp.NewWebhookHandler(nil, nil, nil, nil, slog.Default(), "twilio-token"),
 	}
 }
 

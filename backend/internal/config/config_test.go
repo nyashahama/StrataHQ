@@ -118,3 +118,61 @@ func TestLoad_MissingRequired(t *testing.T) {
 		t.Fatal("expected error for missing required fields, got nil")
 	}
 }
+
+func TestLoad_TwilioAuthTokenMustBeConfiguredWithOtherTwilioSettings(t *testing.T) {
+	base := map[string]string{
+		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":             "redis://localhost:6379",
+		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
+		"STRIPE_SECRET_KEY":     "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"RESEND_API_KEY":        "re_123",
+		"AI_BASE_URL":           "https://api.deepseek.com/v1",
+		"AI_API_KEY":            "sk-ai-123",
+		"AI_MODEL":              "deepseek-chat",
+		"APP_BASE_URL":          "http://localhost:3000",
+	}
+
+	defer func() {
+		for k := range base {
+			os.Unsetenv(k)
+		}
+		os.Unsetenv("TWILIO_AUTH_TOKEN")
+		os.Unsetenv("TWILIO_ACCOUNT_SID")
+		os.Unsetenv("TWILIO_WHATSAPP_NUMBER")
+	}()
+
+	for k, v := range base {
+		os.Setenv(k, v)
+	}
+
+	t.Run("missing auth token", func(t *testing.T) {
+		os.Setenv("TWILIO_ACCOUNT_SID", "AC123")
+		os.Setenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+2782")
+		os.Unsetenv("TWILIO_AUTH_TOKEN")
+
+		if _, err := Load(); err == nil {
+			t.Fatal("expected error when TWILIO_AUTH_TOKEN is missing")
+		}
+	})
+
+	t.Run("missing account sid", func(t *testing.T) {
+		os.Setenv("TWILIO_AUTH_TOKEN", "token")
+		os.Setenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+2782")
+		os.Unsetenv("TWILIO_ACCOUNT_SID")
+
+		if _, err := Load(); err == nil {
+			t.Fatal("expected error when TWILIO_ACCOUNT_SID is missing")
+		}
+	})
+
+	t.Run("complete configuration passes", func(t *testing.T) {
+		os.Setenv("TWILIO_AUTH_TOKEN", "token")
+		os.Setenv("TWILIO_ACCOUNT_SID", "AC123")
+		os.Setenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+2782")
+
+		if _, err := Load(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}

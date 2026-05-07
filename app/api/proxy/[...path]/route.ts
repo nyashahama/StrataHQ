@@ -100,7 +100,7 @@ async function forwardRequest(args: {
   backendPath: string
   method: string
   headers: Record<string, string>
-  body?: Uint8Array
+  body?: BodyInit
   signal?: AbortSignal
 }) {
   return fetch(`${BACKEND()}${args.backendPath}`, {
@@ -155,10 +155,13 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     return new Response(null, { status: 404 });
   }
 
-  const bufferedBody =
-    request.method !== "GET" && request.method !== "HEAD"
-      ? await request.bytes()
-      : undefined;
+  let requestBody: BodyInit | undefined;
+  let requestBodyRetry: BodyInit | undefined;
+  if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
+    const [firstBody, secondBody] = request.body.tee();
+    requestBody = firstBody;
+    requestBodyRetry = secondBody;
+  }
 
   const proxyHeaders: Record<string, string> = {
     "x-request-id": requestId,
@@ -185,7 +188,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
       backendPath,
       method: request.method,
       headers: proxyHeaders,
-      body: bufferedBody,
+      body: requestBody,
       signal: controller.signal,
     });
   } catch (error) {
@@ -222,7 +225,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
           backendPath,
           method: request.method,
           headers: proxyHeaders,
-          body: bufferedBody,
+          body: requestBodyRetry,
           signal: retryController.signal,
         });
         clearTimeout(retryTimeout);
@@ -260,7 +263,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
       backendPath,
       method: request.method,
       headers: updatedHeaders,
-      body: bufferedBody,
+      body: requestBodyRetry ?? requestBody,
       signal: refreshRetryController.signal,
     });
   } catch (error) {

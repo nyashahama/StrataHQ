@@ -38,7 +38,7 @@ Standard JSON API error responses use:
 
 Exceptions outside the standard JSON API error envelope:
 - The signed-link early-access flows return HTML error pages instead of JSON error bodies.
-- `GET /metrics` returns a plain-text unauthorized response when metrics token auth is configured and the token check fails.
+- `GET /metrics` can return a plain-text `401 unauthorized` response when a metrics token is configured and the request omits or mismatches it.
 - `GET /api/v1/whatsapp/webhooks` can return plain-text or bare non-JSON responses during provider verification flows.
 
 ## Platform

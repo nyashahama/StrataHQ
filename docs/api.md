@@ -4,7 +4,7 @@ The backend API is implemented in Go with Chi. Most product endpoints are mounte
 
 ## Response Envelope
 
-The standard JSON API success envelope uses a `data` wrapper:
+The standard JSON API success envelope uses a `data` wrapper. Example `200 OK` body:
 
 ```json
 { "data": {} }
@@ -30,7 +30,7 @@ Documented exceptions outside the standard JSON API success envelope:
 
 ## Error Envelope
 
-Standard JSON API error responses use:
+Standard JSON API error responses use this shape. Example `400 BAD_REQUEST` body:
 
 ```json
 { "error": { "code": "BAD_REQUEST", "message": "Human-readable message" } }
@@ -150,9 +150,9 @@ Exceptions outside the standard JSON API error envelope:
 | `PATCH` | `/api/v1/whatsapp/{schemeId}/maintenance-intakes/{intakeId}` | Non-resident scheme member or org admin | Dismiss maintenance intake |
 | `GET` | `/api/v1/contractors` | Org admin, or non-resident with scheme access | List contractors |
 | `POST` | `/api/v1/contractors` | Org admin | Create contractor |
-| `GET` | `/api/v1/contractors/marketplace` | Non-resident with scheme access | Search marketplace contractors |
+| `GET` | `/api/v1/contractors/marketplace` | Org admin, or non-resident with scheme access | Search marketplace contractors |
 | `PATCH` | `/api/v1/contractors/{contractorId}` | Org admin | Update contractor |
-| `POST` | `/api/v1/contractors/{contractorId}/reviews` | Non-resident with scheme access | Create contractor review |
+| `POST` | `/api/v1/contractors/{contractorId}/reviews` | Org admin, or non-resident with scheme access | Create contractor review |
 
 ## Billing/Early Access/AI/Audit/Integrations
 

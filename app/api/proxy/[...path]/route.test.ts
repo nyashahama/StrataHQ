@@ -159,10 +159,24 @@ describe("proxyRequest", () => {
   it("reuses the original request body for a retry after refresh", async () => {
     let callCount = 0;
     const bodies: string[] = [];
+    const readBody = async (body: RequestInit["body"]): Promise<string> => {
+      if (!body) return "";
+      if (typeof body === "string") return body;
+      if (body instanceof Blob) return await body.text();
+      if (body instanceof URLSearchParams) return body.toString();
+      if (body instanceof ArrayBuffer) return Buffer.from(body).toString();
+      if (ArrayBuffer.isView(body)) return Buffer.from(body.buffer).toString();
+      if (body instanceof ReadableStream) {
+        return await new Response(body).text();
+      }
+      return String(body);
+    };
 
     vi.stubGlobal("fetch", vi.fn(async (_url: string, options: RequestInit) => {
       callCount++;
-      if (options.body) bodies.push(Buffer.from(options.body as Uint8Array).toString());
+      if (options.body) {
+        bodies.push(await readBody(options.body));
+      }
       if (callCount === 1) return new Response(null, { status: 401 });
       return new Response(JSON.stringify({ data: { ok: true } }), {
         status: 200,

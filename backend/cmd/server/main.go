@@ -81,7 +81,7 @@ func main() {
 	emailClient := notification.NewEmailClient(cfg.ResendAPIKey, cfg.EmailFrom)
 
 	// Services
-	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTExpiry, cfg.RefreshExpiry)
+	authService := auth.NewService(db, rdb, emailClient, cfg.JWTSecret, cfg.AppBaseURL, cfg.JWTIssuer, cfg.JWTAudience, cfg.JWTExpiry, cfg.RefreshExpiry)
 	auditService := audit.NewService(db)
 	resourceAuditService := audit.NewResourceService(db.Q)
 	agmService := agm.NewServiceWithAudit(db, resourceAuditService)
@@ -118,7 +118,7 @@ func main() {
 	defer whatsAppWebhook.Close()
 	billingProvider := billing.NewStripeProvider(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePriceID)
 	billingService := billing.NewService(db, billingProvider, cfg.AppBaseURL)
-	invitationService := invitation.NewServiceWithAudit(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTExpiry, cfg.RefreshExpiry, resourceAuditService)
+	invitationService := invitation.NewServiceWithAudit(db, emailClient, cfg.AppBaseURL, cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience, cfg.JWTExpiry, cfg.RefreshExpiry, resourceAuditService)
 	earlyAccessService := earlyaccess.NewService(db.Q, authService, emailClient, cfg.BackendBaseURL, cfg.AppBaseURL, cfg.AdminEmail, cfg.AdminSecret)
 	integrationsService := integrations.NewService(db)
 	contractorService := contractors.NewService(db)

@@ -26,7 +26,7 @@ const (
 func newAuthHandler(t *testing.T) *auth.Handler {
 	t.Helper()
 	sender := &notification.NoopSender{}
-	svc := auth.NewService(testPool, testRedis, sender, testJWTSigningKey, "http://localhost:3000", 15*time.Minute, 7*24*time.Hour)
+	svc := auth.NewService(testPool, testRedis, sender, testJWTSigningKey, "http://localhost:3000", "http://localhost:3000", "stratahq-api", 15*time.Minute, 7*24*time.Hour)
 	return auth.NewHandler(svc)
 }
 
@@ -332,7 +332,17 @@ func TestAuth_SetupOnboarding(t *testing.T) {
 func TestAuth_ForgotResetPassword(t *testing.T) {
 	h := newAuthHandler(t)
 	sender := notification.NoopSender{}
-	svc := auth.NewService(testPool, testRedis, &sender, testJWTSigningKey, "http://localhost:3000", 15*time.Minute, 7*24*time.Hour)
+	svc := auth.NewService(
+		testPool,
+		testRedis,
+		&sender,
+		testJWTSigningKey,
+		"http://localhost:3000",
+		"http://localhost:3000",
+		"stratahq-api",
+		15*time.Minute,
+		7*24*time.Hour,
+	)
 	h = auth.NewHandler(svc)
 
 	email := uniqueEmail(t)

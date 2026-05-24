@@ -92,16 +92,19 @@ type Service struct {
 	sender        notification.Sender
 	appBaseURL    string
 	jwtSecret     string
+	jwtIssuer     string
+	jwtAudience   string
 	jwtExpiry     time.Duration
 	refreshExpiry time.Duration
 	auditor       resourceAuditor
 }
 
-func NewService(db *database.Pool, sender notification.Sender, appBaseURL, jwtSecret string, jwtExpiry, refreshExpiry time.Duration) *Service {
-	return NewServiceWithAudit(db, sender, appBaseURL, jwtSecret, jwtExpiry, refreshExpiry, nil)
+func NewService(db *database.Pool, sender notification.Sender, appBaseURL, jwtSecret, jwtIssuer, jwtAudience string, jwtExpiry, refreshExpiry time.Duration) *Service {
+	return NewServiceWithAudit(db, sender, appBaseURL, jwtSecret, jwtIssuer, jwtAudience, jwtExpiry, refreshExpiry, nil)
 }
 
-func NewServiceWithAudit(db *database.Pool, sender notification.Sender, appBaseURL, jwtSecret string, jwtExpiry, refreshExpiry time.Duration, auditor resourceAuditor) *Service {
+func NewServiceWithAudit(db *database.Pool, sender notification.Sender, appBaseURL, jwtSecret, jwtIssuer, jwtAudience string, jwtExpiry, refreshExpiry time.Duration, auditor resourceAuditor) *Service {
+	issuer, audience := auth.ResolveJWTConfig(appBaseURL, jwtIssuer, jwtAudience)
 	return &Service{
 		q: db.Q,
 		withTx: func(ctx context.Context, fn func(q txStore) error) error {
@@ -113,6 +116,8 @@ func NewServiceWithAudit(db *database.Pool, sender notification.Sender, appBaseU
 		sender:        sender,
 		appBaseURL:    appBaseURL,
 		jwtSecret:     jwtSecret,
+		jwtIssuer:     issuer,
+		jwtAudience:   audience,
 		jwtExpiry:     jwtExpiry,
 		refreshExpiry: refreshExpiry,
 		auditor:       auditor,
@@ -399,7 +404,7 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 		return nil, err
 	}
 
-	accessToken, err := auth.GenerateAccessToken(user.ID.String(), inv.OrgID.String(), inv.Role, s.appBaseURL, "stratahq-api", s.jwtSecret, s.jwtExpiry)
+	accessToken, err := auth.GenerateAccessToken(user.ID.String(), inv.OrgID.String(), inv.Role, s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry)
 	if err != nil {
 		return nil, err
 	}

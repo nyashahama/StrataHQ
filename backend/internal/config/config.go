@@ -155,6 +155,18 @@ func (c *Config) validate() error {
 		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
 	}
 
+	if c.TwilioAuthToken != "" || c.TwilioAccountSID != "" || c.TwilioWhatsAppNumber != "" {
+		if strings.TrimSpace(c.TwilioAuthToken) == "" {
+			return fmt.Errorf("TWILIO_AUTH_TOKEN must be set when Twilio integration is configured")
+		}
+		if strings.TrimSpace(c.TwilioAccountSID) == "" {
+			return fmt.Errorf("TWILIO_ACCOUNT_SID must be set when TWILIO_AUTH_TOKEN is configured")
+		}
+		if strings.TrimSpace(c.TwilioWhatsAppNumber) == "" {
+			return fmt.Errorf("TWILIO_WHATSAPP_NUMBER must be set when TWILIO_AUTH_TOKEN is configured")
+		}
+	}
+
 	return nil
 }
 

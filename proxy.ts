@@ -52,10 +52,14 @@ function isValidAccessToken(token: string, sessionId: string): boolean {
   if (parts.length !== 3) {
     return false;
   }
+  const payload = parts[1];
+  if (!payload) {
+    return false;
+  }
 
   let claims: Record<string, unknown>;
   try {
-    claims = JSON.parse(decodeBase64URL(parts[1])) as Record<string, unknown>;
+    claims = JSON.parse(decodeBase64URL(payload)) as Record<string, unknown>;
   } catch {
     return false;
   }

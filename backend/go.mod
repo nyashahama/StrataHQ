@@ -1,8 +1,9 @@
 module github.com/stratahq/backend
 
-go 1.25.0
+go 1.25.9
 
 require (
+	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
@@ -16,7 +17,6 @@ require (
 )
 
 require (
-	github.com/alicebob/miniredis/v2 v2.37.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect

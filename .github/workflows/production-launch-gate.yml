@@ -16,6 +16,11 @@ on:
         required: true
         default: "2m"
         type: string
+      http_req_duration_p95_ms:
+        description: "Maximum allowed k6 http_req_duration p95 in milliseconds"
+        required: true
+        default: "30000"
+        type: string
 
 permissions:
   contents: read
@@ -30,6 +35,7 @@ jobs:
       BACKEND_BASE_URL: ${{ inputs.backend_base_url }}
       FRONTEND_HEALTH_URL: ${{ inputs.frontend_health_url }}
       LOAD_DURATION: ${{ inputs.load_duration }}
+      HTTP_REQ_DURATION_P95_MS: ${{ inputs.http_req_duration_p95_ms }}
       TEST_EMAIL: ${{ secrets.LAUNCH_GATE_TEST_EMAIL }}
       TEST_PASSWORD: ${{ secrets.LAUNCH_GATE_TEST_PASSWORD }}
       VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
@@ -61,6 +67,7 @@ jobs:
             echo "BACKEND_BASE_URL=${BACKEND_BASE_URL%/}"
             echo "FRONTEND_HEALTH_URL=${FRONTEND_HEALTH_URL}"
             echo "LOAD_DURATION=${LOAD_DURATION}"
+            echo "HTTP_REQ_DURATION_P95_MS=${HTTP_REQ_DURATION_P95_MS}"
           } >> "$GITHUB_ENV"
 
       - name: Check frontend health endpoint
@@ -101,6 +108,7 @@ jobs:
               -e TEST_PASSWORD="${TEST_PASSWORD}" \
               -e LOAD_VUS=10 \
               -e LOAD_DURATION="${LOAD_DURATION}" \
+              -e HTTP_REQ_DURATION_P95_MS="${HTTP_REQ_DURATION_P95_MS}" \
               /work/backend/tests/load/auth-and-dashboard.js
 
       - name: Run k6 load gate at 25 users
@@ -113,6 +121,7 @@ jobs:
               -e TEST_PASSWORD="${TEST_PASSWORD}" \
               -e LOAD_VUS=25 \
               -e LOAD_DURATION="${LOAD_DURATION}" \
+              -e HTTP_REQ_DURATION_P95_MS="${HTTP_REQ_DURATION_P95_MS}" \
               /work/backend/tests/load/auth-and-dashboard.js
 
       - name: Run k6 load gate at 50 users
@@ -125,4 +134,5 @@ jobs:
               -e TEST_PASSWORD="${TEST_PASSWORD}" \
               -e LOAD_VUS=50 \
               -e LOAD_DURATION="${LOAD_DURATION}" \
+              -e HTTP_REQ_DURATION_P95_MS="${HTTP_REQ_DURATION_P95_MS}" \
               /work/backend/tests/load/auth-and-dashboard.js

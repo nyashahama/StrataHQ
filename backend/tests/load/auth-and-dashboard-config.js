@@ -37,6 +37,7 @@ export function protectedEndpointPaths(schemeID) {
 export function buildLoadOptions(env = {}) {
   const vus = positiveInt(env.LOAD_VUS || env.VUS, 10);
   const duration = env.LOAD_DURATION || env.DURATION || "2m";
+  const httpReqDurationP95MS = positiveInt(env.HTTP_REQ_DURATION_P95_MS, 1000);
 
   return {
     scenarios: {
@@ -52,7 +53,7 @@ export function buildLoadOptions(env = {}) {
       refresh_blocked: ["rate==0"],
       repeat_login_fail: ["rate==0"],
       get_endpoints_fail: ["rate<0.01"],
-      http_req_duration: ["p(95)<1000"],
+      http_req_duration: [`p(95)<${httpReqDurationP95MS}`],
     },
   };
 }

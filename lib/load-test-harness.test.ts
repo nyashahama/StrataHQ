@@ -31,6 +31,14 @@ describe("production load test harness config", () => {
     });
   });
 
+  it("uses a configurable p95 HTTP duration threshold", () => {
+    expect(
+      buildLoadOptions({
+        HTTP_REQ_DURATION_P95_MS: "30000",
+      }).thresholds.http_req_duration,
+    ).toEqual(["p(95)<30000"]);
+  });
+
   it("posts summaries only when SUMMARY_URL is configured", () => {
     expect(shouldPostSummary({})).toBe(false);
     expect(shouldPostSummary({ SUMMARY_URL: "http://localhost:8081" })).toBe(true);

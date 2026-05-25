@@ -6,9 +6,22 @@ This document defines the production readiness gates for StrataHQ, focusing on l
 
 ### Tool: k6
 
-Load tests are written in JavaScript using [k6](https://k6.io/docs/). Install k6 locally:
+Load tests are written in JavaScript using [k6](https://k6.io/docs/). Use the
+Docker image when k6 is not installed locally, or install k6 on the workstation:
 
 ```bash
+# Docker, from the repository root
+docker run --rm -i \
+  --network host \
+  -v "$PWD:/work" \
+  grafana/k6 run \
+    -e BASE_URL=http://localhost:8080 \
+    -e TEST_EMAIL=demo@stratahq.com \
+    -e TEST_PASSWORD=Demo2024! \
+    -e LOAD_VUS=10 \
+    -e LOAD_DURATION=2m \
+    /work/backend/tests/load/auth-and-dashboard.js
+
 # macOS
 brew install k6
 
@@ -22,6 +35,10 @@ sudo apt-get update && sudo apt-get install k6
 ### Test Script: auth-and-dashboard.js
 
 The load test script is located at `backend/tests/load/auth-and-dashboard.js`.
+Each invocation runs one load level. Set `LOAD_VUS` and `LOAD_DURATION` for the
+target load. The script uses the documented seeded user by default; set
+`UNIQUE_TEST_USERS=true` only when the target database has matching plus-address
+users seeded for every VU.
 
 It exercises:
 - Login endpoint (`POST /api/v1/auth/login`)
@@ -55,13 +72,30 @@ It exercises:
 
 ```bash
 # 10 concurrent users
-k6 run --vus 10 --duration 2m backend/tests/load/auth-and-dashboard.js
+LOAD_VUS=10 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
 
 # 25 concurrent users
-k6 run --vus 25 --duration 2m backend/tests/load/auth-and-dashboard.js
+LOAD_VUS=25 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
 
 # 50 concurrent users
-k6 run --vus 50 --duration 2m backend/tests/load/auth-and-dashboard.js
+LOAD_VUS=50 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
+```
+
+Docker equivalent:
+
+```bash
+for vus in 10 25 50; do
+  docker run --rm -i \
+    --network host \
+    -v "$PWD:/work" \
+    grafana/k6 run \
+      -e BASE_URL="$BASE_URL" \
+      -e TEST_EMAIL="$TEST_EMAIL" \
+      -e TEST_PASSWORD="$TEST_PASSWORD" \
+      -e LOAD_VUS="$vus" \
+      -e LOAD_DURATION=2m \
+      /work/backend/tests/load/auth-and-dashboard.js
+done
 ```
 
 ### Pass/Fail Thresholds
@@ -163,9 +197,9 @@ npm test
 npm run build
 cd backend && go test ./internal/... -v -race
 cd backend && go test ./tests/integration/... -v -race -tags=integration
-k6 run --vus 10 --duration 2m backend/tests/load/auth-and-dashboard.js
-k6 run --vus 25 --duration 2m backend/tests/load/auth-and-dashboard.js
-k6 run --vus 50 --duration 2m backend/tests/load/auth-and-dashboard.js
+LOAD_VUS=10 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
+LOAD_VUS=25 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
+LOAD_VUS=50 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
 ```
 
 After the aggregated portfolio summary query is deployed, include a dedicated pass through `/agent` portfolio overview during staging verification to confirm summary counts and collection percentage remain correct under load.

@@ -49,7 +49,7 @@ func newPoolConfig(databaseURL string) (*pgxpool.Config, error) {
 	}
 
 	// Sensible defaults — override via DATABASE_URL query params if needed.
-	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 	cfg.MaxConns = 10
 	cfg.MinConns = 2
 	cfg.MaxConnLifetime = time.Hour

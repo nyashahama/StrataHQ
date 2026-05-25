@@ -50,8 +50,10 @@ type ConfigDurations struct {
 }
 
 type ConfigInts struct {
-	WorkerBatchSize   int32
-	WorkerMaxAttempts int32
+	WorkerBatchSize      int32
+	WorkerMaxAttempts    int32
+	AuthLoginRateLimit   int
+	AuthRefreshRateLimit int
 }
 
 func Load() (*Config, error) {
@@ -105,6 +107,14 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.ConfigInts.WorkerMaxAttempts, err = parseInt32("WORKER_MAX_ATTEMPTS", 5)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigInts.AuthLoginRateLimit, err = parseInt("AUTH_LOGIN_RATE_LIMIT", 5)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigInts.AuthRefreshRateLimit, err = parseInt("AUTH_REFRESH_RATE_LIMIT", 30)
 	if err != nil {
 		return nil, err
 	}
@@ -187,6 +197,21 @@ func parseDuration(key string, fallback time.Duration) (time.Duration, error) {
 		return 0, fmt.Errorf("invalid duration for %s: %w", key, err)
 	}
 	return d, nil
+}
+
+func parseInt(key string, fallback int) (int, error) {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback, nil
+	}
+	i, err := strconv.Atoi(val)
+	if err != nil {
+		return 0, fmt.Errorf("invalid integer for %s: %w", key, err)
+	}
+	if i <= 0 {
+		return 0, fmt.Errorf("invalid integer for %s: must be greater than zero", key)
+	}
+	return i, nil
 }
 
 func parseInt32(key string, fallback int32) (int32, error) {

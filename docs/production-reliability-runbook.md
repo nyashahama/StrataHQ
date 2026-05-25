@@ -222,6 +222,18 @@ Optional secret:
 - `VERCEL_AUTOMATION_BYPASS_SECRET` - used only for protected Vercel frontend
   health checks
 
+The launch gate runs from a single GitHub Actions runner IP. If the deployed
+backend keeps the conservative defaults (`AUTH_LOGIN_RATE_LIMIT=5` and
+`AUTH_REFRESH_RATE_LIMIT=30` per minute per IP), the 10/25/50-user auth load
+matrix can hit auth throttles before measuring application capacity. For
+staging or production launch-gate windows, set these backend environment
+variables high enough for the matrix, then restore stricter values if desired:
+
+```bash
+AUTH_LOGIN_RATE_LIMIT=240
+AUTH_REFRESH_RATE_LIMIT=480
+```
+
 After the aggregated portfolio summary query is deployed, include a dedicated pass through `/agent` portfolio overview during staging verification to confirm summary counts and collection percentage remain correct under load.
 
 ## Monitoring

@@ -1,0 +1,128 @@
+name: Production Launch Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_base_url:
+        description: "Production or staging backend base URL, for example https://api.example.com"
+        required: true
+        type: string
+      frontend_health_url:
+        description: "Optional frontend health URL, for example https://app.example.com/api/health"
+        required: false
+        type: string
+      load_duration:
+        description: "k6 duration for each load level"
+        required: true
+        default: "2m"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  launch-gate:
+    name: Production launch gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: Production
+    env:
+      BACKEND_BASE_URL: ${{ inputs.backend_base_url }}
+      FRONTEND_HEALTH_URL: ${{ inputs.frontend_health_url }}
+      LOAD_DURATION: ${{ inputs.load_duration }}
+      TEST_EMAIL: ${{ secrets.LAUNCH_GATE_TEST_EMAIL }}
+      TEST_PASSWORD: ${{ secrets.LAUNCH_GATE_TEST_PASSWORD }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate launch gate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BACKEND_BASE_URL}" ]; then
+            echo "backend_base_url is required"
+            exit 1
+          fi
+
+          if [ -z "${TEST_EMAIL}" ]; then
+            echo "LAUNCH_GATE_TEST_EMAIL secret is required"
+            exit 1
+          fi
+
+          if [ -z "${TEST_PASSWORD}" ]; then
+            echo "LAUNCH_GATE_TEST_PASSWORD secret is required"
+            exit 1
+          fi
+
+          {
+            echo "BACKEND_BASE_URL=${BACKEND_BASE_URL%/}"
+            echo "FRONTEND_HEALTH_URL=${FRONTEND_HEALTH_URL}"
+            echo "LOAD_DURATION=${LOAD_DURATION}"
+          } >> "$GITHUB_ENV"
+
+      - name: Check frontend health endpoint
+        if: ${{ inputs.frontend_health_url != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl_args=(-fsS --retry 3 --retry-delay 5)
+          if [ -n "${VERCEL_AUTOMATION_BYPASS_SECRET}" ]; then
+            curl_args+=(-H "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}")
+          fi
+
+          curl "${curl_args[@]}" "${FRONTEND_HEALTH_URL}"
+
+      - name: Check backend liveness
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --retry-delay 5 "${BACKEND_BASE_URL}/healthz"
+
+      - name: Check backend readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 3 --retry-delay 5 "${BACKEND_BASE_URL}/readyz"
+
+      - name: Pull k6 image
+        run: docker pull grafana/k6:latest
+
+      - name: Run k6 load gate at 10 users
+        run: |
+          docker run --rm -i \
+            -v "$PWD:/work" \
+            grafana/k6 run \
+              -e BASE_URL="${BACKEND_BASE_URL}" \
+              -e TEST_EMAIL="${TEST_EMAIL}" \
+              -e TEST_PASSWORD="${TEST_PASSWORD}" \
+              -e LOAD_VUS=10 \
+              -e LOAD_DURATION="${LOAD_DURATION}" \
+              /work/backend/tests/load/auth-and-dashboard.js
+
+      - name: Run k6 load gate at 25 users
+        run: |
+          docker run --rm -i \
+            -v "$PWD:/work" \
+            grafana/k6 run \
+              -e BASE_URL="${BACKEND_BASE_URL}" \
+              -e TEST_EMAIL="${TEST_EMAIL}" \
+              -e TEST_PASSWORD="${TEST_PASSWORD}" \
+              -e LOAD_VUS=25 \
+              -e LOAD_DURATION="${LOAD_DURATION}" \
+              /work/backend/tests/load/auth-and-dashboard.js
+
+      - name: Run k6 load gate at 50 users
+        run: |
+          docker run --rm -i \
+            -v "$PWD:/work" \
+            grafana/k6 run \
+              -e BASE_URL="${BACKEND_BASE_URL}" \
+              -e TEST_EMAIL="${TEST_EMAIL}" \
+              -e TEST_PASSWORD="${TEST_PASSWORD}" \
+              -e LOAD_VUS=50 \
+              -e LOAD_DURATION="${LOAD_DURATION}" \
+              /work/backend/tests/load/auth-and-dashboard.js

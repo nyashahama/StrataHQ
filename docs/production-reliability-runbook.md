@@ -202,6 +202,26 @@ LOAD_VUS=25 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
 LOAD_VUS=50 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js
 ```
 
+For production or staging sign-off, prefer the manual GitHub Actions workflow
+`Production Launch Gate`. It records the health checks and 10/25/50-user k6
+runs in Actions logs without exposing credentials on a workstation.
+
+Required workflow inputs:
+
+- `backend_base_url` - deployed backend URL, without a trailing slash
+- `frontend_health_url` - optional deployed frontend `/api/health` URL
+- `load_duration` - k6 duration for each load level, default `2m`
+
+Required repository or environment secrets:
+
+- `LAUNCH_GATE_TEST_EMAIL`
+- `LAUNCH_GATE_TEST_PASSWORD`
+
+Optional secret:
+
+- `VERCEL_AUTOMATION_BYPASS_SECRET` - used only for protected Vercel frontend
+  health checks
+
 After the aggregated portfolio summary query is deployed, include a dedicated pass through `/agent` portfolio overview during staging verification to confirm summary counts and collection percentage remain correct under load.
 
 ## Monitoring

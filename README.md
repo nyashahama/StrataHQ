@@ -143,14 +143,17 @@ rationale are documented in [docs/engineering-decisions.md](docs/engineering-dec
 
 ## Release Status
 
-Planned showcase milestone: `v0.1.0-alpha`
+Current beta milestone: `v0.2.0-beta.0`
 
-- Product surface is broad enough for end-to-end demos across agent, trustee,
-  and resident roles.
-- Demo and architecture docs are present on this branch for technical review.
-- No `v0.1.0-alpha` git tag has been cut yet on this branch.
-- Treat this repository state as alpha software rather than a hardened
-  production release.
+- The previous showcase checkpoint, `v0.1.0-alpha`, has been tagged.
+- The main branch is deployed to the public demo environment with seeded fake
+  data only.
+- Product, API, security, and reliability hardening are sufficient for beta
+  review across managing-agent, trustee, and resident workflows.
+- Treat this beta as review/demo-ready software. Full production still requires
+  the production launch gate in
+  [docs/production-reliability-runbook.md](docs/production-reliability-runbook.md),
+  including load-test evidence and production environment sign-off.
 
 ## Testing And Verification
 

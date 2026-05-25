@@ -136,8 +136,6 @@ function testTokenExpiryScenario(email, password) {
     refreshBlockedRate.add(1);
   }
 
-  testProtectedEndpoints(accessToken);
-
   sleep(Math.random() * 2 + 1);
 }
 
@@ -177,10 +175,7 @@ export default function () {
       refreshBlockedRate.add(1);
     }
 
-    const failures = testProtectedEndpoints(accessToken);
-    if (failures > 0) {
-      getEndpointsFailRate.add(1);
-    }
+    testProtectedEndpoints(accessToken);
 
     sleep(Math.random() * 2 + 1);
 

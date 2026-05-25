@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	dbgen "github.com/stratahq/backend/db/gen"
@@ -20,17 +21,10 @@ type Pool struct {
 // New creates and validates a pgx connection pool with production-ready
 // defaults, then returns a Pool that includes the sqlc query layer.
 func New(ctx context.Context, databaseURL string) (*Pool, error) {
-	cfg, err := pgxpool.ParseConfig(databaseURL)
+	cfg, err := newPoolConfig(databaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("parse database url: %w", err)
+		return nil, err
 	}
-
-	// Sensible defaults — override via DATABASE_URL query params if needed.
-	cfg.MaxConns = 10
-	cfg.MinConns = 2
-	cfg.MaxConnLifetime = time.Hour
-	cfg.MaxConnIdleTime = 30 * time.Minute
-	cfg.HealthCheckPeriod = time.Minute
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
@@ -46,6 +40,23 @@ func New(ctx context.Context, databaseURL string) (*Pool, error) {
 		Pool: pool,
 		Q:    dbgen.New(pool),
 	}, nil
+}
+
+func newPoolConfig(databaseURL string) (*pgxpool.Config, error) {
+	cfg, err := pgxpool.ParseConfig(databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse database url: %w", err)
+	}
+
+	// Sensible defaults — override via DATABASE_URL query params if needed.
+	cfg.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+	cfg.MaxConns = 10
+	cfg.MinConns = 2
+	cfg.MaxConnLifetime = time.Hour
+	cfg.MaxConnIdleTime = 30 * time.Minute
+	cfg.HealthCheckPeriod = time.Minute
+
+	return cfg, nil
 }
 
 // Ping implements health.Checker so *Pool can be passed directly to the

@@ -106,6 +106,44 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.EmailFrom != "noreply@stratahq.co.za" {
 		t.Errorf("EmailFrom = %q, want default %q", cfg.EmailFrom, "noreply@stratahq.co.za")
 	}
+	if cfg.AuthLoginRateLimit != 5 {
+		t.Errorf("AuthLoginRateLimit = %d, want default %d", cfg.AuthLoginRateLimit, 5)
+	}
+	if cfg.AuthRefreshRateLimit != 30 {
+		t.Errorf("AuthRefreshRateLimit = %d, want default %d", cfg.AuthRefreshRateLimit, 30)
+	}
+}
+
+func TestLoad_AuthRateLimitOverrides(t *testing.T) {
+	required := map[string]string{
+		"DATABASE_URL":            "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":               "redis://localhost:6379",
+		"JWT_SECRET":              "test-secret-that-is-long-enough-32ch",
+		"RESEND_API_KEY":          "re_123",
+		"AI_BASE_URL":             "https://api.deepseek.com/v1",
+		"AI_API_KEY":              "sk-ai-123",
+		"AI_MODEL":                "deepseek-chat",
+		"APP_BASE_URL":            "http://localhost:3000",
+		"AUTH_LOGIN_RATE_LIMIT":   "120",
+		"AUTH_REFRESH_RATE_LIMIT": "240",
+	}
+
+	for k, v := range required {
+		os.Setenv(k, v)
+		defer os.Unsetenv(k)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.AuthLoginRateLimit != 120 {
+		t.Errorf("AuthLoginRateLimit = %d, want %d", cfg.AuthLoginRateLimit, 120)
+	}
+	if cfg.AuthRefreshRateLimit != 240 {
+		t.Errorf("AuthRefreshRateLimit = %d, want %d", cfg.AuthRefreshRateLimit, 240)
+	}
 }
 
 func TestLoad_MissingRequired(t *testing.T) {

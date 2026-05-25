@@ -99,8 +99,8 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 			// Auth endpoints with per-endpoint rate limiting
 			r.Route("/auth", func(r chi.Router) {
 				r.Use(middleware.AuditEvents(auditRecorder, logger))
-				r.With(middleware.PerEndpointRateLimit(rdb, "auth-login", 5, 1*time.Minute)).Post("/login", h.Auth.Login)
-				r.With(middleware.PerEndpointRateLimit(rdb, "auth-refresh", 30, 1*time.Minute)).Post("/refresh", h.Auth.Refresh)
+				r.With(middleware.PerEndpointRateLimit(rdb, "auth-login", cfg.AuthLoginRateLimit, 1*time.Minute)).Post("/login", h.Auth.Login)
+				r.With(middleware.PerEndpointRateLimit(rdb, "auth-refresh", cfg.AuthRefreshRateLimit, 1*time.Minute)).Post("/refresh", h.Auth.Refresh)
 				r.With(middleware.PerEndpointRateLimit(rdb, "auth-register", 5, 1*time.Minute)).Post("/register", h.Auth.Register)
 				r.With(middleware.PerEndpointRateLimit(rdb, "auth-logout", 20, 1*time.Minute)).Post("/logout", h.Auth.Logout)
 				r.With(middleware.PerEndpointRateLimit(rdb, "auth-forgot-password", 3, 1*time.Minute)).Post("/forgot-password", h.Auth.ForgotPassword)

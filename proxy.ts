@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/auth/invite",
   "/auth/pending",
   "/early-access",
+  "/api/health",
   "/api/session",
   "/api/proxy",
 ];

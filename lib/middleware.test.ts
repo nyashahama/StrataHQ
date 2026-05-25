@@ -159,6 +159,15 @@ describe("proxy", () => {
     );
   });
 
+  it("allows frontend health checks without a session", () => {
+    const request = new NextRequest("http://localhost/api/health");
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("sets content security policy header", () => {
     const request = new NextRequest("http://localhost/agent", {
       headers: {

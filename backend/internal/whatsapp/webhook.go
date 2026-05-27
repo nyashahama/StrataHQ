@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -151,7 +152,7 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 		cancel()
 		<-h.workerSlots
 		h.logger.Error("failed to lookup thread by phone", "phone", phoneNumber, "error", lookupErr)
-		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "webhook processing failed")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -175,7 +176,7 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 		cancel()
 		<-h.workerSlots
 		h.logger.Error("failed to save incoming message", "error", saveErr)
-		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "webhook processing failed")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -183,6 +184,11 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		defer func() {
+			if r := recover(); r != nil {
+				h.logger.Error("panic in whatsapp post-save goroutine",
+					"recover", fmt.Sprintf("%v", r),
+					"stack", string(debug.Stack()))
+			}
 			cancel()
 			<-h.workerSlots
 		}()

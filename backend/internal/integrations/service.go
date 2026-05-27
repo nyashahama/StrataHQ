@@ -263,7 +263,6 @@ type OpenAPIUnitInfo struct {
 	ID              string    `json:"id"`
 	SchemeID        string    `json:"scheme_id"`
 	Identifier      string    `json:"identifier"`
-	OwnerName       string    `json:"owner_name"`
 	SectionValueBps int32     `json:"section_value_bps"`
 }
 
@@ -376,7 +375,6 @@ func (s *Service) ListOpenAPIUnits(ctx context.Context, schemeID string) ([]Open
 			ID:              row.ID.String(),
 			SchemeID:        row.SchemeID.String(),
 			Identifier:      row.Identifier,
-			OwnerName:       row.OwnerName,
 			SectionValueBps: row.SectionValueBps,
 			CreatedAt:       row.CreatedAt,
 		})

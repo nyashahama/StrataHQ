@@ -60,6 +60,11 @@
     "/schemes/{schemeId}/units": {
       "get": {
         "summary": "List units",
+        "security": [
+          {
+            "IntegrationBearer": ["read:schemes"]
+          }
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SchemeID"

@@ -54,7 +54,7 @@ function isValidAccessToken(token: string, sessionId: string): boolean {
     return false;
   }
   const payload = parts[1];
-  if (!payload) {
+  if (payload === undefined) {
     return false;
   }
 

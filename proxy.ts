@@ -10,6 +10,7 @@ const PUBLIC_PATHS = [
   "/auth/invite",
   "/auth/pending",
   "/early-access",
+  "/api/health",
   "/api/session",
   "/api/proxy",
 ];
@@ -52,10 +53,14 @@ function isValidAccessToken(token: string, sessionId: string): boolean {
   if (parts.length !== 3) {
     return false;
   }
+  const payload = parts[1];
+  if (!payload) {
+    return false;
+  }
 
   let claims: Record<string, unknown>;
   try {
-    claims = JSON.parse(decodeBase64URL(parts[1])) as Record<string, unknown>;
+    claims = JSON.parse(decodeBase64URL(payload)) as Record<string, unknown>;
   } catch {
     return false;
   }
@@ -123,7 +128,7 @@ export function proxy(request: NextRequest) {
   );
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   );
 
   if (process.env.NODE_ENV === "production") {

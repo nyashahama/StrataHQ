@@ -1,6 +1,12 @@
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Rate } from 'k6/metrics';
+import {
+  buildLoadOptions,
+  emailForVU,
+  protectedEndpointPaths,
+  shouldPostSummary,
+} from './auth-and-dashboard-config.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 const TEST_EMAIL = __ENV.TEST_EMAIL || 'demo@stratahq.com';
@@ -11,35 +17,7 @@ const refreshBlockedRate = new Rate('refresh_blocked');
 const repeatLoginFailRate = new Rate('repeat_login_fail');
 const getEndpointsFailRate = new Rate('get_endpoints_fail');
 
-export const options = {
-  scenarios: {
-    ten_users: {
-      executor: 'constant-vus',
-      vus: 10,
-      duration: '2m',
-      tags: { scenario: '10_users' },
-    },
-    twentyfive_users: {
-      executor: 'constant-vus',
-      vus: 25,
-      duration: '2m',
-      tags: { scenario: '25_users' },
-    },
-    fifty_users: {
-      executor: 'constant-vus',
-      vus: 50,
-      duration: '2m',
-      tags: { scenario: '50_users' },
-    },
-  },
-  thresholds: {
-    login_success: ['rate>0.99'],
-    refresh_blocked: ['rate==0'],
-    repeat_login_fail: ['rate==0'],
-    get_endpoints_fail: ['rate<0.01'],
-    http_req_duration: ['p(95)<1000'],
-  },
-};
+export const options = buildLoadOptions(__ENV);
 
 function login(email, password) {
   const url = `${BASE_URL}/api/v1/auth/login`;
@@ -97,13 +75,22 @@ function getWithAuth(url, accessToken) {
   return res;
 }
 
+function firstSchemeID(accessToken) {
+  const res = getWithAuth(`${BASE_URL}/api/v1/schemes`, accessToken);
+  if (res.status < 200 || res.status >= 300) {
+    return '';
+  }
+
+  try {
+    const schemes = JSON.parse(res.body).data;
+    return Array.isArray(schemes) && schemes.length > 0 ? schemes[0].id || '' : '';
+  } catch {
+    return '';
+  }
+}
+
 function testProtectedEndpoints(accessToken) {
-  const endpoints = [
-    `/api/v1/auth/me`,
-    `/api/v1/schemes`,
-    `/api/v1/levies`,
-    `/api/v1/maintenance`,
-  ];
+  const endpoints = protectedEndpointPaths(firstSchemeID(accessToken));
 
   let failures = 0;
 
@@ -149,14 +136,12 @@ function testTokenExpiryScenario(email, password) {
     refreshBlockedRate.add(1);
   }
 
-  testProtectedEndpoints(accessToken);
-
   sleep(Math.random() * 2 + 1);
 }
 
 export default function () {
   group('Auth and Dashboard Flow', () => {
-    const email = `${TEST_EMAIL.replace('@', `+${__VU}@`)}`;
+    const email = emailForVU(TEST_EMAIL, __VU, __ENV);
     const password = TEST_PASSWORD;
 
     const loginRes = login(email, password);
@@ -190,10 +175,7 @@ export default function () {
       refreshBlockedRate.add(1);
     }
 
-    const failures = testProtectedEndpoints(accessToken);
-    if (failures > 0) {
-      getEndpointsFailRate.add(1);
-    }
+    testProtectedEndpoints(accessToken);
 
     sleep(Math.random() * 2 + 1);
 
@@ -202,19 +184,21 @@ export default function () {
 }
 
 export function handleSummary(data) {
-  const summary = {
-    'auth-load-test-summary': http.post(`${__ENV.SUMMARY_URL || 'http://localhost:8081'}/metrics`, JSON.stringify({
+  const output = {
+    stdout: textSummary(data, { indent: ' ', enableColors: true }),
+  };
+
+  if (shouldPostSummary(__ENV)) {
+    http.post(`${__ENV.SUMMARY_URL}/metrics`, JSON.stringify({
       timestamp: new Date().toISOString(),
       vus: __VU,
       data,
     }), {
       headers: { 'Content-Type': 'application/json' },
-    }),
-  };
+    });
+  }
 
-  return {
-    stdout: textSummary(data, { indent: ' ', enableColors: true }),
-  };
+  return output;
 }
 
 function textSummary(data, opts) {

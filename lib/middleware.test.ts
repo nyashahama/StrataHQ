@@ -159,6 +159,15 @@ describe("proxy", () => {
     );
   });
 
+  it("allows frontend health checks without a session", () => {
+    const request = new NextRequest("http://localhost/api/health");
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
   it("sets content security policy header", () => {
     const request = new NextRequest("http://localhost/agent", {
       headers: {
@@ -172,7 +181,7 @@ describe("proxy", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-security-policy")).toBe(
-      "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
     );
   });
 });

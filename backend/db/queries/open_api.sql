@@ -14,7 +14,7 @@ WHERE iacs.client_id = sqlc.arg(client_id)
 LIMIT 1;
 
 -- name: ListOpenAPIUnitsByScheme :many
-SELECT *
+SELECT id, scheme_id, identifier, section_value_bps, created_at
 FROM units
 WHERE scheme_id = sqlc.arg(scheme_id)
 ORDER BY identifier;

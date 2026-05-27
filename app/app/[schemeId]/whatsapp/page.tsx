@@ -484,7 +484,7 @@ export default function WhatsAppPage() {
   const [loading, setLoading] = useState(true)
 
   const loadDashboard = useCallback(async (invalidate = false) => {
-    const key = `scheme:${schemeId}:whatsapp`
+    const key = `scheme:${schemeId}:whatsapp:${user?.id ?? 'anonymous'}`
     if (invalidate) {
       invalidateCache(key)
     }
@@ -507,7 +507,7 @@ export default function WhatsAppPage() {
     } finally {
       setLoading(false)
     }
-  }, [addToast, schemeId])
+  }, [addToast, schemeId, user?.id])
 
   useEffect(() => {
     loadDashboard()

@@ -200,7 +200,7 @@ func (h *Handler) OpenListUnits(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) OpenListLevyPeriods(w http.ResponseWriter, r *http.Request) {
 	identity, ok := integrationIdentity(w, r)
-	if !ok || !requireScope(w, r, identity, "read:schemes") {
+	if !ok || !requireScope(w, r, identity, "read:levies") {
 		return
 	}
 	schemeID := chi.URLParam(r, "schemeId")

@@ -174,20 +174,25 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		}
 
 		thread := mapThread(row, messages, mediaRows)
-		response.TotalResidents++
-		if row.Connected {
-			response.ConnectedCount++
-		}
-		response.UnreadCount += int(row.UnreadCount)
 
 		if auth.IsResidentRole(access.role) {
 			if sameUnit(row.UnitID, access.memberUnitID) {
 				copy := thread
 				response.ResidentThread = &copy
+				response.TotalResidents = 1
+				if copy.Connected {
+					response.ConnectedCount = 1
+				}
+				response.UnreadCount = copy.Unread
 			}
 			continue
 		}
 
+		response.TotalResidents++
+		if row.Connected {
+			response.ConnectedCount++
+		}
+		response.UnreadCount += int(row.UnreadCount)
 		response.Threads = append(response.Threads, thread)
 	}
 
@@ -206,15 +211,18 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		return nil, err
 	}
 	for _, row := range broadcastRows {
-		response.Broadcasts = append(response.Broadcasts, BroadcastInfo{
-			SentByName:     textPointer(row.SentByName),
-			ID:             row.ID.String(),
-			SchemeID:       row.SchemeID.String(),
-			Message:        row.Message,
-			Type:           string(row.Type),
-			SentAt:         row.SentAt,
-			RecipientCount: int(row.RecipientCount),
-		})
+		broadcast := BroadcastInfo{
+			SentByName: textPointer(row.SentByName),
+			ID:         row.ID.String(),
+			SchemeID:   row.SchemeID.String(),
+			Message:    row.Message,
+			Type:       string(row.Type),
+			SentAt:     row.SentAt,
+		}
+		if !auth.IsResidentRole(access.role) {
+			broadcast.RecipientCount = int(row.RecipientCount)
+		}
+		response.Broadcasts = append(response.Broadcasts, broadcast)
 	}
 
 	return response, nil

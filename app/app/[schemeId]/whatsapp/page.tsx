@@ -484,9 +484,10 @@ export default function WhatsAppPage() {
   const [loading, setLoading] = useState(true)
 
   const loadDashboard = useCallback(async (invalidate = false) => {
-    if (!user?.id) return
+    const userId = user?.id
+    if (!userId) return
 
-    const key = `scheme:${schemeId}:whatsapp:${user.id}`
+    const key = `scheme:${schemeId}:whatsapp:${userId}`
     if (invalidate) {
       invalidateCache(key)
     }

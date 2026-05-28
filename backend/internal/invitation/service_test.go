@@ -179,6 +179,10 @@ func (f *fakeInvitationStore) UpsertSchemeMembership(context.Context, dbgen.Upse
 	return dbgen.SchemeMembership{}, nil
 }
 
+func (f *fakeInvitationStore) GetOrg(ctx context.Context, id uuid.UUID) (dbgen.Org, error) {
+	return dbgen.Org{ID: id, Name: "Test Org"}, nil
+}
+
 func newTestService(store *fakeInvitationStore) *Service {
 	return &Service{
 		q:             store,

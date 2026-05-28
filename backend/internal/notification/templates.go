@@ -1,7 +1,14 @@
 // backend/internal/notification/templates.go
 package notification
 
-import "fmt"
+import (
+	"fmt"
+	"html"
+)
+
+func htmlEscape(s string) string {
+	return html.EscapeString(s)
+}
 
 func InvitationEmail(name, inviteURL string) (subject, htmlBody string) {
 	subject = "You've been invited to StrataHQ"
@@ -15,7 +22,7 @@ func InvitationEmail(name, inviteURL string) (subject, htmlBody string) {
   </a>
 </p>
 <p style="color:#71717a;font-size:13px">This link expires in 7 days. If you didn't expect this email, you can safely ignore it.</p>
-</body></html>`, name, inviteURL)
+</body></html>`, htmlEscape(name), inviteURL)
 	return
 }
 
@@ -48,12 +55,12 @@ func EarlyAccessApprovalEmail(name, setPasswordURL string) (subject, htmlBody st
   </a>
 </p>
 <p style="color:#71717a;font-size:13px">This link expires in 1 hour. If you didn't request access, you can safely ignore this email.</p>
-</body></html>`, name, setPasswordURL)
+</body></html>`, htmlEscape(name), setPasswordURL)
 	return
 }
 
 func NewEarlyAccessRequestEmail(requesterName, requesterEmail, schemeName string, unitCount int32, approveURL, rejectURL string) (subject, htmlBody string) {
-	subject = fmt.Sprintf("New early access request — %s (%s)", requesterName, schemeName)
+	subject = fmt.Sprintf("New early access request — %s (%s)", htmlEscape(requesterName), htmlEscape(schemeName))
 	htmlBody = fmt.Sprintf(`<!DOCTYPE html>
 <html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
 <h2>New early access request</h2>
@@ -72,18 +79,18 @@ func NewEarlyAccessRequestEmail(requesterName, requesterEmail, schemeName string
   </a>
 </div>
 <p style="color:#71717a;font-size:13px">These links expire in 7 days.</p>
-</body></html>`, requesterName, requesterEmail, schemeName, unitCount, approveURL, rejectURL)
+</body></html>`, htmlEscape(requesterName), htmlEscape(requesterEmail), htmlEscape(schemeName), unitCount, approveURL, rejectURL)
 	return
 }
 
 func CollectionReminderEmail(ownerName, unitIdentifier, schemeName, amount, daysOverdue, plainBody string) (subject, htmlBody string) {
-	subject = fmt.Sprintf("Levy arrears reminder for %s", schemeName)
+	subject = fmt.Sprintf("Levy arrears reminder for %s", htmlEscape(schemeName))
 	htmlBody = fmt.Sprintf(`<!DOCTYPE html>
 <html><body style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
 <h2>Hi %s,</h2>
 <p>This is a reminder that Unit %s at %s has an overdue levy balance of %s.</p>
 <p>The account is currently %s days overdue.</p>
 <pre style="white-space:pre-wrap;font-family:sans-serif;background:#f4f4f5;padding:16px;border-radius:8px">%s</pre>
-</body></html>`, ownerName, unitIdentifier, schemeName, amount, daysOverdue, plainBody)
+</body></html>`, htmlEscape(ownerName), htmlEscape(unitIdentifier), htmlEscape(schemeName), amount, daysOverdue, htmlEscape(plainBody))
 	return
 }

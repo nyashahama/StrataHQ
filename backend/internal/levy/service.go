@@ -935,7 +935,7 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 		return nil, ErrForbidden
 	}
 
-	if err := s.requireAccountForScheme(ctx, schemeID, accountID); err != nil {
+	if err = s.requireAccountForScheme(ctx, schemeID, accountID); err != nil {
 		return nil, err
 	}
 

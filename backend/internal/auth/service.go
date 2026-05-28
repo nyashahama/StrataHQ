@@ -526,7 +526,7 @@ func (s *Service) IssuePasswordResetURL(ctx context.Context, email, appBaseURL s
 
 func (s *Service) ResetPassword(ctx context.Context, token, password string) error {
 	key := "pwreset:" + HashRefreshToken(token)
-	userIDStr, err := s.cache.Get(ctx, key).Result()
+	userIDStr, err := s.cache.GetDel(ctx, key).Result()
 	if err != nil {
 		return ErrInvalidToken
 	}
@@ -554,7 +554,6 @@ func (s *Service) ResetPassword(ctx context.Context, token, password string) err
 		return err
 	}
 
-	s.cache.Del(ctx, key)
 	return nil
 }
 

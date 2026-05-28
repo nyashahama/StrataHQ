@@ -901,7 +901,11 @@ func (s *Service) CollectionEvents(ctx context.Context, identity auth.Identity, 
 		return nil, err
 	}
 
-	events, err := s.db.Q.ListCollectionEventsByAccountIDs(ctx, []uuid.UUID{uuid.MustParse(accountID)})
+	accountUUID, err := uuid.Parse(accountID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	events, err := s.db.Q.ListCollectionEventsByAccountIDs(ctx, []uuid.UUID{accountUUID})
 	if err != nil {
 		return nil, err
 	}
@@ -947,8 +951,14 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 		return nil, err
 	}
 
-	accountUUID := uuid.MustParse(accountID)
-	schemeUUID := uuid.MustParse(schemeID)
+	accountUUID, err := uuid.Parse(accountID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	schemeUUID, err := uuid.Parse(schemeID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
 
 	var actorUserUUID pgtype.UUID
 	if identity.UserID != "" {
@@ -1042,8 +1052,14 @@ type reminderContext struct {
 }
 
 func (s *Service) loadReminderContext(ctx context.Context, identity auth.Identity, schemeID, accountID string) (*reminderContext, error) {
-	accountUUID := uuid.MustParse(accountID)
-	schemeUUID := uuid.MustParse(schemeID)
+	accountUUID, err := uuid.Parse(accountID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
+	schemeUUID, err := uuid.Parse(schemeID)
+	if err != nil {
+		return nil, ErrInvalidInput
+	}
 
 	rows, err := s.db.Q.ListAttentionAccountsByScheme(ctx, schemeUUID)
 	if err != nil {

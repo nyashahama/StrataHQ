@@ -116,6 +116,23 @@ func (s *Service) GetSubscription(ctx context.Context, identity auth.Identity) (
 	return &response, nil
 }
 
+func (s *Service) HasActiveEntitlement(ctx context.Context, identity auth.Identity) (bool, error) {
+	orgID, err := uuid.Parse(identity.OrgID)
+	if err != nil {
+		return false, nil
+	}
+
+	subscription, err := s.db.Q.GetOrgSubscription(ctx, orgID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return entitlementActive(subscription.Status), nil
+}
+
 func (s *Service) CreateCheckoutSession(ctx context.Context, identity auth.Identity) (*CheckoutResponse, error) {
 	org, err := s.requireAdminOrg(ctx, identity)
 	if err != nil {

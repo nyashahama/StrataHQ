@@ -1,18 +1,16 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
-	"errors"
 
-	"github.com/jackc/pgx/v5"
-
-	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/auth"
+	"github.com/stratahq/backend/internal/billing"
 	"github.com/stratahq/backend/internal/platform/response"
 )
 
-func Entitlement(svc *billing.Service) func(http.Handler) http.Handler {
+func Entitlement(svc *billing.Service, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
@@ -28,17 +26,14 @@ func Entitlement(svc *billing.Service) func(http.Handler) http.Handler {
 				return
 			}
 
-			subscription, err := svc.GetSubscription(r.Context(), identity)
+			active, err := svc.HasActiveEntitlement(r.Context(), identity)
 			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, billing.ErrForbidden) {
-					response.Error(w, http.StatusForbidden, response.CodeForbidden, "subscription required")
-					return
-				}
+				logger.Error("entitlement check failed", "error", err)
 				response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to check subscription")
 				return
 			}
 
-			if !subscription.EntitlementActive {
+			if !active {
 				response.Error(w, http.StatusForbidden, response.CodeForbidden, "active subscription required")
 				return
 			}

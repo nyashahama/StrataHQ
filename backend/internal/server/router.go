@@ -141,7 +141,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 			r.Use(middleware.Auth(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience))
 			r.Use(middleware.AuditEvents(auditRecorder, logger))
 			if h.BillingService != nil {
-				r.Use(middleware.Entitlement(h.BillingService))
+				r.Use(middleware.Entitlement(h.BillingService, logger))
 			}
 			r.Get("/auth/me", h.Auth.Me)
 			r.Patch("/auth/profile", h.Auth.UpdateProfile)

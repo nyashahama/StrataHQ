@@ -11,7 +11,10 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectParam = searchParams.get("redirect");
   const isSafeRedirect =
-    redirectParam && /^\/[^\\]*$/.test(redirectParam) && !redirectParam.includes("//");
+    redirectParam &&
+    redirectParam.startsWith("/") &&
+    !redirectParam.startsWith("//") &&
+    !/[\x00-\x1F\x7F]/.test(redirectParam);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

@@ -13,6 +13,15 @@ export async function POST(request: NextRequest) {
     return new Response('Missing access token.', { status: 401, headers: { 'Content-Type': 'text/plain' } })
   }
 
+  const csrfCookie = cookieStore.get('sh_csrf')?.value
+  const csrfHeader = request.headers.get('x-csrf-token')
+  if (!csrfCookie || !csrfHeader || csrfHeader !== csrfCookie) {
+    return new Response(JSON.stringify({ error: { code: 'FORBIDDEN', message: 'Invalid CSRF token' } }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
   const body = await request.json()
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), COPILOT_TIMEOUT_MS);

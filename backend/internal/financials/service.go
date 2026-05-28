@@ -421,7 +421,7 @@ func levyStatusFor(paidCents, amountCents int64, dueDate pgtype.Date) string {
 		return "paid"
 	case paidCents > 0:
 		return "partial"
-	case dueDate.Valid && dueDate.Time.Before(startOfDay(time.Now())):
+	case dueDate.Valid && dueDate.Time.Before(startOfDay(time.Now().UTC())):
 		return "overdue"
 	default:
 		return "pending"

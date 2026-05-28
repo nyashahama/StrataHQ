@@ -627,7 +627,7 @@ func statusFor(paidCents, amountCents int64, dueDate pgtype.Date) string {
 		return "paid"
 	case paidCents > 0:
 		return "partial"
-	case dueDate.Valid && dueDate.Time.Before(startOfDay(time.Now())):
+	case dueDate.Valid && dueDate.Time.Before(startOfDay(time.Now().UTC())):
 		return "overdue"
 	default:
 		return "pending"
@@ -842,7 +842,7 @@ func (s *Service) buildAttentionQueueFromData(ctx context.Context, data []struct
 		}
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	items := make([]AttentionItem, 0, len(data))
 	for _, rd := range data {
 		outstanding := rd.amount - rd.paid

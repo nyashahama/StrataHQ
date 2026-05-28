@@ -223,7 +223,7 @@ func (s *Service) CreateItem(ctx context.Context, identity auth.Identity, scheme
 		Detail:      input.Detail,
 		Action:      input.Action,
 		DueDate:     dueDate,
-		AssessedAt:  time.Now(),
+		AssessedAt:  time.Now().UTC(),
 	})
 	if err != nil {
 		return nil, err

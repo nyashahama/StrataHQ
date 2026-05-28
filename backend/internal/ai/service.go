@@ -231,7 +231,7 @@ func (s *Service) buildSchemePrompt(ctx context.Context, identity auth.Identity,
 		"financials":        mapFinancials(budgetLines, reserveErr == nil, reserveFund),
 		"levy":              levySummary,
 		"agm":               agmSummary,
-		"today":             time.Now().Format("2006-01-02"),
+		"today":             time.Now().UTC().Format("2006-01-02"),
 		"available_actions": []string{"scheme_qna", "levy_reconciliation"},
 		"action_guidance":   levyActionGuidance(),
 	}
@@ -299,7 +299,7 @@ func (s *Service) buildAgmSummary(ctx context.Context, meetings []dbgen.AgmMeeti
 
 	var latest map[string]any
 	var upcoming map[string]any
-	now := startOfDay(time.Now())
+	now := startOfDay(time.Now().UTC())
 	for _, meeting := range meetings {
 		resolutions, err := s.db.Q.ListAgmResolutionsByMeeting(ctx, meeting.ID)
 		if err != nil {
@@ -343,7 +343,7 @@ Rules:
 - Current scope is %s.
 
 LIVE DATA:
-%s`, time.Now().Format("2 January 2006"), scope, contextJSON)
+%s`, time.Now().UTC().Format("2 January 2006"), scope, contextJSON)
 }
 
 func levyActionGuidance() map[string]string {
@@ -537,7 +537,7 @@ func levyStatusFor(paidCents, amountCents int64, dueDate pgtype.Date) string {
 		return "paid"
 	case paidCents > 0:
 		return "partial"
-	case dueDate.Valid && dueDate.Time.Before(startOfDay(time.Now())):
+	case dueDate.Valid && dueDate.Time.Before(startOfDay(time.Now().UTC())):
 		return "overdue"
 	default:
 		return "pending"

@@ -804,7 +804,10 @@ func formatRowDate(value pgtype.Date) string {
 
 func ensureLevyPayment(ctx context.Context, q *dbgen.Queries, accountID uuid.UUID, amountCents int64, paymentDate time.Time, reference string, bankRef pgtype.Text) (dbgen.LevyPayment, bool, error) {
 	if existing, err := q.GetLevyPaymentByReference(ctx, reference); err == nil {
-		return existing, false, nil
+		if existing.LevyAccountID == accountID {
+			return existing, false, nil
+		}
+		reference = reference + ":" + accountID.String()[:8]
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return dbgen.LevyPayment{}, false, err
 	}
@@ -822,7 +825,10 @@ func ensureLevyPayment(ctx context.Context, q *dbgen.Queries, accountID uuid.UUI
 			if getErr != nil {
 				return dbgen.LevyPayment{}, false, getErr
 			}
-			return existing, false, nil
+			if existing.LevyAccountID == accountID {
+				return existing, false, nil
+			}
+			return dbgen.LevyPayment{}, false, fmt.Errorf("reference %s already used by another levy account", reference)
 		}
 		return dbgen.LevyPayment{}, false, err
 	}

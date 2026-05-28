@@ -362,7 +362,15 @@ func (s *Service) Reconcile(ctx context.Context, identity auth.Identity, schemeI
 			return nil, ErrInvalidInput
 		}
 
-		if _, err := q.GetLevyPaymentByReference(ctx, payment.Reference); err == nil {
+		if existing, err := q.GetLevyPaymentByReference(ctx, payment.Reference); err == nil {
+			accountID, parseErr := uuid.Parse(payment.AccountID)
+			if parseErr != nil {
+				return nil, ErrInvalidInput
+			}
+			if existing.LevyAccountID == accountID {
+				result.SkippedCount++
+				continue
+			}
 			result.SkippedCount++
 			continue
 		} else if !errors.Is(err, pgx.ErrNoRows) {

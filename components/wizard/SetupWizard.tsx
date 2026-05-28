@@ -25,12 +25,18 @@ export default function SetupWizard() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    const count = parseInt(unitCount, 10);
+    if (isNaN(count) || count <= 0) {
+      setError("Unit count must be a positive number.");
+      setLoading(false);
+      return;
+    }
     const result = await setupAction({
       org_name: orgName,
       contact_email: contactEmail,
       scheme_name: schemeName,
       scheme_address: address,
-      unit_count: parseInt(unitCount, 10),
+      unit_count: count,
     });
     setLoading(false);
 

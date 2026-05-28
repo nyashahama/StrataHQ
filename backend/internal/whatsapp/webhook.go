@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -140,33 +141,27 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		defer func() {
-			<-h.workerSlots
-		}()
-		h.processMessage(phoneNumber, body, profileName, media)
-	}()
-
-	w.WriteHeader(http.StatusOK)
-}
-
-func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string, media []inboundMedia) {
 	workerCtx := h.workerCtx
 	if workerCtx == nil {
 		workerCtx = context.Background()
 	}
 	ctx, cancel := context.WithTimeout(workerCtx, 30*time.Second)
-	defer cancel()
 
 	threads, lookupErr := h.db.Q.GetConnectedWhatsAppThreadByPhone(ctx, pgtype.Text{String: phoneNumber, Valid: true})
 	if lookupErr != nil {
+		cancel()
+		<-h.workerSlots
 		h.logger.Error("failed to lookup thread by phone", "phone", phoneNumber, "error", lookupErr)
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "thread lookup failed")
 		return
 	}
 
 	thread := findBestThread(threads)
 	if thread == nil {
+		cancel()
+		<-h.workerSlots
 		h.logger.Warn("no connected thread for phone number", "phone", phoneNumber)
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -178,10 +173,30 @@ func (h *WebhookHandler) processMessage(phoneNumber, body, profileName string, m
 		NoticeID:             pgtype.UUID{},
 	})
 	if saveErr != nil {
+		cancel()
+		<-h.workerSlots
 		h.logger.Error("failed to save incoming message", "error", saveErr)
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "message save failed")
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				h.logger.Error("panic in whatsapp post-save goroutine",
+					"recover", fmt.Sprintf("%v", r),
+					"stack", string(debug.Stack()))
+			}
+			cancel()
+			<-h.workerSlots
+		}()
+		h.processMessageAfterSave(ctx, phoneNumber, body, profileName, media, thread, incoming)
+	}()
+}
+
+func (h *WebhookHandler) processMessageAfterSave(ctx context.Context, phoneNumber, body, profileName string, media []inboundMedia, thread *dbgen.WhatsappThread, incoming dbgen.WhatsappMessage) {
 	for _, item := range media {
 		if _, err := h.db.Q.CreateWhatsAppMessageMedia(ctx, dbgen.CreateWhatsAppMessageMediaParams{
 			MessageID:        incoming.ID,

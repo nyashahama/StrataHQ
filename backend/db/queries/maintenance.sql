@@ -39,7 +39,8 @@ UPDATE maintenance_requests
 SET contractor_id    = NULL,
     contractor_name  = $2,
     contractor_phone = $3,
-    status           = 'in_progress'
+    status           = 'in_progress',
+    resolved_at      = NULL
 WHERE id = $1
 RETURNING *;
 
@@ -66,6 +67,7 @@ UPDATE maintenance_requests
 SET contractor_id    = sqlc.arg(contractor_id),
     contractor_name  = sqlc.arg(contractor_name),
     contractor_phone = sqlc.arg(contractor_phone),
-    status           = 'in_progress'
+    status           = 'in_progress',
+    resolved_at      = NULL
 WHERE id = sqlc.arg(id)
 RETURNING *;

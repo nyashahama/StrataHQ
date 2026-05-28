@@ -126,7 +126,7 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		if item.Status == string(dbgen.MaintenanceStatusPendingApproval) {
 			response.PendingApprovalCount++
 		}
-		if item.ResolvedAt != nil && item.ResolvedAt.After(monthStart) {
+		if item.Status == string(dbgen.MaintenanceStatusResolved) && item.ResolvedAt != nil && item.ResolvedAt.After(monthStart) {
 			response.ResolvedThisMonth++
 		}
 	}

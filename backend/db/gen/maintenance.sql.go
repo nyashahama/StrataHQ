@@ -18,7 +18,8 @@ UPDATE maintenance_requests
 SET contractor_id    = NULL,
     contractor_name  = $2,
     contractor_phone = $3,
-    status           = 'in_progress'
+    status           = 'in_progress',
+    resolved_at      = NULL
 WHERE id = $1
 RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id
 `
@@ -57,7 +58,8 @@ UPDATE maintenance_requests
 SET contractor_id    = $1,
     contractor_name  = $2,
     contractor_phone = $3,
-    status           = 'in_progress'
+    status           = 'in_progress',
+    resolved_at      = NULL
 WHERE id = $4
 RETURNING id, scheme_id, unit_id, title, description, category, status, contractor_name, contractor_phone, sla_hours, submitted_by_unit, created_at, updated_at, resolved_at, contractor_id
 `

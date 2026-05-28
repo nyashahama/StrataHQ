@@ -163,3 +163,39 @@ func TestMatchAmbiguousResolvedByAmountWhenSingleExactMatch(t *testing.T) {
 		t.Fatal("expected amount-disambiguated match")
 	}
 }
+
+func TestMatchMarksOverpayAsAmbiguous(t *testing.T) {
+	account := candidateLevyAccount{
+		LevyAccountID:    uuid.New(),
+		UnitIdentifier:   "5C",
+		OwnerName:        "Over Payer",
+		OutstandingCents: 100000,
+	}
+	row := ParsedBankStatementRow{
+		AmountCents: 1000000,
+		Reference:   "EFT 5C",
+		Description: "Overpaid levy",
+	}
+	got := matchBankStatementRow(row, []candidateLevyAccount{account})
+	if got.Status != "ambiguous" {
+		t.Fatalf("status = %q, want ambiguous", got.Status)
+	}
+}
+
+func TestMatchAllowsPartialPaymentOnSingleCandidate(t *testing.T) {
+	account := candidateLevyAccount{
+		LevyAccountID:    uuid.New(),
+		UnitIdentifier:   "3B",
+		OwnerName:        "Partial Payer",
+		OutstandingCents: 200000,
+	}
+	row := ParsedBankStatementRow{
+		AmountCents: 50000,
+		Reference:   "EFT 3B",
+		Description: "Partial levy payment",
+	}
+	got := matchBankStatementRow(row, []candidateLevyAccount{account})
+	if got.Status != "matched" {
+		t.Fatalf("status = %q, want matched", got.Status)
+	}
+}

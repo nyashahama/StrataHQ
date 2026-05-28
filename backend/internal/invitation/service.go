@@ -72,6 +72,7 @@ type queryStore interface {
 	CreateRefreshToken(ctx context.Context, arg dbgen.CreateRefreshTokenParams) (dbgen.RefreshToken, error)
 	GetScheme(ctx context.Context, id uuid.UUID) (dbgen.Scheme, error)
 	GetUnit(ctx context.Context, id uuid.UUID) (dbgen.Unit, error)
+	GetOrg(ctx context.Context, id uuid.UUID) (dbgen.Org, error)
 }
 
 type txStore interface {
@@ -417,6 +418,15 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 		return nil, err
 	}
 
+	org, orgErr := s.q.GetOrg(ctx, inv.OrgID)
+	if orgErr != nil {
+		return nil, orgErr
+	}
+	scheme, schemeErr := s.q.GetScheme(ctx, inv.SchemeID)
+	if schemeErr != nil {
+		return nil, schemeErr
+	}
+
 	return &auth.AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -425,6 +435,23 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 			ID:       user.ID.String(),
 			Email:    user.Email,
 			FullName: user.FullName,
+		},
+		Session: auth.MeResponse{
+			ID:       user.ID.String(),
+			Email:    user.Email,
+			FullName: user.FullName,
+			Role:     inv.Role,
+			Org: auth.OrgInfo{
+				ID:   org.ID.String(),
+				Name: org.Name,
+			},
+			SchemeMemberships: []auth.SchemeMembership{
+				{
+					SchemeID:   scheme.ID.String(),
+					SchemeName: scheme.Name,
+					Role:       inv.Role,
+				},
+			},
 		},
 	}, nil
 }

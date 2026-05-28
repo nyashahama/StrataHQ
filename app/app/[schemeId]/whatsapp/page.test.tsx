@@ -103,7 +103,7 @@ describe("WhatsAppPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCached.mockReturnValue(mockDashboard);
-    mockUseAuth.mockReturnValue({ user: { role: "admin" } });
+    mockUseAuth.mockReturnValue({ user: { id: "user-1", role: "admin" } });
   });
 
   it("operator sees Maintenance tab with candidate count", async () => {
@@ -138,7 +138,7 @@ describe("WhatsAppPage", () => {
   });
 
   it("resident view does not show Maintenance tab", async () => {
-    mockUseAuth.mockReturnValue({ user: { role: "resident" } });
+    mockUseAuth.mockReturnValue({ user: { id: "user-2", role: "resident" } });
 
     const { default: WhatsAppPage } = await import("@/app/app/[schemeId]/whatsapp/page");
     render(<WhatsAppPage />);

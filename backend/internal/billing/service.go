@@ -236,6 +236,9 @@ func (s *Service) HandleWebhook(ctx context.Context, payload []byte, signature s
 	}
 
 	status := pickString(event.Status, pickString(existing.Status, "inactive"))
+	if event.Status == "checkout_completed" && entitlementActive(existing.Status) {
+		status = existing.Status
+	}
 	planCode := pickString(event.PlanCode, pickString(existing.PlanCode, defaultPlanCode))
 
 	_, err = s.db.Q.UpsertOrgSubscription(ctx, dbgen.UpsertOrgSubscriptionParams{

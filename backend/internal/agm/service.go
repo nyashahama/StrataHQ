@@ -117,7 +117,7 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 	})
 
 	response := &DashboardResponse{Role: access.role}
-	now := startOfDay(time.Now())
+	now := startOfDay(time.Now().UTC())
 
 	for _, meeting := range meetings {
 		meetingDate := meeting.MeetingDate.Time

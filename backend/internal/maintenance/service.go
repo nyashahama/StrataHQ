@@ -107,7 +107,7 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		Role:     access.role,
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
 	for _, row := range rows {
@@ -458,7 +458,7 @@ func (s *Service) enrichRequest(ctx context.Context, request dbgen.MaintenanceRe
 		}
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	return &RequestInfo{
 		ContractorID:    uuidTextPointer(request.ContractorID),
 		ContractorName:  textPointer(request.ContractorName),

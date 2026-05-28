@@ -138,7 +138,7 @@ func (s *Service) List(ctx context.Context, identity auth.Identity) ([]SchemeSum
 			return nil, err
 		}
 
-		now := time.Now()
+		now := time.Now().UTC()
 		summaries := make([]SchemeSummary, 0, len(rows))
 		for _, row := range rows {
 			var nextAgmDate *string
@@ -821,7 +821,7 @@ func pointerToUnit(unit UnitInfo) *UnitInfo {
 }
 
 func nextAgm(meetings []dbgen.AgmMeeting) (*string, *int) {
-	now := time.Now()
+	now := time.Now().UTC()
 	var next *time.Time
 	for _, meeting := range meetings {
 		if !meeting.MeetingDate.Valid {

@@ -36,6 +36,38 @@ func TestSupabaseRLSHardeningMigrationExists(t *testing.T) {
 	}
 }
 
+func TestRLSForceAndPoliciesMigrationExists(t *testing.T) {
+	path := "../../db/migrations/00030_rls_force_and_policies.sql"
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read migration: %v", err)
+	}
+
+	sql := string(content)
+	required := []string{
+		"FORCE ROW LEVEL SECURITY",
+		"CREATE POLICY",
+		"rls_default",
+		"NO FORCE ROW LEVEL SECURITY",
+	}
+	wantMissing := []string{
+		"ENABLE ROW LEVEL SECURITY",
+	}
+
+	for _, token := range required {
+		if !strings.Contains(sql, token) {
+			t.Fatalf("missing expected SQL token: %q", token)
+		}
+	}
+
+	for _, token := range wantMissing {
+		if strings.Contains(sql, token) {
+			t.Fatalf("found unexpected SQL token: %q (should NOT have ENABLE, use FORCE)", token)
+		}
+	}
+}
+
 func TestWhatsAppMaintenanceInboxRLS(t *testing.T) {
 	path := "../../db/migrations/00027_whatsapp_maintenance_inbox.sql"
 

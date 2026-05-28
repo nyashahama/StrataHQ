@@ -225,6 +225,13 @@ func matchBankStatementRow(row ParsedBankStatementRow, accounts []candidateLevyA
 	}
 
 	if len(candidates) == 1 {
+		if row.AmountCents > candidates[0].OutstandingCents {
+			return matchedBankStatementRow{
+				Status:     dbgen.BankStatementRowStatusAmbiguous,
+				Confidence: 50,
+				Reason:     fmt.Sprintf("unit %s matched but amount %d exceeds outstanding %d", candidates[0].UnitIdentifier, row.AmountCents, candidates[0].OutstandingCents),
+			}
+		}
 		return matchedBankStatementRow{
 			Status:               dbgen.BankStatementRowStatusMatched,
 			MatchedLevyAccountID: &candidates[0].LevyAccountID,
@@ -722,6 +729,17 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 						PaidDate:  dateValue(parsed.TransactionDate),
 					}); updErr != nil {
 						return updErr
+					}
+					for ai := range accounts {
+						if accounts[ai].LevyAccountID == acct.ID {
+							accounts[ai].PaidCents = newPaid
+							remaining := acct.AmountCents - newPaid
+							if remaining < 0 {
+								remaining = 0
+							}
+							accounts[ai].OutstandingCents = remaining
+							break
+						}
 					}
 				}
 				if _, updErr := q.UpdateBankStatementRowApplied(ctx, dbgen.UpdateBankStatementRowAppliedParams{

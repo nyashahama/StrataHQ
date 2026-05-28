@@ -38,8 +38,9 @@ func testHandlers() Handlers {
 	billingService := billing.NewService(nil, nil, "")
 	billingHandler := billing.NewHandler(billingService)
 	return Handlers{
-		Integrations: integrations.NewHandler(integrations.NewService(nil)),
-		Billing:      billingHandler,
+		Integrations:   integrations.NewHandler(integrations.NewService(nil)),
+		Billing:        billingHandler,
+		BillingService: billingService,
 		WhatsAppWebhook: whatsapp.NewWebhookHandler(nil, nil, nil, nil, slog.Default(), "twilio-token"),
 	}
 }

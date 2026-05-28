@@ -47,6 +47,7 @@ type Handlers struct {
 	WhatsApp        *whatsapp.Handler
 	WhatsAppWebhook *whatsapp.WebhookHandler
 	Billing         *billing.Handler
+	BillingService  *billing.Service
 	Contractors     *contractors.Handler
 	Invitation      *invitation.Handler
 	EarlyAccess     *earlyaccess.Handler
@@ -139,6 +140,9 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(cfg.JWTSecret, cfg.JWTIssuer, cfg.JWTAudience))
 			r.Use(middleware.AuditEvents(auditRecorder, logger))
+			if h.BillingService != nil {
+				r.Use(middleware.Entitlement(h.BillingService))
+			}
 			r.Get("/auth/me", h.Auth.Me)
 			r.Patch("/auth/profile", h.Auth.UpdateProfile)
 			r.Patch("/auth/org", h.Auth.UpdateOrg)

@@ -161,7 +161,7 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		resp.AvailablePeriods = periods
 
 		selected := periodLabel
-		if selected == "" {
+		if selected == "" && len(periods) > 0 {
 			selected = periods[0]
 		}
 		resp.SelectedPeriod = selected

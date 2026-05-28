@@ -119,7 +119,7 @@ func (s *Service) GetSubscription(ctx context.Context, identity auth.Identity) (
 func (s *Service) HasActiveEntitlement(ctx context.Context, identity auth.Identity) (bool, error) {
 	orgID, err := uuid.Parse(identity.OrgID)
 	if err != nil {
-		return false, nil
+		return false, err
 	}
 
 	subscription, err := s.db.Q.GetOrgSubscription(ctx, orgID)

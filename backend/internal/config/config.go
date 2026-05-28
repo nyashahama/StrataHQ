@@ -165,6 +165,13 @@ func (c *Config) validate() error {
 		return fmt.Errorf("missing required environment variables: %s", strings.Join(missing, ", "))
 	}
 
+	if c.Env == "production" && len(c.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET must be at least 32 characters in production")
+	}
+	if strings.Contains(strings.ToLower(c.JWTSecret), "change-me") {
+		return fmt.Errorf("JWT_SECRET must not be a placeholder value")
+	}
+
 	if c.TwilioAuthToken != "" || c.TwilioAccountSID != "" || c.TwilioWhatsAppNumber != "" {
 		if strings.TrimSpace(c.TwilioAuthToken) == "" {
 			return fmt.Errorf("TWILIO_AUTH_TOKEN must be set when Twilio integration is configured")

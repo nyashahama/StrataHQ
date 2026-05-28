@@ -2,6 +2,7 @@ package integrations
 
 import (
 	_ "embed"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -22,6 +23,10 @@ var openAPIDocument []byte
 type Handler struct {
 	service *Service
 }
+
+const maxSQLInt32 = int64(1<<31 - 1)
+
+var errPaginationOutOfRange = errors.New("pagination offset out of range")
 
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
@@ -131,13 +136,17 @@ func requireScheme(w http.ResponseWriter, r *http.Request, identity Identity, sc
 	return true
 }
 
-func parsePagination(r *http.Request) (limitRows int32, offsetRows int32) {
-	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
+func parsePagination(r *http.Request) (page int, limitRows int32, offsetRows int32, err error) {
+	page = parsePositiveInt(r.URL.Query().Get("page"), 1)
 	perPage := parsePositiveInt(r.URL.Query().Get("per_page"), 50)
 	if perPage > 200 {
 		perPage = 200
 	}
-	return int32(perPage), int32((page - 1) * perPage)
+	offset := int64(page-1) * int64(perPage)
+	if offset > maxSQLInt32 {
+		return page, int32(perPage), 0, errPaginationOutOfRange
+	}
+	return page, int32(perPage), int32(offset), nil
 }
 
 func parsePositiveInt(raw string, fallback int) int {
@@ -224,8 +233,11 @@ func (h *Handler) OpenListLevyAccounts(w http.ResponseWriter, r *http.Request) {
 	if !requireScheme(w, r, identity, schemeID) {
 		return
 	}
-	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
-	limitRows, offsetRows := parsePagination(r)
+	page, limitRows, offsetRows, err := parsePagination(r)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid pagination")
+		return
+	}
 	items, total, err := h.service.ListOpenAPILevyAccounts(r.Context(), schemeID, OpenAPILevyAccountFilters{
 		PeriodID:     r.URL.Query().Get("period_id"),
 		Status:       r.URL.Query().Get("status"),
@@ -253,8 +265,11 @@ func (h *Handler) OpenListLevyPayments(w http.ResponseWriter, r *http.Request) {
 	if !requireScheme(w, r, identity, schemeID) {
 		return
 	}
-	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
-	limitRows, offsetRows := parsePagination(r)
+	page, limitRows, offsetRows, err := parsePagination(r)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid pagination")
+		return
+	}
 	items, total, err := h.service.ListOpenAPILevyPayments(r.Context(), schemeID, OpenAPILevyPaymentFilters{
 		FromDate:   r.URL.Query().Get("from"),
 		ToDate:     r.URL.Query().Get("to"),

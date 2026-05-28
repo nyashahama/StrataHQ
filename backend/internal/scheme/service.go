@@ -590,16 +590,6 @@ func (s *Service) UpdateMember(ctx context.Context, identity auth.Identity, sche
 			return txErr
 		}
 
-		if _, txErr := q.UpdateOrgMembershipRole(ctx, dbgen.UpdateOrgMembershipRoleParams{
-			UserID: memberUserID,
-			OrgID:  scheme.OrgID,
-			Role:   input.Role,
-		}); txErr != nil {
-			if errors.Is(txErr, pgx.ErrNoRows) {
-				return ErrNotFound
-			}
-			return txErr
-		}
 		return nil
 	})
 	if err != nil {

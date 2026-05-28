@@ -4,6 +4,7 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: vi.fn((name: string) => {
       if (name === "sh_access") return { value: "access-token" };
+      if (name === "sh_csrf") return { value: "csrf-token" };
       return undefined;
     }),
   })),
@@ -25,7 +26,7 @@ describe("copilot route", () => {
     const { POST } = await import("./route");
     const request = new Request("http://localhost/api/copilot", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-csrf-token": "csrf-token" },
       body: JSON.stringify({ message: "hello", history: [] }),
     });
 

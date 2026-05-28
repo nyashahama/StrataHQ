@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
 import { isResidentRole } from '@/lib/session'
+import { readBrowserCSRFToken } from '@/lib/csrf'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -54,10 +55,16 @@ export default function Copilot() {
     setStreamingContent('')
     setError(null)
 
+    const csrfToken = readBrowserCSRFToken()
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (csrfToken) {
+      headers['x-csrf-token'] = csrfToken
+    }
+
     try {
       const response = await fetch('/api/copilot', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ message: text.trim(), history, scheme_id: schemeId }),
       })
 

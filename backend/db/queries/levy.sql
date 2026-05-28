@@ -29,6 +29,13 @@ SELECT * FROM levy_accounts
 WHERE id = $1
 LIMIT 1;
 
+-- name: LevyAccountBelongsToScheme :one
+SELECT EXISTS(
+    SELECT 1 FROM levy_accounts la
+    JOIN levy_periods lp ON lp.id = la.period_id
+    WHERE la.id = $1 AND lp.scheme_id = $2
+) AS belongs;
+
 -- name: GetLevyAccountByUnitAndPeriod :one
 SELECT * FROM levy_accounts
 WHERE unit_id = $1 AND period_id = $2

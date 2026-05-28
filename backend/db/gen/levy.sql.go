@@ -240,6 +240,26 @@ func (q *Queries) GetLevyPeriod(ctx context.Context, id uuid.UUID) (LevyPeriod, 
 	return i, err
 }
 
+const levyAccountBelongsToScheme = `-- name: LevyAccountBelongsToScheme :one
+SELECT EXISTS(
+    SELECT 1 FROM levy_accounts la
+    JOIN levy_periods lp ON lp.id = la.period_id
+    WHERE la.id = $1 AND lp.scheme_id = $2
+) AS belongs
+`
+
+type LevyAccountBelongsToSchemeParams struct {
+	ID       uuid.UUID `json:"id"`
+	SchemeID uuid.UUID `json:"scheme_id"`
+}
+
+func (q *Queries) LevyAccountBelongsToScheme(ctx context.Context, arg LevyAccountBelongsToSchemeParams) (bool, error) {
+	row := q.db.QueryRow(ctx, levyAccountBelongsToScheme, arg.ID, arg.SchemeID)
+	var belongs bool
+	err := row.Scan(&belongs)
+	return belongs, err
+}
+
 const listLevyAccountsByPeriod = `-- name: ListLevyAccountsByPeriod :many
 SELECT la.id, la.unit_id, la.period_id, la.amount_cents, la.paid_cents, la.status, la.due_date, la.paid_date, la.created_at, la.updated_at, u.identifier AS unit_identifier, u.owner_name
 FROM levy_accounts la

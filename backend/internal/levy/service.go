@@ -494,6 +494,28 @@ func (s *Service) resolveSchemeAccess(ctx context.Context, identity auth.Identit
 	return scheme, membership.Role, unitID, nil
 }
 
+func (s *Service) requireAccountForScheme(ctx context.Context, schemeID, accountID string) error {
+	accountUUID, err := uuid.Parse(accountID)
+	if err != nil {
+		return ErrInvalidInput
+	}
+	schemeUUID, err := uuid.Parse(schemeID)
+	if err != nil {
+		return ErrInvalidInput
+	}
+	belongs, err := s.db.Q.LevyAccountBelongsToScheme(ctx, dbgen.LevyAccountBelongsToSchemeParams{
+		ID:       accountUUID,
+		SchemeID: schemeUUID,
+	})
+	if err != nil {
+		return err
+	}
+	if !belongs {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (s *Service) buildTrend(ctx context.Context, periods []dbgen.LevyPeriod) ([]CollectionTrendPoint, error) {
 	if len(periods) == 0 {
 		return []CollectionTrendPoint{}, nil
@@ -867,6 +889,10 @@ func (s *Service) CollectionEvents(ctx context.Context, identity auth.Identity, 
 		return nil, ErrForbidden
 	}
 
+	if err := s.requireAccountForScheme(ctx, schemeID, accountID); err != nil {
+		return nil, err
+	}
+
 	events, err := s.db.Q.ListCollectionEventsByAccountIDs(ctx, []uuid.UUID{uuid.MustParse(accountID)})
 	if err != nil {
 		return nil, err
@@ -907,6 +933,10 @@ func (s *Service) RecordCollectionEvent(ctx context.Context, identity auth.Ident
 	}
 	if role == string(auth.RoleResident) {
 		return nil, ErrForbidden
+	}
+
+	if err := s.requireAccountForScheme(ctx, schemeID, accountID); err != nil {
+		return nil, err
 	}
 
 	accountUUID := uuid.MustParse(accountID)
@@ -1051,6 +1081,16 @@ func (s *Service) loadReminderContext(ctx context.Context, identity auth.Identit
 }
 
 func (s *Service) ReminderDraft(ctx context.Context, identity auth.Identity, schemeID, accountID string) (*ReminderDraftResponse, error) {
+	if _, role, _, err := s.resolveSchemeAccess(ctx, identity, schemeID); err != nil {
+		return nil, err
+	} else if role == string(auth.RoleResident) {
+		return nil, ErrForbidden
+	}
+
+	if err := s.requireAccountForScheme(ctx, schemeID, accountID); err != nil {
+		return nil, err
+	}
+
 	account, err := s.loadReminderContext(ctx, identity, schemeID, accountID)
 	if err != nil {
 		return nil, err
@@ -1062,6 +1102,16 @@ func (s *Service) ReminderDraft(ctx context.Context, identity auth.Identity, sch
 func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, schemeID, accountID string, input SendReminderInput) (*CollectionEvent, error) {
 	if !input.Email.Enabled && !input.WhatsApp.Enabled {
 		return nil, ErrInvalidInput
+	}
+
+	if _, role, _, err := s.resolveSchemeAccess(ctx, identity, schemeID); err != nil {
+		return nil, err
+	} else if role == string(auth.RoleResident) {
+		return nil, ErrForbidden
+	}
+
+	if err := s.requireAccountForScheme(ctx, schemeID, accountID); err != nil {
+		return nil, err
 	}
 
 	account, err := s.loadReminderContext(ctx, identity, schemeID, accountID)

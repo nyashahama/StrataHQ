@@ -152,7 +152,7 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 		cancel()
 		<-h.workerSlots
 		h.logger.Error("failed to lookup thread by phone", "phone", phoneNumber, "error", lookupErr)
-		w.WriteHeader(http.StatusOK)
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "thread lookup failed")
 		return
 	}
 
@@ -176,7 +176,7 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 		cancel()
 		<-h.workerSlots
 		h.logger.Error("failed to save incoming message", "error", saveErr)
-		w.WriteHeader(http.StatusOK)
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "message save failed")
 		return
 	}
 

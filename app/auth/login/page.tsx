@@ -14,6 +14,7 @@ function LoginForm() {
     redirectParam &&
     redirectParam.startsWith("/") &&
     !redirectParam.startsWith("//") &&
+    // eslint-disable-next-line no-control-regex
     !/[\x00-\x1F\x7F]/.test(redirectParam);
 
   const [email, setEmail] = useState("");

@@ -29,6 +29,11 @@
     "/schemes": {
       "get": {
         "summary": "List granted schemes",
+        "security": [
+          {
+            "IntegrationBearer": ["read:schemes"]
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/ListResponse"
@@ -42,6 +47,11 @@
     "/schemes/{schemeId}": {
       "get": {
         "summary": "Get one granted scheme",
+        "security": [
+          {
+            "IntegrationBearer": ["read:schemes"]
+          }
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SchemeID"
@@ -60,6 +70,11 @@
     "/schemes/{schemeId}/units": {
       "get": {
         "summary": "List units",
+        "security": [
+          {
+            "IntegrationBearer": ["read:schemes"]
+          }
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SchemeID"
@@ -75,6 +90,11 @@
     "/schemes/{schemeId}/levy-periods": {
       "get": {
         "summary": "List levy periods",
+        "security": [
+          {
+            "IntegrationBearer": ["read:levies"]
+          }
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SchemeID"
@@ -90,6 +110,11 @@
     "/schemes/{schemeId}/levy-accounts": {
       "get": {
         "summary": "List levy accounts",
+        "security": [
+          {
+            "IntegrationBearer": ["read:levies"]
+          }
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SchemeID"
@@ -134,6 +159,11 @@
     "/schemes/{schemeId}/levy-payments": {
       "get": {
         "summary": "List levy payments",
+        "security": [
+          {
+            "IntegrationBearer": ["read:levies"]
+          }
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SchemeID"
@@ -171,6 +201,11 @@
     "/schemes/{schemeId}/financials": {
       "get": {
         "summary": "Get scheme financials",
+        "security": [
+          {
+            "IntegrationBearer": ["read:financials"]
+          }
+        ],
         "parameters": [
           {
             "$ref": "#/components/parameters/SchemeID"

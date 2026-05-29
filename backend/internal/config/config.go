@@ -50,10 +50,13 @@ type ConfigDurations struct {
 }
 
 type ConfigInts struct {
-	WorkerBatchSize      int32
-	WorkerMaxAttempts    int32
-	AuthLoginRateLimit   int
-	AuthRefreshRateLimit int
+	WorkerBatchSize             int32
+	WorkerMaxAttempts           int32
+	AuthLoginRateLimit          int
+	AuthRefreshRateLimit        int
+	AuthForgotPasswordRateLimit int
+	EarlyAccessRateLimit        int
+	InvitationAcceptRateLimit   int
 }
 
 func Load() (*Config, error) {
@@ -115,6 +118,18 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.ConfigInts.AuthRefreshRateLimit, err = parseInt("AUTH_REFRESH_RATE_LIMIT", 30)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigInts.AuthForgotPasswordRateLimit, err = parseInt("AUTH_FORGOT_PASSWORD_RATE_LIMIT", 3)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigInts.EarlyAccessRateLimit, err = parseInt("EARLY_ACCESS_RATE_LIMIT", 3)
+	if err != nil {
+		return nil, err
+	}
+	cfg.ConfigInts.InvitationAcceptRateLimit, err = parseInt("INVITATION_ACCEPT_RATE_LIMIT", 10)
 	if err != nil {
 		return nil, err
 	}

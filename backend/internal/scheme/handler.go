@@ -170,7 +170,7 @@ func (h *Handler) CreateUnit(w http.ResponseWriter, r *http.Request) {
 
 	input, valid := normalizeUnitRequest(req)
 	if !valid {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "identifier, owner_name, floor, and section_value_bps are required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "identifier, owner_name, floor, and section_value_bps (1-10000) are required")
 		return
 	}
 
@@ -198,7 +198,7 @@ func (h *Handler) UpdateUnit(w http.ResponseWriter, r *http.Request) {
 
 	input, valid := normalizeUnitRequest(req)
 	if !valid {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "identifier, owner_name, floor, and section_value_bps are required")
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "identifier, owner_name, floor, and section_value_bps (1-10000) are required")
 		return
 	}
 
@@ -274,7 +274,7 @@ func normalizeSchemeRequest(req schemeRequest) (CreateSchemeInput, bool) {
 func normalizeUnitRequest(req unitRequest) (CreateUnitInput, bool) {
 	identifier := strings.TrimSpace(req.Identifier)
 	ownerName := strings.TrimSpace(req.OwnerName)
-	if identifier == "" || ownerName == "" || req.SectionValueBps <= 0 {
+	if identifier == "" || ownerName == "" || req.SectionValueBps <= 0 || req.SectionValueBps > 10000 {
 		return CreateUnitInput{}, false
 	}
 	return CreateUnitInput{

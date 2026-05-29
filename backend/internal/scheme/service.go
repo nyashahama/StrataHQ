@@ -416,6 +416,14 @@ func (s *Service) CreateUnit(ctx context.Context, identity auth.Identity, scheme
 		return nil, ErrForbidden
 	}
 
+	existingTotal, err := s.db.Q.SumSectionValuesByScheme(ctx, scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+	if int32(existingTotal)+input.SectionValueBps > 10000 {
+		return nil, errors.New("section value total would exceed 10000 basis points")
+	}
+
 	unit, err := s.db.Q.CreateUnit(ctx, dbgen.CreateUnitParams{
 		SchemeID:        scheme.ID,
 		Identifier:      input.Identifier,
@@ -469,6 +477,17 @@ func (s *Service) UpdateUnit(ctx context.Context, identity auth.Identity, scheme
 	}
 	if current.SchemeID != scheme.ID {
 		return nil, ErrForbidden
+	}
+
+	if input.SectionValueBps != current.SectionValueBps {
+		existingTotal, sumErr := s.db.Q.SumSectionValuesByScheme(ctx, scheme.ID)
+		if sumErr != nil {
+			return nil, sumErr
+		}
+		adjustedTotal := int32(existingTotal) - current.SectionValueBps + input.SectionValueBps
+		if adjustedTotal > 10000 {
+			return nil, errors.New("section value total would exceed 10000 basis points")
+		}
 	}
 
 	beforeInfo := mapUnit(current)

@@ -84,7 +84,7 @@ INSERT INTO background_jobs (
 ) VALUES (
     $1, $2, $3, $4, $5
 )
-ON CONFLICT (kind, idempotency_key) DO UPDATE
+ON CONFLICT (kind, idempotency_key) WHERE status IN ('queued', 'running') DO UPDATE
 SET updated_at = background_jobs.updated_at
 RETURNING id, kind, status, payload, idempotency_key, attempts, max_attempts, run_after, locked_at, locked_by, last_error, created_at, updated_at, succeeded_at, failed_at
 `

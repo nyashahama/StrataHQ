@@ -1178,7 +1178,7 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 		if _, enqueueErr := s.jobs.Enqueue(ctx, jobs.EnqueueInput{
 			Kind:           jobs.KindCollectionReminderEmail,
 			Payload:        jobs.CollectionReminderEmailPayload{CollectionEventID: eventUUID, To: account.ownerEmail, Subject: input.Email.Subject, HTMLBody: htmlBody},
-			IdempotencyKey: event.ID + ":email",
+			IdempotencyKey: account.attention.LevyAccountID + ":reminder_email",
 			MaxAttempts:    s.maxJobAttempts,
 		}); enqueueErr != nil {
 			_, _ = s.db.Q.MarkCollectionEventEmailDelivery(ctx, dbgen.MarkCollectionEventEmailDeliveryParams{
@@ -1186,7 +1186,6 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 				EmailStatus: pgtype.Text{String: "failed", Valid: true},
 				EmailError:  pgtype.Text{String: enqueueErr.Error(), Valid: true},
 			})
-			return nil, enqueueErr
 		}
 	}
 
@@ -1194,7 +1193,7 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 		if _, enqueueErr := s.jobs.Enqueue(ctx, jobs.EnqueueInput{
 			Kind:           jobs.KindCollectionReminderWhatsApp,
 			Payload:        jobs.CollectionReminderWhatsAppPayload{CollectionEventID: eventUUID, To: account.whatsAppPhone, Body: input.WhatsApp.Body},
-			IdempotencyKey: event.ID + ":whatsapp",
+			IdempotencyKey: account.attention.LevyAccountID + ":reminder_whatsapp",
 			MaxAttempts:    s.maxJobAttempts,
 		}); enqueueErr != nil {
 			_, _ = s.db.Q.MarkCollectionEventWhatsAppDelivery(ctx, dbgen.MarkCollectionEventWhatsAppDeliveryParams{
@@ -1202,7 +1201,6 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 				WhatsappStatus: pgtype.Text{String: "failed", Valid: true},
 				WhatsappError:  pgtype.Text{String: enqueueErr.Error(), Valid: true},
 			})
-			return nil, enqueueErr
 		}
 	}
 

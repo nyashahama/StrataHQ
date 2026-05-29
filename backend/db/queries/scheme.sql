@@ -148,3 +148,8 @@ ORDER BY u.full_name;
 -- name: DeleteSchemeMembership :exec
 DELETE FROM scheme_memberships
 WHERE user_id = $1 AND scheme_id = $2;
+
+-- name: SumSectionValuesByScheme :one
+SELECT COALESCE(SUM(section_value_bps), 0)::INTEGER AS total_bps
+FROM units
+WHERE scheme_id = $1;

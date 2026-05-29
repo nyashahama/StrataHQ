@@ -419,6 +419,19 @@ func (q *Queries) ListUnitsByScheme(ctx context.Context, schemeID uuid.UUID) ([]
 	return items, nil
 }
 
+const sumSectionValuesByScheme = `-- name: SumSectionValuesByScheme :one
+SELECT COALESCE(SUM(section_value_bps), 0)::INTEGER AS total_bps
+FROM units
+WHERE scheme_id = $1
+`
+
+func (q *Queries) SumSectionValuesByScheme(ctx context.Context, schemeID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, sumSectionValuesByScheme, schemeID)
+	var total_bps int32
+	err := row.Scan(&total_bps)
+	return total_bps, err
+}
+
 const updateScheme = `-- name: UpdateScheme :one
 UPDATE schemes
 SET name = $2, address = $3, unit_count = $4

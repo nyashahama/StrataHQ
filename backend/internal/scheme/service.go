@@ -563,6 +563,8 @@ func (s *Service) UpdateMember(ctx context.Context, identity auth.Identity, sche
 		if input.UnitID == nil || *input.UnitID == "" {
 			return nil, ErrInvalidInput
 		}
+	}
+	if input.UnitID != nil && *input.UnitID != "" {
 		parsedUnitID, parseErr := uuid.Parse(*input.UnitID)
 		if parseErr != nil {
 			return nil, ErrInvalidInput

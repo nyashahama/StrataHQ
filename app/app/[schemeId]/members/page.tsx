@@ -142,7 +142,7 @@ export default function MembersPage() {
           email: inviteForm.email.trim(),
           role: inviteForm.role,
           scheme_id: schemeId,
-          unit_id: inviteForm.role === 'resident' ? inviteForm.unit_id : '',
+          unit_id: inviteForm.unit_id,
         }),
       })
 
@@ -174,7 +174,7 @@ export default function MembersPage() {
     try {
       await updateSchemeMember(schemeId, selectedMember.user_id, {
         role: editForm.role,
-        unit_id: editForm.role === 'resident' ? editForm.unit_id : null,
+          unit_id: editForm.unit_id || null,
       })
       await queryClient.invalidateQueries({ queryKey: schemeKeys.members(schemeId) })
       setShowEditModal(false)
@@ -343,7 +343,7 @@ export default function MembersPage() {
               <label className="text-[12px] font-semibold text-ink block mb-1">Role</label>
               <select
                 value={inviteForm.role}
-                onChange={e => setInviteForm(current => ({ ...current, role: e.target.value as InviteRole, unit_id: e.target.value === 'trustee' ? '' : current.unit_id }))}
+                onChange={e => setInviteForm(current => ({ ...current, role: e.target.value as InviteRole }))}
                 className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
               >
                 <option value="resident">Resident</option>
@@ -355,7 +355,7 @@ export default function MembersPage() {
               <select
                 value={inviteForm.unit_id}
                 onChange={e => setInviteForm(current => ({ ...current, unit_id: e.target.value }))}
-                disabled={inviteForm.role !== 'resident'}
+                disabled={false}
                 className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
               >
                 <option value="">Select unit</option>
@@ -391,7 +391,7 @@ export default function MembersPage() {
             <label className="text-[12px] font-semibold text-ink block mb-1">Role</label>
             <select
               value={editForm.role}
-              onChange={e => setEditForm(current => ({ ...current, role: e.target.value as InviteRole, unit_id: e.target.value === 'trustee' ? '' : current.unit_id }))}
+              onChange={e => setEditForm(current => ({ ...current, role: e.target.value as InviteRole }))}
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
             >
               <option value="resident">Resident</option>
@@ -403,7 +403,7 @@ export default function MembersPage() {
             <select
               value={editForm.unit_id}
               onChange={e => setEditForm(current => ({ ...current, unit_id: e.target.value }))}
-              disabled={editForm.role !== 'resident'}
+              disabled={false}
               className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:bg-page disabled:text-muted"
             >
               <option value="">Select unit</option>

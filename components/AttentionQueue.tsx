@@ -99,6 +99,8 @@ function actionLabel(
       return "Legal review";
     case "promise_to_pay":
       return "Promise to pay";
+    case "active_promise":
+      return "Awaiting promise";
     case "follow_up_logged":
       return "Follow-up";
     default:

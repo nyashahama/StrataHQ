@@ -148,6 +148,32 @@ func TestBuildReminderDraftGeneratesDeterministicBodies(t *testing.T) {
 	}
 }
 
+func TestScoreAttentionItemSuppressesReminderForActivePromise(t *testing.T) {
+	now := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+	item := attentionAccount{
+		LevyAccountID:     "acc-1",
+		SchemeID:          "scheme-1",
+		SchemeName:        "Rosewood Estate",
+		UnitID:            "unit-1",
+		UnitIdentifier:    "5C",
+		OwnerName:         "Rose Example",
+		OutstandingCents:  930000,
+		DaysOverdue:       97,
+		LastActionType:    "promise_to_pay",
+		LastActionDaysAgo: 2,
+		HasActivePromise:  true,
+	}
+
+	scored := scoreAttentionItem(item, now)
+
+	if scored.RecommendedAction != "active_promise" {
+		t.Fatalf("recommended action = %q, want active_promise", scored.RecommendedAction)
+	}
+	if scored.RiskScore >= 70 {
+		t.Fatalf("risk score = %d, want reduced score below 70 for active promise", scored.RiskScore)
+	}
+}
+
 func TestScoreAttentionItemReducesUrgencyAfterFreshReminder(t *testing.T) {
 	now := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
 	item := attentionAccount{

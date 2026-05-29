@@ -1,6 +1,7 @@
 package documents
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -88,13 +89,15 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeDocumentsError(w http.ResponseWriter, err error, fallback string) {
-	switch err {
-	case ErrForbidden:
+	switch {
+	case errors.Is(err, ErrForbidden):
 		response.Error(w, http.StatusForbidden, response.CodeForbidden, "forbidden")
-	case ErrNotFound:
+	case errors.Is(err, ErrNotFound):
 		response.Error(w, http.StatusNotFound, response.CodeNotFound, "document not found")
-	case ErrInvalidInput:
+	case errors.Is(err, ErrInvalidInput):
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request")
+	case errors.Is(err, ErrDocumentTooLarge):
+		response.Error(w, http.StatusRequestEntityTooLarge, response.CodeBadRequest, "document exceeds maximum size")
 	default:
 		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, fallback)
 	}

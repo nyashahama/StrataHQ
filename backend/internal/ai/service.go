@@ -19,6 +19,12 @@ import (
 	"github.com/stratahq/backend/internal/platform/database"
 )
 
+const (
+	maxHistoryItems     = 20
+	maxMessageChars     = 4000
+	maxHistoryItemChars = 2000
+)
+
 var (
 	ErrForbidden    = errors.New("forbidden")
 	ErrNotFound     = errors.New("not found")
@@ -43,6 +49,18 @@ func (s *Service) Ask(ctx context.Context, identity auth.Identity, schemeID stri
 	}
 	if identity.Role == string(auth.RoleResident) {
 		return "", ErrForbidden
+	}
+
+	if len(history) > maxHistoryItems {
+		history = history[len(history)-maxHistoryItems:]
+	}
+	for i := range history {
+		if len(history[i].Content) > maxHistoryItemChars {
+			history[i].Content = history[i].Content[:maxHistoryItemChars]
+		}
+	}
+	if len(message) > maxMessageChars {
+		message = message[:maxMessageChars]
 	}
 
 	var (

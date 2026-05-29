@@ -252,6 +252,15 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 	if meeting.SchemeID != access.scheme.ID || resolution.Status != dbgen.ResolutionStatusOpen {
 		return nil, ErrForbidden
 	}
+	if meeting.Status == dbgen.AgmStatusClosed {
+		return nil, ErrForbidden
+	}
+	if meeting.MeetingDate.Valid {
+		now := startOfDay(time.Now().UTC())
+		if meeting.MeetingDate.Time.Before(now) {
+			return nil, ErrForbidden
+		}
+	}
 
 	userID, err := uuid.Parse(access.userID)
 	if err != nil {
@@ -355,6 +364,15 @@ func (s *Service) AssignProxy(ctx context.Context, identity auth.Identity, schem
 	}
 	if meeting.SchemeID != access.scheme.ID {
 		return ErrForbidden
+	}
+	if meeting.Status == dbgen.AgmStatusClosed {
+		return ErrForbidden
+	}
+	if meeting.MeetingDate.Valid {
+		now := startOfDay(time.Now().UTC())
+		if meeting.MeetingDate.Time.Before(now) {
+			return ErrForbidden
+		}
 	}
 
 	grantorID, err := uuid.Parse(access.userID)

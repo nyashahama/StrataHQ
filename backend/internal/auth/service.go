@@ -26,7 +26,8 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrInvalidToken       = errors.New("invalid or expired token")
 	ErrWrongPassword      = errors.New("current password is incorrect")
-	ErrWeakPassword       = errors.New("password does not meet requirements")
+	ErrWeakPassword         = errors.New("password does not meet requirements")
+	ErrSetupAlreadyComplete = errors.New("setup already complete")
 )
 
 const passwordResetTTL = time.Hour
@@ -440,6 +441,14 @@ func (s *Service) Setup(ctx context.Context, orgID, orgName, contactEmail, schem
 	oid, err := uuid.Parse(orgID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid org id: %w", err)
+	}
+
+	existingSchemes, err := s.db.Q.ListSchemesByOrg(ctx, oid)
+	if err != nil {
+		return nil, err
+	}
+	if len(existingSchemes) > 0 {
+		return nil, ErrSetupAlreadyComplete
 	}
 
 	var resp SetupResponse

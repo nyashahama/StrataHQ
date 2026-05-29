@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -114,6 +115,10 @@ func (h *Handler) Setup(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.service.Setup(r.Context(), identity.OrgID, req.OrgName, req.ContactEmail, req.SchemeName, req.SchemeAddress, req.UnitCount)
 	if err != nil {
+		if errors.Is(err, ErrSetupAlreadyComplete) {
+			response.Error(w, http.StatusConflict, response.CodeConflict, "onboarding setup has already been completed")
+			return
+		}
 		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "onboarding failed")
 		return
 	}

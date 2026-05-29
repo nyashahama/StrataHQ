@@ -8,6 +8,7 @@ import (
 
 type attentionAccount struct {
 	PromiseDateOverdue bool
+	HasActivePromise   bool
 	DaysOverdue        int
 	LastActionDaysAgo  int
 	OutstandingCents   int64
@@ -74,6 +75,10 @@ func scoreAttentionItem(item attentionAccount, _ time.Time) AttentionItem {
 	recommended := "reminder_sent"
 	if item.LastActionType == "reminder_sent" && item.LastActionDaysAgo <= 2 {
 		recommended = "follow_up_logged"
+	} else if item.HasActivePromise {
+		score -= 20
+		drivers = append(drivers, "active promise to pay")
+		recommended = "active_promise"
 	} else if item.PromiseDateOverdue || item.DaysOverdue >= 90 {
 		score += 20
 		drivers = append(drivers, "broken promise or legal threshold")

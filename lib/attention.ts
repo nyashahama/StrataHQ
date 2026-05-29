@@ -9,7 +9,7 @@ export interface AttentionItem {
   days_overdue: number;
   risk_score: number;
   score_drivers: string[];
-  recommended_action: "reminder_sent" | "follow_up_logged" | "promise_to_pay" | "legal_review_flagged";
+  recommended_action: "reminder_sent" | "follow_up_logged" | "promise_to_pay" | "legal_review_flagged" | "active_promise";
 }
 
 export interface ReminderChannelDraft {

@@ -858,12 +858,14 @@ func (s *Service) buildAttentionQueueFromData(ctx context.Context, data []struct
 		var lastActionType string
 		var lastActionDaysAgo int
 		var promiseDateOverdue bool
+		var hasActivePromise bool
 
 		if lastEv, ok := lastActionByAccount[rd.id.String()]; ok {
 			lastActionType = lastEv.EventType
 			lastActionDaysAgo = int(now.Sub(lastEv.CreatedAt).Hours() / 24)
 			if lastActionType == "promise_to_pay" && lastEv.PromiseDate.Valid {
 				promiseDateOverdue = lastEv.PromiseDate.Time.Before(now)
+				hasActivePromise = !promiseDateOverdue
 			}
 		}
 
@@ -879,6 +881,7 @@ func (s *Service) buildAttentionQueueFromData(ctx context.Context, data []struct
 			LastActionType:     lastActionType,
 			LastActionDaysAgo:  lastActionDaysAgo,
 			PromiseDateOverdue: promiseDateOverdue,
+			HasActivePromise:   hasActivePromise,
 		}
 
 		item := scoreAttentionItem(account, now)

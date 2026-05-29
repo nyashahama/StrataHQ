@@ -71,7 +71,9 @@ SELECT
     COALESCE(bool_or(sc.preferred), false)::boolean AS preferred
 FROM contractors c
 LEFT JOIN contractor_reviews cr ON cr.contractor_id = c.id
+  AND (sqlc.narg(scheme_id)::uuid IS NULL OR cr.scheme_id = sqlc.narg(scheme_id)::uuid)
 LEFT JOIN maintenance_requests mr ON mr.contractor_id = c.id
+  AND (sqlc.narg(scheme_id)::uuid IS NULL OR mr.scheme_id = sqlc.narg(scheme_id)::uuid)
 LEFT JOIN scheme_contractors sc ON sc.contractor_id = c.id
 WHERE c.org_id = sqlc.arg(org_id)
   AND (sqlc.narg(scheme_id)::uuid IS NULL OR sc.scheme_id = sqlc.narg(scheme_id)::uuid)
@@ -95,7 +97,9 @@ LEFT JOIN scheme_contractors sc
   ON sc.contractor_id = c.id
  AND sc.scheme_id = sqlc.arg(scheme_id)
 LEFT JOIN contractor_reviews cr ON cr.contractor_id = c.id
+  AND cr.scheme_id = sqlc.arg(scheme_id)
 LEFT JOIN maintenance_requests mr ON mr.contractor_id = c.id
+  AND mr.scheme_id = sqlc.arg(scheme_id)
 WHERE c.active = true
   AND (
     sc.scheme_id IS NOT NULL

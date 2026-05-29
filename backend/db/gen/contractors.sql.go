@@ -331,10 +331,12 @@ SELECT
     COALESCE(bool_or(sc.preferred), false)::boolean AS preferred
 FROM contractors c
 LEFT JOIN contractor_reviews cr ON cr.contractor_id = c.id
+  AND ($1::uuid IS NULL OR cr.scheme_id = $1::uuid)
 LEFT JOIN maintenance_requests mr ON mr.contractor_id = c.id
+  AND ($1::uuid IS NULL OR mr.scheme_id = $1::uuid)
 LEFT JOIN scheme_contractors sc ON sc.contractor_id = c.id
-WHERE c.org_id = $1
-  AND ($2::uuid IS NULL OR sc.scheme_id = $2::uuid)
+WHERE c.org_id = $2
+  AND ($1::uuid IS NULL OR sc.scheme_id = $1::uuid)
   AND ($3::maintenance_category IS NULL OR c.trade = $3::maintenance_category)
   AND ($4::text IS NULL OR lower(c.suburb) = lower($4::text))
   AND ($5::text IS NULL OR lower(c.name) LIKE '%' || lower($5::text) || '%')
@@ -345,8 +347,8 @@ ORDER BY c.active DESC, preferred DESC, average_rating DESC, c.name ASC
 `
 
 type ListContractorsByOrgParams struct {
-	OrgID    uuid.UUID               `json:"org_id"`
 	SchemeID pgtype.UUID             `json:"scheme_id"`
+	OrgID    uuid.UUID               `json:"org_id"`
 	Trade    NullMaintenanceCategory `json:"trade"`
 	Suburb   pgtype.Text             `json:"suburb"`
 	Query    pgtype.Text             `json:"query"`
@@ -379,8 +381,8 @@ type ListContractorsByOrgRow struct {
 
 func (q *Queries) ListContractorsByOrg(ctx context.Context, arg ListContractorsByOrgParams) ([]ListContractorsByOrgRow, error) {
 	rows, err := q.db.Query(ctx, listContractorsByOrg,
-		arg.OrgID,
 		arg.SchemeID,
+		arg.OrgID,
 		arg.Trade,
 		arg.Suburb,
 		arg.Query,
@@ -438,7 +440,9 @@ LEFT JOIN scheme_contractors sc
   ON sc.contractor_id = c.id
  AND sc.scheme_id = $1
 LEFT JOIN contractor_reviews cr ON cr.contractor_id = c.id
+  AND cr.scheme_id = $1
 LEFT JOIN maintenance_requests mr ON mr.contractor_id = c.id
+  AND mr.scheme_id = $1
 WHERE c.active = true
   AND (
     sc.scheme_id IS NOT NULL

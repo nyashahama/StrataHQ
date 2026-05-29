@@ -138,8 +138,10 @@ type ResourceRecorder interface {
 type ResourceAuditQueries interface {
 	CreateResourceAuditEvent(ctx context.Context, arg dbgen.CreateResourceAuditEventParams) (dbgen.ResourceAuditEvent, error)
 	ListResourceAuditEventsByScheme(ctx context.Context, arg dbgen.ListResourceAuditEventsBySchemeParams) ([]dbgen.ResourceAuditEvent, error)
+	ListResourceAuditEventsBySchemeAndOrg(ctx context.Context, arg dbgen.ListResourceAuditEventsBySchemeAndOrgParams) ([]dbgen.ResourceAuditEvent, error)
 	ListResourceAuditEventsBySchemeAndAction(ctx context.Context, arg dbgen.ListResourceAuditEventsBySchemeAndActionParams) ([]dbgen.ResourceAuditEvent, error)
 	CountResourceAuditEventsByScheme(ctx context.Context, schemeID uuid.UUID) (int64, error)
+	CountResourceAuditEventsBySchemeAndOrg(ctx context.Context, arg dbgen.CountResourceAuditEventsBySchemeAndOrgParams) (int64, error)
 	GetScheme(ctx context.Context, id uuid.UUID) (dbgen.Scheme, error)
 	GetSchemeMembership(ctx context.Context, arg dbgen.GetSchemeMembershipParams) (dbgen.SchemeMembership, error)
 }
@@ -244,7 +246,7 @@ func (s *ResourceService) ListSchemeEvents(ctx context.Context, identity auth.Id
 	scheme, err := s.q.GetScheme(ctx, parsedSchemeID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
+			return s.listEventsForDeletedScheme(ctx, identity, parsedSchemeID, limit)
 		}
 		return nil, err
 	}
@@ -283,6 +285,39 @@ func (s *ResourceService) ListSchemeEvents(ctx context.Context, identity auth.Id
 		return nil, err
 	}
 	total, err := s.q.CountResourceAuditEventsByScheme(ctx, parsedSchemeID)
+	if err != nil {
+		return nil, err
+	}
+	events := make([]ResourceEventInfo, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, mapResourceAuditEvent(row))
+	}
+	return &ListResourceEventsResponse{Events: events, Total: total, Limit: limit}, nil
+}
+
+func (s *ResourceService) listEventsForDeletedScheme(ctx context.Context, identity auth.Identity, parsedSchemeID uuid.UUID, limit int32) (*ListResourceEventsResponse, error) {
+	if !auth.IsAdminRole(identity.Role) {
+		return nil, ErrForbidden
+	}
+	orgID, parseErr := uuid.Parse(identity.OrgID)
+	if parseErr != nil {
+		return nil, ErrForbidden
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	rows, err := s.q.ListResourceAuditEventsBySchemeAndOrg(ctx, dbgen.ListResourceAuditEventsBySchemeAndOrgParams{
+		SchemeID: parsedSchemeID,
+		OrgID:    orgID,
+		Limit:    limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	total, err := s.q.CountResourceAuditEventsBySchemeAndOrg(ctx, dbgen.CountResourceAuditEventsBySchemeAndOrgParams{
+		SchemeID: parsedSchemeID,
+		OrgID:    orgID,
+	})
 	if err != nil {
 		return nil, err
 	}

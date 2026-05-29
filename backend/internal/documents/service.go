@@ -17,10 +17,14 @@ import (
 	"github.com/stratahq/backend/internal/platform/database"
 )
 
+const maxDocumentSize = 10 * 1024 * 1024
+const maxDataURLBase64Len = (maxDocumentSize * 4 / 3) + 4096
+
 var (
-	ErrForbidden    = errors.New("forbidden")
-	ErrNotFound     = errors.New("not found")
-	ErrInvalidInput = errors.New("invalid input")
+	ErrForbidden        = errors.New("forbidden")
+	ErrNotFound         = errors.New("not found")
+	ErrInvalidInput     = errors.New("invalid input")
+	ErrDocumentTooLarge = errors.New("document exceeds maximum size")
 )
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
@@ -121,9 +125,18 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 	if strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.StorageKey) == "" || input.SizeBytes < 0 || !validFileType(input.FileType) || !validCategory(input.Category) {
 		return nil, ErrInvalidInput
 	}
+	if input.SizeBytes > maxDocumentSize {
+		return nil, ErrDocumentTooLarge
+	}
 	storageKey, err := normalizeStorageKey(input.StorageKey, input.FileType)
 	if err != nil {
 		return nil, err
+	}
+
+	if strings.HasPrefix(strings.ToLower(storageKey), "data:") {
+		if sizeErr := validateDataURLSize(storageKey, input.SizeBytes); sizeErr != nil {
+			return nil, sizeErr
+		}
 	}
 
 	var uploadedBy pgtype.UUID
@@ -324,6 +337,22 @@ func normalizeStorageKey(raw, fileType string) (string, error) {
 	}
 
 	return storageKey, nil
+}
+
+func validateDataURLSize(dataURL string, claimedBytes int64) error {
+	commaIdx := strings.Index(dataURL, ",")
+	if commaIdx == -1 {
+		return ErrInvalidInput
+	}
+	b64 := dataURL[commaIdx+1:]
+	if len(b64) > maxDataURLBase64Len {
+		return ErrDocumentTooLarge
+	}
+	approxEncodedLen := int(claimedBytes*4/3) + 64
+	if len(b64) > approxEncodedLen*2 {
+		return ErrInvalidInput
+	}
+	return nil
 }
 
 func safeListedStorageKey(raw, fileType string) string {

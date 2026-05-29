@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -191,7 +192,7 @@ func (s *Service) CreateCheckoutSession(ctx context.Context, identity auth.Ident
 		CancelAtPeriodEnd: existing.CancelAtPeriodEnd,
 	})
 	if err != nil {
-		return nil, err
+		slog.Error("failed to persist checkout session locally", "org_id", org.ID.String(), "session_id", session.ID, "error", err)
 	}
 
 	_ = updated

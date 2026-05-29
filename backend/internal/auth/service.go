@@ -330,11 +330,11 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 		}
 	} else {
 		resp.WizardComplete = true
-		memberships, err := s.db.Q.ListSchemeMembershipsByUser(ctx, uid)
+		schemeMemberships, err := s.db.Q.ListSchemeMembershipsByUser(ctx, uid)
 		if err != nil {
 			return nil, err
 		}
-		for _, m := range memberships {
+		for _, m := range schemeMemberships {
 			sm := SchemeMembership{
 				SchemeID:   m.SchemeID.String(),
 				SchemeName: m.SchemeName,
@@ -350,6 +350,7 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 			}
 			resp.SchemeMemberships = append(resp.SchemeMemberships, sm)
 		}
+		resp.Role = strongestSchemeRole(schemeMemberships, membership.Role)
 	}
 
 	if resp.SchemeMemberships == nil {
@@ -617,6 +618,23 @@ func textValue(value *string) pgtype.Text {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: *value, Valid: true}
+}
+
+func strongestSchemeRole(memberships []dbgen.ListSchemeMembershipsByUserRow, fallback string) string {
+	if len(memberships) == 0 {
+		return fallback
+	}
+	hasRole := make(map[string]bool, len(memberships))
+	for _, m := range memberships {
+		hasRole[m.Role] = true
+	}
+	if hasRole[string(RoleOwner)] {
+		return string(RoleOwner)
+	}
+	if hasRole[string(RoleTrustee)] {
+		return string(RoleTrustee)
+	}
+	return string(RoleResident)
 }
 
 func isUniqueEmailViolation(err error) bool {

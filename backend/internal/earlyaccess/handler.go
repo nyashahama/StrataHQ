@@ -2,6 +2,7 @@
 package earlyaccess
 
 import (
+	"html"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -140,11 +141,11 @@ func writeHTML(w http.ResponseWriter, status int, body string) {
 }
 
 func decisionPage(title, body, actionURL, actionLabel string) string {
-	return "<!DOCTYPE html><html><body><h2>" + title + "</h2><p>" + body + "</p><form method=\"POST\" action=\"" + actionURL + "\"><button type=\"submit\">" + actionLabel + "</button></form></body></html>"
+	return "<!DOCTYPE html><html><body><h2>" + html.EscapeString(title) + "</h2><p>" + html.EscapeString(body) + "</p><form method=\"POST\" action=\"" + html.EscapeString(actionURL) + "\"><button type=\"submit\">" + html.EscapeString(actionLabel) + "</button></form></body></html>"
 }
 
 func messagePage(title, body string) string {
-	return "<!DOCTYPE html><html><body><h2>" + title + "</h2><p>" + body + "</p></body></html>"
+	return "<!DOCTYPE html><html><body><h2>" + html.EscapeString(title) + "</h2><p>" + html.EscapeString(body) + "</p></body></html>"
 }
 
 func (h *Handler) ApproveWithTokenPage(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +156,7 @@ func (h *Handler) ApproveWithTokenPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actionURL := htmlEscapeAttribute(r.URL.RequestURI())
+	actionURL := r.URL.RequestURI()
 	writeHTML(w, http.StatusOK, decisionPage("Approve request", "Confirm that you want to approve this early access request.", actionURL, "Approve request"))
 }
 
@@ -190,7 +191,7 @@ func (h *Handler) RejectWithTokenPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actionURL := htmlEscapeAttribute(r.URL.RequestURI())
+	actionURL := r.URL.RequestURI()
 	writeHTML(w, http.StatusOK, decisionPage("Reject request", "Confirm that you want to reject this early access request.", actionURL, "Reject request"))
 }
 
@@ -215,15 +216,4 @@ func (h *Handler) RejectWithToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeHTML(w, http.StatusOK, messagePage("Rejected", "The early access request has been rejected."))
-}
-
-func htmlEscapeAttribute(value string) string {
-	replacer := strings.NewReplacer(
-		`&`, "&amp;",
-		`"`, "&quot;",
-		`'`, "&#39;",
-		`<`, "&lt;",
-		`>`, "&gt;",
-	)
-	return replacer.Replace(value)
 }

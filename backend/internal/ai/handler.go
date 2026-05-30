@@ -40,7 +40,18 @@ func (h *Handler) Copilot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answer, err := h.service.Ask(r.Context(), identity, strings.TrimSpace(req.SchemeID), req.History, strings.TrimSpace(req.Message))
+	schemeID := strings.TrimSpace(req.SchemeID)
+	if schemeID == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "scheme_id is required")
+		return
+	}
+	message := strings.TrimSpace(req.Message)
+	if message == "" {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "message is required")
+		return
+	}
+
+	answer, err := h.service.Ask(r.Context(), identity, schemeID, req.History, message)
 	if err != nil {
 		writeAIError(w, err, "failed to generate copilot response")
 		return

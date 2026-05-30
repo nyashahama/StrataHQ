@@ -45,6 +45,34 @@ func TestOpenAPI_ReadsSchemeLevyAndFinancialDataWithAPIKey(t *testing.T) {
 	}
 }
 
+func TestOpenAPI_LevyAccountsRejectsInvalidStatusFilter(t *testing.T) {
+	h := newIntegrationsHandler(t)
+	accessToken, _ := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":       "Levy Status Reader",
+		"scheme_ids": []string{schemeID},
+		"scopes":     []string{"read:levies"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/integrations/api-clients", bytes.NewReader(body))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w := httptest.NewRecorder()
+	h.CreateAPIClient(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create client: status=%d body=%s", w.Code, w.Body)
+	}
+	created := decodeSuccess[integrations.APIClientCreateResponse](t, w)
+
+	req = httptest.NewRequest(http.MethodGet, "/schemes/"+schemeID+"/levy-accounts?status=paidd", nil)
+	req.Header.Set("Authorization", "Bearer "+created.APIKey)
+	w = httptest.NewRecorder()
+	h.OpenRoutes().ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("invalid levy account status filter should be rejected: status=%d body=%s", w.Code, w.Body)
+	}
+}
+
 func TestIntegrations_AdminCreatesAndRevokesAPIClient(t *testing.T) {
 	h := newIntegrationsHandler(t)
 	accessToken, orgID := setupAgent(t)

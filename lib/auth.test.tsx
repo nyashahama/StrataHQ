@@ -89,10 +89,13 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("email")).toHaveTextContent("person@example.com");
     });
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session");
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/session/refresh", {
-      method: "POST",
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", {
+      signal: expect.any(AbortSignal),
     });
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/session/refresh", expect.objectContaining({
+      method: "POST",
+      signal: expect.any(AbortSignal),
+    }));
   });
 
   it("retries temporary refresh unavailability before giving up", async () => {
@@ -150,12 +153,41 @@ describe("AuthProvider", () => {
       expect(screen.getByTestId("email")).toHaveTextContent("person@example.com");
     });
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session");
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/session/refresh", {
-      method: "POST",
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/session", {
+      signal: expect.any(AbortSignal),
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/session/refresh", {
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/session/refresh", expect.objectContaining({
       method: "POST",
+      signal: expect.any(AbortSignal),
+    }));
+    expect(fetchMock).toHaveBeenNthCalledWith(3, "/api/session/refresh", expect.objectContaining({
+      method: "POST",
+      signal: expect.any(AbortSignal),
+    }));
+  });
+
+  it("aborts pending session load when unmounted", async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      capturedSignal = init?.signal ?? undefined;
+      return new Promise<Response>(() => {});
     });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/session", {
+        signal: expect.any(AbortSignal),
+      });
+    });
+
+    unmount();
+
+    expect(capturedSignal?.aborted).toBe(true);
   });
 });

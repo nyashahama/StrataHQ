@@ -115,6 +115,15 @@ function shouldRetry(method: string, status: number): boolean {
   return method === "GET" && (status === 502 || status === 503 || status === 504);
 }
 
+async function cancelUnusedRetryBody(body?: ReadableStream<Uint8Array>) {
+  if (!body) return;
+  try {
+    await body.cancel();
+  } catch {
+    // The branch may already be closed or errored by the runtime. Cleanup is best-effort.
+  }
+}
+
 function forbiddenResponse(message: string) {
   return new Response(
     JSON.stringify({
@@ -156,7 +165,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
   }
 
   let requestBody: BodyInit | undefined;
-  let requestBodyRetry: BodyInit | undefined;
+  let requestBodyRetry: ReadableStream<Uint8Array> | undefined;
   if (request.method !== "GET" && request.method !== "HEAD" && request.body) {
     const [firstBody, secondBody] = request.body.tee();
     requestBody = firstBody;
@@ -193,6 +202,7 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
     });
   } catch (error) {
     clearTimeout(timeout);
+    await cancelUnusedRetryBody(requestBodyRetry);
     if (error instanceof DOMException && error.name === "AbortError") {
       return upstreamUnavailableResponse();
     }
@@ -238,15 +248,18 @@ async function proxyRequest(request: NextRequest, pathSegments: string[]) {
         throw error;
       }
     }
+    await cancelUnusedRetryBody(requestBodyRetry);
     return proxyResponse(withTiming(firstResponse), requestId);
   }
 
   const refreshed = await refreshAuthSession();
   if (refreshed.kind === "invalid") {
+    await cancelUnusedRetryBody(requestBodyRetry);
     await clearAuthCookies();
     return unauthorizedResponse();
   }
   if (refreshed.kind === "unavailable") {
+    await cancelUnusedRetryBody(requestBodyRetry);
     return upstreamUnavailableResponse();
   }
 

@@ -203,6 +203,43 @@ describe("proxyRequest", () => {
     ]);
   });
 
+  it("cancels the unused retry body branch when no retry is needed", async () => {
+    const cancelRetryBody = vi.fn(async () => undefined);
+    const request = {
+      method: "POST",
+      url: "http://localhost/api/proxy/api/v1/invitations",
+      headers: new Headers({
+        "x-csrf-token": "expected-token",
+      }),
+      body: {
+        tee: () => [
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode(JSON.stringify({ full_name: "Test User" })));
+              controller.close();
+            },
+          }),
+          { cancel: cancelRetryBody },
+        ],
+      },
+    };
+
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }));
+
+    const { POST } = await import("./route");
+    const params = Promise.resolve({ path: ["api", "v1", "invitations"] });
+
+    const response = await POST(request as unknown as import("next/server").NextRequest, { params });
+
+    expect(response.status).toBe(200);
+    expect(cancelRetryBody).toHaveBeenCalledTimes(1);
+  });
+
   it("returns 503 without clearing auth when refresh is temporarily unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 401 })));
     refreshAuthSession.mockResolvedValue({ kind: "unavailable" });

@@ -328,6 +328,8 @@ func (s *Service) buildLevySummary(ctx context.Context, schemeID uuid.UUID) (*Le
 	}
 	if summary.TotalBilledCents > 0 {
 		summary.CollectionRatePct = int(math.Round(float64(summary.TotalCollectedCents) * 100 / float64(summary.TotalBilledCents)))
+	} else {
+		summary.CollectionRatePct = 100
 	}
 	return summary, nil
 }

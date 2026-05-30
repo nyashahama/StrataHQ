@@ -81,6 +81,19 @@ func TestTopOverdueAccountsRedactsOwnerName(t *testing.T) {
 	}
 }
 
+func TestCollectionPctFromRowsTreatsEmptyAndZeroDueAsFullyCollected(t *testing.T) {
+	if got := collectionPctFromRows(nil); got != 100 {
+		t.Fatalf("empty collection pct = %d, want 100", got)
+	}
+
+	got := collectionPctFromRows([]dbgen.ListLevyAccountsByPeriodRow{
+		{AmountCents: 0, PaidCents: 0},
+	})
+	if got != 100 {
+		t.Fatalf("zero-due collection pct = %d, want 100", got)
+	}
+}
+
 func TestMapMaintenanceRedactsContractorName(t *testing.T) {
 	items := mapMaintenance([]dbgen.MaintenanceRequest{
 		{

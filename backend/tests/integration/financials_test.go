@@ -139,6 +139,39 @@ func TestFinancials_DashboardAndUpdates(t *testing.T) {
 	}
 }
 
+func TestFinancials_EmptyLevyPeriodReportsFullyCollected(t *testing.T) {
+	h := newFinancialsHandler(t)
+	accessToken, _ := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+	schemeUUID := mustParseFinancialUUID(t, schemeID)
+
+	if _, err := testQ.CreateLevyPeriod(t.Context(), dbgen.CreateLevyPeriodParams{
+		SchemeID:    schemeUUID,
+		Label:       "Empty Period",
+		AmountCents: 245000,
+		DueDate:     pgtype.Date{Time: time.Now().AddDate(0, 0, 14), Valid: true},
+	}); err != nil {
+		t.Fatalf("create empty levy period: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/financials/"+schemeID, nil)
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w := httptest.NewRecorder()
+	h.Dashboard(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("dashboard: status=%d body=%s", w.Code, w.Body)
+	}
+
+	dashboard := decodeSuccess[financials.DashboardResponse](t, w)
+	if dashboard.LevySummary == nil {
+		t.Fatalf("expected levy summary for empty current period")
+	}
+	if dashboard.LevySummary.TotalBilledCents != 0 || dashboard.LevySummary.CollectionRatePct != 100 {
+		t.Fatalf("levy summary = %+v, want zero billed and 100%% collected", dashboard.LevySummary)
+	}
+}
+
 func mustParseFinancialUUID(t *testing.T, value string) uuid.UUID {
 	t.Helper()
 	id, err := uuid.Parse(value)

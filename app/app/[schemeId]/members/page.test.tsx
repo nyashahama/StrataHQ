@@ -34,6 +34,18 @@ vi.mock("@/hooks/useAuthenticatedQuery", () => ({
   useAuthenticatedQuery: mockUseAuthenticatedQuery,
 }));
 
+function mockLoadedMembersPage() {
+  mockUseAuthenticatedQuery.mockImplementation((config: { queryKey: readonly string[] }) => {
+    const isUnitsQuery = config.queryKey[config.queryKey.length - 1] === "units";
+    return {
+      data: [],
+      isLoading: false,
+      refetch: vi.fn(),
+      ...(isUnitsQuery ? {} : { error: undefined }),
+    };
+  });
+}
+
 describe("MembersPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -86,17 +98,7 @@ describe("MembersPage", () => {
   });
 
   it("does not invalidate member cache when invite validation fails", async () => {
-    mockUseAuthenticatedQuery
-      .mockReturnValueOnce({
-        data: [],
-        isLoading: false,
-        refetch: vi.fn(),
-      })
-      .mockReturnValueOnce({
-        data: [],
-        isLoading: false,
-        refetch: vi.fn(),
-      });
+    mockLoadedMembersPage();
 
     const { default: MembersPage } = await import("@/app/app/[schemeId]/members/page");
     render(<MembersPage />);
@@ -113,17 +115,7 @@ describe("MembersPage", () => {
 
   it("invalidates member cache after a valid invite is accepted", async () => {
     mockApiFetch.mockResolvedValueOnce({ ok: true });
-    mockUseAuthenticatedQuery
-      .mockReturnValueOnce({
-        data: [],
-        isLoading: false,
-        refetch: vi.fn(),
-      })
-      .mockReturnValueOnce({
-        data: [],
-        isLoading: false,
-        refetch: vi.fn(),
-      });
+    mockLoadedMembersPage();
 
     const { default: MembersPage } = await import("@/app/app/[schemeId]/members/page");
     render(<MembersPage />);
@@ -131,7 +123,9 @@ describe("MembersPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /\+ Invite member/i }));
     fireEvent.change(screen.getByPlaceholderText("e.g. Nkosi, A."), { target: { value: "Trustee User" } });
     fireEvent.change(screen.getByPlaceholderText("e.g. nkosi@email.co.za"), { target: { value: "trustee@example.com" } });
-    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "trustee" } });
+    const roleSelect = screen.getAllByRole("combobox").at(0);
+    if (!roleSelect) throw new Error("missing role select");
+    fireEvent.change(roleSelect, { target: { value: "trustee" } });
     fireEvent.click(screen.getByRole("button", { name: "Send invite" }));
 
     await waitFor(() => {

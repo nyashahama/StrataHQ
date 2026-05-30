@@ -112,8 +112,7 @@ export default function FinancialsPage() {
 
   async function refreshDashboard(nextPeriod?: string) {
     invalidateCache(`scheme:${schemeId}:financials`)
-    const newPeriod = nextPeriod || selectedPeriod || 'current'
-    await queryClient.invalidateQueries({ queryKey: schemeKeys.financials(schemeId, newPeriod) })
+    await queryClient.invalidateQueries({ queryKey: schemeKeys.financialsBase(schemeId) })
     if (!nextPeriod && dashboard?.selected_period) {
       setSelectedPeriod(dashboard.selected_period)
     }

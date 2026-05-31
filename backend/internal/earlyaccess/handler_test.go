@@ -24,6 +24,8 @@ type stubService struct {
 	rejectByTokenFn     func(id, sig string, exp int64) (*RequestResponse, error)
 	approveByTokenCalls int
 	rejectByTokenCalls  int
+	validateTokenFn     func(id, action, sig string, exp int64) error
+	validateTokenCalls  int
 }
 
 func (s *stubService) Submit(_ context.Context, params SubmitParams) (*RequestResponse, error) {
@@ -68,6 +70,14 @@ func (s *stubService) RejectByToken(_ context.Context, id, sig string, exp int64
 	return &RequestResponse{ID: id, Status: "rejected"}, nil
 }
 
+func (s *stubService) ValidateActionToken(id, action, sig string, exp int64) error {
+	s.validateTokenCalls++
+	if s.validateTokenFn != nil {
+		return s.validateTokenFn(id, action, sig, exp)
+	}
+	return nil
+}
+
 func TestPublicRoutes_GetApproveDoesNotMutate(t *testing.T) {
 	svc := &stubService{}
 	router := NewHandler(svc).PublicRoutes()
@@ -83,6 +93,9 @@ func TestPublicRoutes_GetApproveDoesNotMutate(t *testing.T) {
 	}
 	if svc.approveByTokenCalls != 0 {
 		t.Fatalf("approveByTokenCalls=%d, want 0", svc.approveByTokenCalls)
+	}
+	if svc.validateTokenCalls != 1 {
+		t.Fatalf("validateTokenCalls=%d, want 1", svc.validateTokenCalls)
 	}
 }
 
@@ -116,6 +129,30 @@ func TestPublicRoutes_ApprovePageHasNoInlineStyles(t *testing.T) {
 
 	if strings.Contains(w.Body.String(), "style=") {
 		t.Fatalf("approve page should not render inline styles: %s", w.Body.String())
+	}
+}
+
+func TestPublicRoutes_GetApproveRejectsInvalidSignature(t *testing.T) {
+	svc := &stubService{
+		validateTokenFn: func(id, action, sig string, _ int64) error {
+			if action != "approve" || id != "request-123" || sig == "" {
+				t.Fatalf("unexpected validate params: id=%s action=%s sig=%s", id, action, sig)
+			}
+			return ErrInvalidToken
+		},
+	}
+	router := NewHandler(svc).PublicRoutes()
+
+	exp := time.Now().Add(15 * time.Minute).Unix()
+	req := httptest.NewRequest(http.MethodGet, "/request-123/approve?exp="+strconv.FormatInt(exp, 10)+"&sig=bad-signature", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status=%d, want 400", w.Code)
+	}
+	if svc.validateTokenCalls != 1 {
+		t.Fatalf("validateTokenCalls=%d, want 1", svc.validateTokenCalls)
 	}
 }
 

@@ -18,6 +18,16 @@ function formatRand(cents: number): string {
   return `R ${(cents / 100).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`
 }
 
+function parseAmountCents(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  const numeric = Number(trimmed)
+  if (!Number.isFinite(numeric) || Number.isNaN(numeric)) return null
+
+  return Math.round(numeric * 100)
+}
+
 function forecastStatusLabel(status: string): string {
   switch (status) {
     case 'shortfall_risk':
@@ -119,9 +129,16 @@ export default function FinancialsPage() {
   }
 
   async function handleBudgetSave() {
-    const budgetedCents = Math.round(Number(budgetForm.budget_amount) * 100)
-    const actualCents = Math.round(Number(budgetForm.actual_amount) * 100)
-    if (!budgetForm.category.trim() || !budgetForm.period_label.trim() || budgetedCents < 0 || actualCents < 0) {
+    const budgetedCents = parseAmountCents(budgetForm.budget_amount)
+    const actualCents = parseAmountCents(budgetForm.actual_amount)
+    if (
+      !budgetForm.category.trim() ||
+      !budgetForm.period_label.trim() ||
+      budgetedCents === null ||
+      actualCents === null ||
+      budgetedCents < 0 ||
+      actualCents < 0
+    ) {
       addToast('Enter a category, period, budget amount, and actual amount', 'error')
       return
     }

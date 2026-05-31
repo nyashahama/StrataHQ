@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import LogoIcon from '@/components/LogoIcon'
+import { usePathname } from 'next/navigation'
 
 interface AppShellProps {
   sidebar: React.ReactNode
@@ -10,6 +11,7 @@ interface AppShellProps {
 
 export default function AppShell({ sidebar, children, headerLabel }: AppShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const pathname = usePathname()
 
   // Close sidebar on route change (escape key)
   useEffect(() => {
@@ -19,6 +21,11 @@ export default function AppShell({ sidebar, children, headerLabel }: AppShellPro
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // Close sidebar after successful navigation
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [pathname])
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
@@ -157,6 +158,9 @@ func (s *Service) RevokeAPIClient(ctx context.Context, identity auth.Identity, c
 	}
 	row, err := s.db.Q.RevokeIntegrationAPIClient(ctx, dbgen.RevokeIntegrationAPIClientParams{ID: cid, OrgID: orgID})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
 		return nil, err
 	}
 	info, err := s.mapClient(ctx, row)

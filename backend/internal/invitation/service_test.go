@@ -580,6 +580,32 @@ func TestServiceResendDoesNotRotateTokenOnSendFailure(t *testing.T) {
 	}
 }
 
+func TestServiceRevokeRejectsAcceptedInvitation(t *testing.T) {
+	orgID := uuid.New()
+	invitationID := uuid.New()
+	store := &fakeInvitationStore{
+		invitationByID: &dbgen.Invitation{
+			ID:        invitationID,
+			OrgID:     orgID,
+			SchemeID:  uuid.New(),
+			Email:     "user@example.com",
+			FullName:  "Test User",
+			Role:      "trustee",
+			Status:    "accepted",
+			ExpiresAt: time.Now().Add(time.Hour),
+		},
+	}
+	svc := newTestService(store)
+
+	err := svc.Revoke(context.Background(), orgID.String(), invitationID.String())
+	if !errors.Is(err, ErrInvalidToken) {
+		t.Fatalf("Revoke() error = %v, want %v", err, ErrInvalidToken)
+	}
+	if store.updatedInviteStatus != nil {
+		t.Fatalf("Revoke() updated invitation status = %+v, want nil", store.updatedInviteStatus)
+	}
+}
+
 func TestServiceAcceptStoresHashedRefreshToken(t *testing.T) {
 	orgID := uuid.New()
 	schemeID := uuid.New()
@@ -624,6 +650,41 @@ func TestServiceAcceptStoresHashedRefreshToken(t *testing.T) {
 	}
 	if store.updatedInviteStatus == nil || store.updatedInviteStatus.Status != "accepted" {
 		t.Fatalf("invitation status update = %+v, want accepted", store.updatedInviteStatus)
+	}
+}
+
+func TestServiceAcceptDoesNotMarkInvitationAcceptedWhenRefreshTokenPersistenceFails(t *testing.T) {
+	orgID := uuid.New()
+	schemeID := uuid.New()
+	store := &fakeInvitationStore{
+		invitationByToken: &dbgen.Invitation{
+			ID:        uuid.New(),
+			OrgID:     orgID,
+			SchemeID:  schemeID,
+			UnitID:    pgtype.UUID{},
+			Email:     "trustee@example.com",
+			FullName:  "Trustee User",
+			Role:      "trustee",
+			Token:     "invite-token",
+			Status:    "pending",
+			ExpiresAt: time.Now().Add(time.Hour),
+		},
+		getUserByEmailErr:     pgx.ErrNoRows,
+		createRefreshTokenErr: errors.New("refresh token store unavailable"),
+		createdUser: &dbgen.User{
+			ID:       uuid.New(),
+			Email:    "trustee@example.com",
+			FullName: "Trustee User",
+		},
+	}
+	svc := newTestService(store)
+
+	_, err := svc.Accept(context.Background(), "invite-token", "StrongPassword!123")
+	if err == nil {
+		t.Fatal("Accept() error = nil, want refresh token persistence failure")
+	}
+	if store.updatedInviteStatus != nil {
+		t.Fatalf("Accept() updated invitation status = %+v, want nil", store.updatedInviteStatus)
 	}
 }
 

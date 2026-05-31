@@ -14,6 +14,7 @@ import (
 type stubServicer struct {
 	createFn func(ctx context.Context, orgID string, p CreateParams, appBaseURL string) (*InvitationResponse, error)
 	resendFn func(context.Context, string, string, string) (*InvitationResponse, error)
+	revokeFn func(context.Context, string, string) error
 }
 
 func (s *stubServicer) Create(ctx context.Context, orgID string, p CreateParams, appBaseURL string) (*InvitationResponse, error) {
@@ -31,8 +32,11 @@ func (s *stubServicer) Resend(ctx context.Context, orgID string, invitationID st
 	return s.resendFn(ctx, orgID, invitationID, appBaseURL)
 }
 
-func (s *stubServicer) Revoke(context.Context, string, string) error {
-	panic("unexpected Revoke call")
+func (s *stubServicer) Revoke(ctx context.Context, orgID string, invitationID string) error {
+	if s.revokeFn == nil {
+		panic("unexpected Revoke call")
+	}
+	return s.revokeFn(ctx, orgID, invitationID)
 }
 
 func (s *stubServicer) Verify(context.Context, string) (*VerifyResponse, error) {
@@ -92,6 +96,35 @@ func TestHandlerResendReturnsConflictForNonPendingInvitation(t *testing.T) {
 	}
 	if payload.Error.Message != "only pending invitations can be resent" {
 		t.Fatalf("message = %q, want %q", payload.Error.Message, "only pending invitations can be resent")
+	}
+}
+
+func TestHandlerRevokeReturnsConflictForNonPendingInvitation(t *testing.T) {
+	h := NewHandler(&stubServicer{
+		revokeFn: func(context.Context, string, string) error {
+			return ErrInvalidToken
+		},
+	}, "http://localhost:3000")
+
+	req := httptest.NewRequest(http.MethodDelete, "/invitations/11111111-1111-1111-1111-111111111111", nil)
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), "00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004", string(auth.RoleAdmin)))
+	w := httptest.NewRecorder()
+
+	h.Revoke(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusConflict)
+	}
+
+	var payload struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("response decode: %v", err)
+	}
+	if payload.Error.Message != "only pending invitations can be revoked" {
+		t.Fatalf("message = %q, want %q", payload.Error.Message, "only pending invitations can be revoked")
 	}
 }
 

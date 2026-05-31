@@ -117,6 +117,23 @@ func TestContractors_ReviewResolvedMaintenanceRequest(t *testing.T) {
 		t.Fatalf("resolve request: status=%d body=%s", w.Code, w.Body)
 	}
 
+	for _, rating := range []int{-1, 0, 6} {
+		reviewBody, _ := json.Marshal(map[string]any{
+			"scheme_id":              schemeID,
+			"maintenance_request_id": created.ID,
+			"rating":                 rating,
+			"comment":                "Invalid rating should be rejected.",
+		})
+		req = httptest.NewRequest(http.MethodPost, "/contractors/"+contractor.ID+"/reviews", bytes.NewReader(reviewBody))
+		req = withAuthContext(req, accessToken, testJWTSigningKey)
+		req = withRouteParams(req, map[string]string{"contractorId": contractor.ID})
+		w = httptest.NewRecorder()
+		ch.CreateReview(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("create review with rating %d: status=%d body=%s, want 400", rating, w.Code, w.Body)
+		}
+	}
+
 	reviewBody, _ := json.Marshal(map[string]any{
 		"scheme_id":              schemeID,
 		"maintenance_request_id": created.ID,

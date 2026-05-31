@@ -185,8 +185,8 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				h.logger.Error("panic in whatsapp post-save goroutine",
-					"recover", fmt.Sprintf("%v", r),
+				slog.Error("webhook message processing panic",
+					"error", fmt.Sprint(r),
 					"stack", string(debug.Stack()))
 			}
 			cancel()

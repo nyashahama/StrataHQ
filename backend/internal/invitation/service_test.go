@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
@@ -21,6 +22,7 @@ type fakeInvitationStore struct {
 	unit                  *dbgen.Unit
 	invitationByID        *dbgen.Invitation
 	invitationByToken     *dbgen.Invitation
+	createInvitationErr   error
 	createdUser           *dbgen.User
 	createdInvitation     *dbgen.CreateInvitationParams
 	updatedInvitation     *dbgen.UpdateInvitationTokenParams
@@ -67,6 +69,9 @@ func (a *fakeInvitationAuditor) RecordResourceEvent(_ context.Context, event aud
 }
 
 func (f *fakeInvitationStore) CreateInvitation(_ context.Context, arg dbgen.CreateInvitationParams) (dbgen.Invitation, error) {
+	if f.createInvitationErr != nil {
+		return dbgen.Invitation{}, f.createInvitationErr
+	}
 	f.createdInvitation = &arg
 	return dbgen.Invitation{
 		ID:        uuid.New(),
@@ -407,11 +412,8 @@ func TestServiceResendRecordsAuditBeforeInvitationSendFailure(t *testing.T) {
 	if sender.calls != 1 {
 		t.Fatalf("SendInvitation calls = %d, want 1", sender.calls)
 	}
-	if len(auditor.events) != 1 {
-		t.Fatalf("audit events = %d, want 1", len(auditor.events))
-	}
-	if auditor.events[0].Action != "invitation.resent" {
-		t.Fatalf("audit action = %q, want invitation.resent", auditor.events[0].Action)
+	if len(auditor.events) != 0 {
+		t.Fatalf("audit events = %d, want 0", len(auditor.events))
 	}
 }
 

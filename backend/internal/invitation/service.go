@@ -256,7 +256,7 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 	}
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
 	inviteURL := appBaseURL + "/auth/invite/" + token
-	if err := s.sender.SendInvitation(ctx, existing.Email, existing.FullName, inviteURL); err != nil {
+	if err = s.sender.SendInvitation(ctx, existing.Email, existing.FullName, inviteURL); err != nil {
 		return nil, err
 	}
 

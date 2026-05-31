@@ -22,7 +22,16 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  const body = await request.json()
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return new Response('Invalid JSON request body.', {
+      status: 400,
+      headers: { 'Content-Type': 'text/plain' },
+    })
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), COPILOT_TIMEOUT_MS);
   let response: Response;

@@ -203,6 +203,14 @@ func fingerprintBankStatementRow(bankName string, row ParsedBankStatementRow) st
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+func marshalBankStatementRawData(rawData map[string]string) ([]byte, error) {
+	rawDataJSON, err := json.Marshal(rawData)
+	if err != nil {
+		return nil, fmt.Errorf("marshal bank statement raw data: %w", err)
+	}
+	return rawDataJSON, nil
+}
+
 func matchBankStatementRow(row ParsedBankStatementRow, accounts []candidateLevyAccount) matchedBankStatementRow {
 	normalRef := row.NormalizedRef
 	if normalRef == "" {
@@ -674,7 +682,10 @@ func (s *Service) ProcessBankStatementImport(ctx context.Context, importID strin
 	var matchedCount, ambiguousCount, unmatchedCount int32
 
 	for _, parsed := range parsedRows {
-		rawDataJSON, _ := json.Marshal(parsed.RawData)
+		rawDataJSON, marshalErr := marshalBankStatementRawData(parsed.RawData)
+		if marshalErr != nil {
+			return fmt.Errorf("%w: %v", jobs.ErrNonRetryable, marshalErr)
+		}
 		match := matchBankStatementRow(parsed, accounts)
 
 		var matchedAccountID pgtype.UUID

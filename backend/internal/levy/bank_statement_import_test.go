@@ -1,6 +1,7 @@
 package levy
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -150,6 +151,25 @@ func TestFingerprintIsDeterministic(t *testing.T) {
 	fp2 := fingerprintBankStatementRow("fnb", row1)
 	if fp1 != fp2 {
 		t.Fatalf("fingerprint mismatch: %s vs %s", fp1, fp2)
+	}
+}
+
+func TestMarshalBankStatementRawDataPreservesSourceFields(t *testing.T) {
+	rawDataJSON, err := marshalBankStatementRawData(map[string]string{
+		"Date":        "2026-04-01",
+		"Description": "EFT Unit 1A",
+		"Amount":      "2450.00",
+	})
+	if err != nil {
+		t.Fatalf("marshal raw data: %v", err)
+	}
+
+	var decoded map[string]string
+	if err := json.Unmarshal(rawDataJSON, &decoded); err != nil {
+		t.Fatalf("unmarshal raw data: %v", err)
+	}
+	if decoded["Description"] != "EFT Unit 1A" {
+		t.Fatalf("description = %q, want source value", decoded["Description"])
 	}
 }
 

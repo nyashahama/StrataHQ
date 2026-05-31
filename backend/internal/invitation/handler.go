@@ -3,6 +3,7 @@ package invitation
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/stratahq/backend/internal/auth"
@@ -40,25 +41,35 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	if req.Email == "" || req.FullName == "" || req.Role == "" || req.SchemeID == "" {
+	email := strings.TrimSpace(req.Email)
+	fullName := strings.TrimSpace(req.FullName)
+	role := strings.TrimSpace(req.Role)
+	schemeID := strings.TrimSpace(req.SchemeID)
+	unitID := strings.TrimSpace(req.UnitID)
+	if email == "" || fullName == "" || role == "" || schemeID == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email, full_name, role, and scheme_id are required")
 		return
 	}
-	if !auth.IsInvitableRole(req.Role) {
+	normalizedEmail, err := auth.NormalizeEmail(email)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
+		return
+	}
+	if !auth.IsInvitableRole(role) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "role must be trustee or resident")
 		return
 	}
-	if req.Role == "resident" && req.UnitID == "" {
+	if role == "resident" && unitID == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "unit_id is required for residents")
 		return
 	}
 
 	inv, err := h.service.Create(r.Context(), identity.OrgID, CreateParams{
-		Email:    req.Email,
-		FullName: req.FullName,
-		Role:     req.Role,
-		SchemeID: req.SchemeID,
-		UnitID:   req.UnitID,
+		Email:    normalizedEmail,
+		FullName: fullName,
+		Role:     role,
+		SchemeID: schemeID,
+		UnitID:   unitID,
 	}, h.appBaseURL)
 	if err != nil {
 		switch {
@@ -66,6 +77,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusForbidden, response.CodeForbidden, "scheme belongs to a different org")
 		case err.Error() == "invalid scheme_id", err.Error() == "invalid unit_id":
 			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
+		case err == ErrInvalidEmail:
+			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
 		case err == ErrDuplicateInvite:
 			response.Error(w, http.StatusConflict, response.CodeConflict, "only one pending invitation allowed per recipient for this membership")
 		default:
@@ -114,6 +127,8 @@ func (h *Handler) Resend(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusForbidden, response.CodeForbidden, "invitation belongs to a different org")
 		case ErrInvalidToken:
 			response.Error(w, http.StatusConflict, response.CodeConflict, "only pending invitations can be resent")
+		case ErrInvalidEmail:
+			response.Error(w, http.StatusConflict, response.CodeConflict, "invitation email is invalid")
 		default:
 			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to resend invitation")
 		}

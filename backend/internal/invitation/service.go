@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,7 @@ var (
 	ErrForbidden       = errors.New("invitation belongs to a different org")
 	ErrInvalidToken    = errors.New("invalid, expired, or already used invitation token")
 	ErrEmailExists     = errors.New("email already registered")
+	ErrInvalidEmail    = errors.New("invalid email")
 	ErrDuplicateInvite = errors.New("a pending invitation for this recipient already exists")
 	ErrInvitationSend  = errors.New("failed to send invitation")
 )
@@ -137,6 +139,12 @@ func generateToken() (string, error) {
 }
 
 func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appBaseURL string) (*InvitationResponse, error) {
+	email, err := auth.NormalizeEmail(p.Email)
+	if err != nil {
+		return nil, ErrInvalidEmail
+	}
+	fullName := strings.TrimSpace(p.FullName)
+
 	oid, err := uuid.Parse(orgID)
 	if err != nil {
 		return nil, ErrForbidden
@@ -163,8 +171,8 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 		OrgID:     oid,
 		SchemeID:  sid,
 		UnitID:    unitID,
-		Email:     p.Email,
-		FullName:  p.FullName,
+		Email:     email,
+		FullName:  fullName,
 		Role:      p.Role,
 		Token:     token,
 		ExpiresAt: expiresAt,
@@ -197,7 +205,7 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 	}
 
 	inviteURL := appBaseURL + "/auth/invite/" + token
-	if err := s.sender.SendInvitation(ctx, p.Email, p.FullName, inviteURL); err != nil {
+	if err := s.sender.SendInvitation(ctx, email, fullName, inviteURL); err != nil {
 		if revokeErr := s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
 			Status: "revoked",
 			ID:     inv.ID,
@@ -249,6 +257,11 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 	if existing.Status != "pending" {
 		return nil, ErrInvalidToken
 	}
+	email, err := auth.NormalizeEmail(existing.Email)
+	if err != nil {
+		return nil, ErrInvalidEmail
+	}
+	fullName := strings.TrimSpace(existing.FullName)
 
 	token, err := generateToken()
 	if err != nil {
@@ -256,7 +269,7 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 	}
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
 	inviteURL := appBaseURL + "/auth/invite/" + token
-	if err = s.sender.SendInvitation(ctx, existing.Email, existing.FullName, inviteURL); err != nil {
+	if err = s.sender.SendInvitation(ctx, email, fullName, inviteURL); err != nil {
 		return nil, err
 	}
 

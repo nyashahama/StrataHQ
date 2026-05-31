@@ -18,26 +18,45 @@ export default function AdminEarlyAccessPage() {
   const [requests, setRequests] = useState<EarlyAccessRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
   async function load() {
     setLoading(true)
-    const data = await listEarlyAccessRequests()
-    setRequests(data)
-    setLoading(false)
+    try {
+      const data = await listEarlyAccessRequests()
+      setRequests(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load early access requests')
+      setRequests([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [])
 
   async function handleApprove(id: string) {
+    setError('')
     setWorking(id)
-    await approveEarlyAccessRequest(id)
+    const result = await approveEarlyAccessRequest(id)
+    if ('error' in result) {
+      setError(result.error)
+      setWorking(null)
+      return
+    }
     await load()
     setWorking(null)
   }
 
   async function handleReject(id: string) {
+    setError('')
     setWorking(id)
-    await rejectEarlyAccessRequest(id)
+    const result = await rejectEarlyAccessRequest(id)
+    if ('error' in result) {
+      setError(result.error)
+      setWorking(null)
+      return
+    }
     await load()
     setWorking(null)
   }
@@ -52,6 +71,11 @@ export default function AdminEarlyAccessPage() {
         Early access requests
       </h1>
 
+      {error && (
+        <div className="text-sm text-rose mb-4" role="status">
+          {error}
+        </div>
+      )}
       {requests.length === 0 ? (
         <p className="text-sm text-muted">No requests yet.</p>
       ) : (

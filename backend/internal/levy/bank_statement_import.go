@@ -175,7 +175,7 @@ func parseFNBStatementCSV(data []byte) ([]ParsedBankStatementRow, error) {
 			return nil, fmt.Errorf("row %d: cannot parse amount %q", row.RowNumber, amountStr)
 		}
 		if floatVal <= 0 {
-			return nil, fmt.Errorf("row %d: amount %q is not a positive credit (debits are not supported)", row.RowNumber, amountStr)
+			continue
 		}
 		cents := int64(floatVal * 100)
 		row.AmountCents = cents
@@ -217,7 +217,7 @@ func matchBankStatementRow(row ParsedBankStatementRow, accounts []candidateLevyA
 			continue
 		}
 		refContainsUnit := strings.Contains(normalRef, normalUnit)
-		unitContainsRef := strings.Contains(normalUnit, normalRef)
+		unitContainsRef := normalRef != "" && strings.Contains(normalUnit, normalRef)
 		descContainsUnit := strings.Contains(normalDesc, normalUnit)
 		if refContainsUnit || descContainsUnit || unitContainsRef || strings.Contains(normalRef, unitUpper) || strings.Contains(normalDesc, unitUpper) {
 			candidates = append(candidates, acct)
@@ -514,10 +514,10 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 			return nil, ErrForbidden
 		}
 
-		paymentDate, parseErr := time.Parse("2006-01-02", match.PaymentDate)
-		if parseErr != nil {
+		if !row.TransactionDate.Valid {
 			return nil, ErrInvalidInput
 		}
+		paymentDate := row.TransactionDate.Time
 
 		var bankRef pgtype.Text
 		if match.BankRef != nil && *match.BankRef != "" {

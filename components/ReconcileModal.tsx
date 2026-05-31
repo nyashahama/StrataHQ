@@ -76,16 +76,30 @@ export default function ReconcileModal({
   }
 
   function handleConfirm() {
-    const payments = matches
-      .filter(m => m.account !== null)
-      .map((m, index) => ({
-        account_id: m.account!.id,
-        amount_cents: m.transaction.amount_cents,
-        payment_date: normalizeDate(m.transaction.date),
-        reference: buildReference(m.transaction.description, m.transaction.amount_cents, m.transaction.date, index),
-        bank_ref: m.transaction.description,
-      }))
-    onConfirm(payments)
+    setError(null)
+
+    try {
+      const payments = matches
+        .filter(m => m.account !== null)
+        .map((m, index) => {
+          const paymentDate = parseReconcileDate(m.transaction.date)
+
+          return {
+            account_id: m.account!.id,
+            amount_cents: m.transaction.amount_cents,
+            payment_date: paymentDate,
+            reference: buildReference(m.transaction.description, m.transaction.amount_cents, paymentDate, index),
+            bank_ref: m.transaction.description,
+          }
+        })
+      onConfirm(payments)
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : 'Could not confirm reconciliation because one or more dates are invalid.',
+      )
+    }
   }
 
   const summary = matches.length > 0 ? summariseMatches(matches) : null
@@ -365,10 +379,35 @@ export default function ReconcileModal({
   )
 }
 
-function normalizeDate(value: string): string {
-  const parsed = new Date(value)
+function parseReconcileDate(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    throw new Error('Transaction date is required for reconciliation payloads.')
+  }
+
+  const parseStrictDate = (year: number, month: number, day: number): string => {
+    const parsed = new Date(Date.UTC(year, month - 1, day))
+    if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() + 1 !== month || parsed.getUTCDate() !== day) {
+      throw new Error(`invalid transaction date: ${value}`)
+    }
+    return parsed.toISOString().slice(0, 10)
+  }
+
+  const ymdMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed)
+  if (ymdMatch) {
+    const [, year, month, day] = ymdMatch
+    return parseStrictDate(Number(year), Number(month), Number(day))
+  }
+
+  const dmyMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(trimmed)
+  if (dmyMatch) {
+    const [, day, month, year] = dmyMatch
+    return parseStrictDate(Number(year), Number(month), Number(day))
+  }
+
+  const parsed = new Date(trimmed)
   if (Number.isNaN(parsed.getTime())) {
-    return new Date().toISOString().slice(0, 10)
+    throw new Error(`invalid transaction date: ${value}`)
   }
   return parsed.toISOString().slice(0, 10)
 }
@@ -379,5 +418,5 @@ function buildReference(description: string, amountCents: number, date: string, 
     .replace(/[^A-Z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 72)
-  return `${normalizeDate(date)}-${amountCents}-${index + 1}-${slug}`
+  return `${date}-${amountCents}-${index + 1}-${slug}`
 }

@@ -239,6 +239,8 @@ function ThreadCard({ thread }: { thread: WhatsAppThread }) {
 
 function BroadcastCard({ broadcast }: { broadcast: WhatsAppBroadcast }) {
   const [expanded, setExpanded] = useState(false)
+  const deliveredCount = broadcast.delivered_recipient_count ?? broadcast.recipient_count
+  const failedCount = broadcast.failed_recipient_count ?? 0
 
   return (
     <div className="border-b border-border last:border-b-0">
@@ -255,9 +257,14 @@ function BroadcastCard({ broadcast }: { broadcast: WhatsAppBroadcast }) {
           </div>
           <p className="text-[13px] text-ink truncate">{broadcast.message.split('\n')[0]}</p>
           <p className="text-[11px] text-muted mt-0.5">
-            Sent to {broadcast.recipient_count} residents
+            Sent to {failedCount ? `${deliveredCount} of ` : ''}{broadcast.recipient_count} residents
             {broadcast.sent_by_name ? ` by ${broadcast.sent_by_name}` : ''}
           </p>
+          {failedCount > 0 && (
+            <p className="text-[11px] text-amber mt-0.5">
+              Delivery failed for {failedCount} resident{failedCount === 1 ? '' : 's'}
+            </p>
+          )}
         </div>
         <span className={`text-muted text-[12px] flex-shrink-0 mt-1 transition-transform ${expanded ? 'rotate-180' : ''}`}>
           ▼
@@ -299,11 +306,18 @@ function OperatorView({
         message: broadcastText.trim(),
         type: broadcastType,
       })
+      const deliveredCount = created.delivered_recipient_count ?? created.recipient_count
+      const failedCount = created.failed_recipient_count ?? 0
       setBroadcastOpen(false)
       setBroadcastText('')
       setBroadcastType('general')
       await onReload()
-      addToast(`WhatsApp broadcast sent to ${created.recipient_count} connected residents.`, 'success')
+      if (failedCount > 0) {
+        addToast(`WhatsApp broadcast sent to ${deliveredCount} of ${created.recipient_count} connected residents.`, 'success')
+        addToast(`Delivery to ${failedCount} resident${failedCount === 1 ? '' : 's'} failed.`, 'info')
+      } else {
+        addToast(`WhatsApp broadcast sent to ${created.recipient_count} connected residents.`, 'success')
+      }
     } catch (error) {
       addToast(
         error instanceof Error ? error.message : 'Failed to send WhatsApp broadcast',

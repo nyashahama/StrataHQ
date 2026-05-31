@@ -27,6 +27,8 @@ export interface WhatsAppBroadcast {
   sent_at: string        // ISO timestamp
   sent_by: string
   recipient_count: number
+  delivered_recipient_count?: number
+  failed_recipient_count?: number
   message: string
   type: 'levy' | 'agm' | 'maintenance' | 'general'
 }

@@ -53,6 +53,8 @@ export interface WhatsAppBroadcast {
   type: WhatsAppBroadcastType;
   sent_at: string;
   recipient_count: number;
+  delivered_recipient_count?: number;
+  failed_recipient_count?: number;
 }
 
 export interface WhatsAppDashboard {

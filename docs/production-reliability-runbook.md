@@ -16,8 +16,8 @@ docker run --rm -i \
   -v "$PWD:/work" \
   grafana/k6 run \
     -e BASE_URL=http://localhost:8080 \
-    -e TEST_EMAIL=demo@stratahq.com \
-    -e TEST_PASSWORD=Demo2024! \
+    -e TEST_EMAIL=agent@demo.stratahq.test \
+    -e TEST_PASSWORD=${SEED_DEMO_PASSWORD} \
     -e LOAD_VUS=10 \
     -e LOAD_DURATION=2m \
     /work/backend/tests/load/auth-and-dashboard.js
@@ -58,14 +58,15 @@ It exercises:
 2. Test credentials must exist in the database:
    ```bash
    # From backend directory
-   make seed  # creates demo@stratahq.com with password Demo2024!
+   SEED_DEMO_PASSWORD='StrataDemo!2026' make seed  # creates agent@demo.stratahq.test by default
    ```
 
 3. Set environment variables:
    ```bash
-   export BASE_URL=http://localhost:8080
-   export TEST_EMAIL=demo@stratahq.com
-   export TEST_PASSWORD=Demo2024!
+export BASE_URL=http://localhost:8080
+export SEED_DEMO_PASSWORD='StrataDemo!2026'
+export TEST_EMAIL=agent@demo.stratahq.test
+export TEST_PASSWORD=$SEED_DEMO_PASSWORD
    ```
 
 #### Execute Load Tests

@@ -3,6 +3,7 @@ package compliance
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -205,7 +206,13 @@ func (s *Service) CreateItem(ctx context.Context, identity auth.Identity, scheme
 	if auth.IsResidentRole(role) {
 		return nil, ErrForbidden
 	}
-	if !validCategory(input.Category) || input.Title == "" {
+
+	input.Category = strings.TrimSpace(input.Category)
+	input.Title = strings.TrimSpace(input.Title)
+	input.Requirement = strings.TrimSpace(input.Requirement)
+	input.Detail = strings.TrimSpace(input.Detail)
+	input.Action = strings.TrimSpace(input.Action)
+	if !validCategory(input.Category) || input.Title == "" || input.Requirement == "" || input.Detail == "" || input.Action == "" {
 		return nil, ErrInvalidInput
 	}
 
@@ -344,11 +351,11 @@ func (s *Service) Assess(ctx context.Context, identity auth.Identity, schemeID s
 	}
 
 	_, _ = s.db.Q.CreateComplianceAssessment(ctx, dbgen.CreateComplianceAssessmentParams{
-		SchemeID:         scheme.ID,
-		Score:            int32(dashboard.Score),
-		TotalItems:       int32(dashboard.Total),
-		CompliantCount:   int32(dashboard.CompliantCount),
-		AtRiskCount:      int32(dashboard.AtRiskCount),
+		SchemeID:          scheme.ID,
+		Score:             int32(dashboard.Score),
+		TotalItems:        int32(dashboard.Total),
+		CompliantCount:    int32(dashboard.CompliantCount),
+		AtRiskCount:       int32(dashboard.AtRiskCount),
 		NonCompliantCount: int32(dashboard.NonCompliantCount),
 	})
 

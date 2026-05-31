@@ -338,6 +338,12 @@ func (s *Service) Resolve(ctx context.Context, identity auth.Identity, schemeID,
 	if request.SchemeID != access.scheme.ID {
 		return nil, ErrForbidden
 	}
+	if request.Status != dbgen.MaintenanceStatusInProgress {
+		if request.Status == dbgen.MaintenanceStatusResolved {
+			return s.enrichRequest(ctx, request)
+		}
+		return nil, ErrInvalidInput
+	}
 
 	beforeInfo, err := s.enrichRequest(ctx, request)
 	if err != nil {

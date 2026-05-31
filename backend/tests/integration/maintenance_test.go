@@ -192,3 +192,67 @@ func TestMaintenance_AssignsContractorProfile(t *testing.T) {
 		t.Fatalf("contractor name not copied: %+v", assigned)
 	}
 }
+
+func TestMaintenance_ResolveRequiresInProgressState(t *testing.T) {
+	h := newMaintenanceHandler(t)
+	accessToken, orgID := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+
+	adminCreateBody, _ := json.Marshal(map[string]any{
+		"title":       "Front gate not locking",
+		"description": "The gate latch no longer engages on closing.",
+		"category":    "electrical",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID, bytes.NewReader(adminCreateBody))
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w := httptest.NewRecorder()
+	h.Create(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("admin create: status=%d body=%s", w.Code, w.Body)
+	}
+	open := decodeSuccess[maintenance.RequestInfo](t, w)
+	if open.Status != "open" {
+		t.Fatalf("expected open status, got %q", open.Status)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID+"/"+open.ID+"/resolve", nil)
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID, "id": open.ID})
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.Resolve(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("resolving open request: status=%d body=%s", w.Code, w.Body)
+	}
+
+	unitID := createUnitRecord(t, schemeID, "12A")
+	residentEmail := uniqueEmail(t)
+	residentID := createMemberRecord(t, orgID, schemeID, residentEmail, "Resident User", string(auth.RoleResident), &unitID)
+	trusteeID := createMemberRecord(t, orgID, schemeID, uniqueEmail(t), "Trustee User", string(auth.RoleTrustee), nil)
+	residentCreateBody, _ := json.Marshal(map[string]any{
+		"title":       "Kitchen light flickering",
+		"description": "Emergency light flickers when switched on.",
+		"category":    "electrical",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID, bytes.NewReader(residentCreateBody))
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), residentID, orgID, string(auth.RoleResident)))
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	w = httptest.NewRecorder()
+	h.Create(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("resident create: status=%d body=%s", w.Code, w.Body)
+	}
+	pending := decodeSuccess[maintenance.RequestInfo](t, w)
+	if pending.Status != "pending_approval" {
+		t.Fatalf("expected pending_approval status, got %q", pending.Status)
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/maintenance/"+schemeID+"/"+pending.ID+"/resolve", nil)
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), trusteeID, orgID, string(auth.RoleTrustee)))
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID, "id": pending.ID})
+	w = httptest.NewRecorder()
+	h.Resolve(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("resolving pending_approval request: status=%d body=%s", w.Code, w.Body)
+	}
+}

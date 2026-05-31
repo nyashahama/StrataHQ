@@ -58,6 +58,10 @@ type BroadcastInfo struct {
 	Message        string    `json:"message"`
 	Type           string    `json:"type"`
 	RecipientCount int       `json:"recipient_count"`
+	// DeliveredRecipientCount is the number of connected threads that were sent successfully.
+	DeliveredRecipientCount int `json:"delivered_recipient_count"`
+	// FailedRecipientCount is the number of connected threads that did not deliver successfully.
+	FailedRecipientCount int `json:"failed_recipient_count"`
 }
 
 //nolint:govet // Keep response DTO fields grouped by meaning rather than field packing.
@@ -288,6 +292,7 @@ func (s *Service) CreateBroadcast(ctx context.Context, identity auth.Identity, s
 
 	now := created.SentAt
 	sendErrors := 0
+	deliveredRecipientCount := 0
 	for _, row := range threadRows {
 		if !row.Connected {
 			continue
@@ -315,7 +320,11 @@ func (s *Service) CreateBroadcast(ctx context.Context, identity auth.Identity, s
 			if err := s.sender.SendWhatsAppMessage(row.PhoneNumber.String, message); err != nil {
 				s.logger.Error("failed to send WhatsApp broadcast", "phone", row.PhoneNumber.String, "error", err)
 				sendErrors++
+			} else {
+				deliveredRecipientCount++
 			}
+		} else {
+			sendErrors++
 		}
 	}
 
@@ -349,6 +358,8 @@ func (s *Service) CreateBroadcast(ctx context.Context, identity auth.Identity, s
 		Type:           string(created.Type),
 		SentAt:         created.SentAt,
 		RecipientCount: int(created.RecipientCount),
+		DeliveredRecipientCount: deliveredRecipientCount,
+		FailedRecipientCount:    sendErrors,
 	}, nil
 }
 

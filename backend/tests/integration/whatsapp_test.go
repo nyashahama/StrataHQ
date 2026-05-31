@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -20,10 +21,28 @@ import (
 	"github.com/stratahq/backend/internal/whatsapp"
 )
 
-func newWhatsAppHandler(t *testing.T) *whatsapp.Handler {
+type scriptedWhatsAppSender struct {
+	failOnNth int
+	failErr   error
+	calls     int
+}
+
+func (s *scriptedWhatsAppSender) SendWhatsAppMessage(to, body string) error {
+	s.calls++
+	if s.failOnNth > 0 && s.calls == s.failOnNth {
+		return s.failErr
+	}
+	return nil
+}
+
+func newWhatsAppHandlerWithSender(t *testing.T, sender whatsapp.MessageSender) *whatsapp.Handler {
 	t.Helper()
-	service := whatsapp.NewService(testPool, whatsapp.NewNoOpSender(), slog.Default())
+	service := whatsapp.NewService(testPool, sender, slog.Default())
 	return whatsapp.NewHandler(service)
+}
+
+func newWhatsAppHandler(t *testing.T) *whatsapp.Handler {
+	return newWhatsAppHandlerWithSender(t, whatsapp.NewNoOpSender())
 }
 
 func TestWhatsAppDashboardAndBroadcast(t *testing.T) {
@@ -129,6 +148,9 @@ func TestWhatsAppDashboardAndBroadcast(t *testing.T) {
 	if created.Type != "agm" || created.RecipientCount != 1 {
 		t.Fatalf("unexpected whatsapp broadcast: %+v", created)
 	}
+	if created.DeliveredRecipientCount != 1 || created.FailedRecipientCount != 0 {
+		t.Fatalf("unexpected whatsapp broadcast: %+v", created)
+	}
 
 	req = httptest.NewRequest(http.MethodGet, "/whatsapp/"+schemeID, nil)
 	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
@@ -151,9 +173,79 @@ func TestWhatsAppDashboardAndBroadcast(t *testing.T) {
 	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
 	req = req.WithContext(auth.ContextWithIdentity(req.Context(), residentUserID, orgID, string(auth.RoleResident)))
 	w = httptest.NewRecorder()
-	h.CreateBroadcast(w, req)
+		h.CreateBroadcast(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("resident create broadcast should be forbidden: status=%d body=%s", w.Code, w.Body)
+	}
+}
+
+func TestWhatsAppBroadcastReportsFailedRecipients(t *testing.T) {
+	h := newWhatsAppHandlerWithSender(t, &scriptedWhatsAppSender{
+		failOnNth: 1,
+		failErr:   errors.New("whatsapp provider unavailable"),
+	})
+
+	accessToken, orgID := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+
+	unitResidentID := createUnitRecord(t, schemeID, "7A")
+	unitOtherID := createUnitRecord(t, schemeID, "9B")
+	trusteeEmail := uniqueEmail(t)
+	trusteeUserID := createMemberRecord(t, orgID, schemeID, trusteeEmail, "Trustee User", string(auth.RoleTrustee), nil)
+
+	schemeUUID := mustParseUUID(schemeID)
+	residentUnitUUID := mustParseUUID(unitResidentID)
+	otherUnitUUID := mustParseUUID(unitOtherID)
+	now := time.Now().UTC()
+
+	if _, err := testQ.CreateWhatsAppThread(t.Context(), dbgen.CreateWhatsAppThreadParams{
+		SchemeID:       schemeUUID,
+		UnitID:         residentUnitUUID,
+		ResidentUserID: pgtype.UUID{},
+		PhoneNumber:    pgtype.Text{String: "+27715550404", Valid: true},
+		Connected:      true,
+		ConsentedAt:    pgtype.Timestamptz{Time: now.Add(-24 * time.Hour), Valid: true},
+		UnreadCount:    0,
+		LastActiveAt:   now,
+	}); err != nil {
+		t.Fatalf("create connected thread 1: %v", err)
+	}
+
+	if _, err := testQ.CreateWhatsAppThread(t.Context(), dbgen.CreateWhatsAppThreadParams{
+		SchemeID:       schemeUUID,
+		UnitID:         otherUnitUUID,
+		ResidentUserID: pgtype.UUID{},
+		PhoneNumber:    pgtype.Text{String: "+27715550405", Valid: true},
+		Connected:      true,
+		ConsentedAt:    pgtype.Timestamptz{Time: now.Add(-24 * time.Hour), Valid: true},
+		UnreadCount:    0,
+		LastActiveAt:   now.Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("create connected thread 2: %v", err)
+	}
+
+	reqBody, _ := json.Marshal(map[string]any{
+		"message": "AGM reminder with provider failure",
+		"type":    "agm",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/whatsapp/"+schemeID+"/broadcasts", bytes.NewReader(reqBody))
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), trusteeUserID, orgID, string(auth.RoleTrustee)))
+	w := httptest.NewRecorder()
+	h.CreateBroadcast(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("trustee create whatsapp broadcast with failed sends: status=%d body=%s", w.Code, w.Body)
+	}
+
+	created := decodeSuccess[whatsapp.BroadcastInfo](t, w)
+	if created.RecipientCount != 2 {
+		t.Fatalf("expected recipient count 2, got %d: %+v", created.RecipientCount, created)
+	}
+	if created.DeliveredRecipientCount != 1 {
+		t.Fatalf("expected 1 delivered recipient, got %d: %+v", created.DeliveredRecipientCount, created)
+	}
+	if created.FailedRecipientCount != 1 {
+		t.Fatalf("expected 1 failed recipient, got %d: %+v", created.FailedRecipientCount, created)
 	}
 }
 

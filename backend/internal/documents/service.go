@@ -153,6 +153,8 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, schemeID s
 		switch dbgen.DocumentVisibility(input.Visibility) {
 		case dbgen.DocumentVisibilityAll, dbgen.DocumentVisibilityTrustee, dbgen.DocumentVisibilityAdmin:
 			visibility = dbgen.DocumentVisibility(input.Visibility)
+		default:
+			return nil, ErrInvalidInput
 		}
 	}
 

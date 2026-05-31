@@ -22,9 +22,11 @@ import (
 
 type fakeCompleter struct {
 	lastSystem string
+	calls      int
 }
 
 func (f *fakeCompleter) Complete(ctx context.Context, systemPrompt string, history []ai.Message, message string) (string, error) {
+	f.calls++
 	f.lastSystem = systemPrompt
 	return "AI response for: " + message, nil
 }
@@ -127,6 +129,49 @@ func TestAI_CopilotUsesRealSchemeContext(t *testing.T) {
 	h.Copilot(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("resident copilot should be forbidden: status=%d body=%s", w.Code, w.Body)
+	}
+}
+
+func TestAI_CopilotRejectsBlankRequiredFields(t *testing.T) {
+	completer := &fakeCompleter{}
+	h := newAIHandler(t, completer)
+	accessToken, _ := setupAgent(t)
+
+	tests := []struct {
+		name string
+		body map[string]any
+	}{
+		{
+			name: "blank scheme id",
+			body: map[string]any{
+				"scheme_id": "  ",
+				"message":   "Summarise this scheme",
+			},
+		},
+		{
+			name: "blank message",
+			body: map[string]any{
+				"scheme_id": uuid.NewString(),
+				"message":   "  ",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body, _ := json.Marshal(tt.body)
+			req := httptest.NewRequest(http.MethodPost, "/ai/copilot", bytes.NewReader(body))
+			req = withAuthContext(req, accessToken, testJWTSigningKey)
+			w := httptest.NewRecorder()
+			h.Copilot(w, req)
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("copilot validation: status=%d body=%s, want 400", w.Code, w.Body)
+			}
+		})
+	}
+
+	if completer.calls != 0 {
+		t.Fatalf("completer called %d times for invalid requests, want 0", completer.calls)
 	}
 }
 

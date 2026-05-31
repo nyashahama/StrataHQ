@@ -176,6 +176,19 @@ func mustParseUUID(value string) uuid.UUID {
 	return id
 }
 
+type failFirstWhatsAppJobQueue struct {
+	delegate           *jobs.Service
+	failedWhatsAppOnce bool
+}
+
+func (q *failFirstWhatsAppJobQueue) Enqueue(ctx context.Context, input jobs.EnqueueInput) (dbgen.BackgroundJob, error) {
+	if input.Kind == jobs.KindCollectionReminderWhatsApp && !q.failedWhatsAppOnce {
+		q.failedWhatsAppOnce = true
+		return dbgen.BackgroundJob{}, errors.New("whatsapp enqueue unavailable")
+	}
+	return q.delegate.Enqueue(ctx, input)
+}
+
 func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 	ctx := context.Background()
 	accessToken, orgID := setupAgent(t)
@@ -275,7 +288,7 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 		SELECT max_attempts
 		FROM background_jobs
 		WHERE kind = $1 AND idempotency_key = $2
-	`, jobs.KindCollectionReminderEmail, event.ID+":email").Scan(&emailAttempts); err != nil {
+	`, jobs.KindCollectionReminderEmail, accountID.String()+":reminder_email").Scan(&emailAttempts); err != nil {
 		t.Fatalf("get email job: %v", err)
 	}
 	var whatsappAttempts int32
@@ -283,11 +296,124 @@ func TestSendReminderRecordsQueuedEventAndEnqueuesJobs(t *testing.T) {
 		SELECT max_attempts
 		FROM background_jobs
 		WHERE kind = $1 AND idempotency_key = $2
-	`, jobs.KindCollectionReminderWhatsApp, event.ID+":whatsapp").Scan(&whatsappAttempts); err != nil {
+	`, jobs.KindCollectionReminderWhatsApp, accountID.String()+":reminder_whatsapp").Scan(&whatsappAttempts); err != nil {
 		t.Fatalf("get whatsapp job: %v", err)
 	}
 	if emailAttempts != 3 || whatsappAttempts != 3 {
 		t.Fatalf("max attempts = email:%d whatsapp:%d, want 3", emailAttempts, whatsappAttempts)
+	}
+}
+
+func TestSendReminderRetryAfterWhatsAppEnqueueFailureDoesNotDuplicateEmailJob(t *testing.T) {
+	ctx := context.Background()
+	accessToken, orgID := setupAgent(t)
+	claims, err := auth.ValidateAccessToken(accessToken, testJWTSigningKey, "", "")
+	if err != nil {
+		t.Fatalf("validate access token: %v", err)
+	}
+	identity := auth.Identity{UserID: claims.Subject, OrgID: orgID, Role: claims.Role}
+	schemeID := setupScheme(t, accessToken)
+	schemeUUID := mustParseUUID(schemeID)
+
+	unit, err := testQ.CreateUnit(ctx, createUnitParams(schemeID, "9F", "Partial Failure Owner"))
+	if err != nil {
+		t.Fatalf("create reminder unit: %v", err)
+	}
+	owner, err := testQ.CreateUser(ctx, dbgen.CreateUserParams{
+		Email:        uniqueEmail(t),
+		PasswordHash: "test-hash",
+		FullName:     "Partial Failure Owner",
+	})
+	if err != nil {
+		t.Fatalf("create owner user: %v", err)
+	}
+	if _, err := testQ.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+		UserID:   owner.ID,
+		SchemeID: schemeUUID,
+		UnitID:   pgtype.UUID{Bytes: unit.ID, Valid: true},
+		Role:     string(auth.RoleOwner),
+	}); err != nil {
+		t.Fatalf("create owner scheme membership: %v", err)
+	}
+	if _, err := testQ.CreateWhatsAppThread(ctx, dbgen.CreateWhatsAppThreadParams{
+		SchemeID:       schemeUUID,
+		UnitID:         unit.ID,
+		ResidentUserID: pgtype.UUID{Bytes: owner.ID, Valid: true},
+		PhoneNumber:    pgtype.Text{String: "+27715550124", Valid: true},
+		Connected:      true,
+		ConsentedAt:    pgtype.Timestamptz{Time: time.Now().UTC().Add(-24 * time.Hour), Valid: true},
+		UnreadCount:    0,
+		LastActiveAt:   time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("create whatsapp thread: %v", err)
+	}
+
+	jobQueue := &failFirstWhatsAppJobQueue{
+		delegate: jobs.NewService(testQ, jobs.Registry{}, nil, jobs.RealClock{}, jobs.Config{WorkerID: "integration-partial-failure"}),
+	}
+	service := levy.NewServiceWithAuditAndJobs(testPool, &notification.NoopSender{}, whatsapp.NewNoOpSender(), nil, jobQueue)
+	_, err = service.CreatePeriod(ctx, identity, schemeID, levy.CreatePeriodInput{
+		Label:       "Partial Failure Reminder Test",
+		AmountCents: 245000,
+		DueDate:     time.Now().UTC().AddDate(0, 0, -1),
+	})
+	if err != nil {
+		t.Fatalf("create levy period: %v", err)
+	}
+
+	accounts, err := testQ.ListAttentionAccountsByScheme(ctx, schemeUUID)
+	if err != nil {
+		t.Fatalf("list attention accounts: %v", err)
+	}
+	var accountID uuid.UUID
+	for _, account := range accounts {
+		if account.UnitID == unit.ID {
+			accountID = account.LevyAccountID
+			break
+		}
+	}
+	if accountID == uuid.Nil {
+		t.Fatalf("expected reminder unit in attention accounts: %+v", accounts)
+	}
+
+	input := levy.SendReminderInput{
+		Email:    levy.ReminderChannelInput{Enabled: true, Subject: "Reminder subject", Body: "Email body"},
+		WhatsApp: levy.ReminderChannelInput{Enabled: true, Body: "WhatsApp body"},
+	}
+	firstEvent, err := service.SendReminder(ctx, identity, schemeID, accountID.String(), input)
+	if err != nil {
+		t.Fatalf("send reminder with partial failure: %v", err)
+	}
+	storedFirst, err := testQ.GetCollectionEventByID(ctx, mustParseUUID(firstEvent.ID))
+	if err != nil {
+		t.Fatalf("get first collection event: %v", err)
+	}
+	if storedFirst.EmailStatus.String != "queued" || storedFirst.WhatsappStatus.String != "failed" {
+		t.Fatalf("first delivery statuses = email:%+v whatsapp:%+v, want email queued and whatsapp failed", storedFirst.EmailStatus, storedFirst.WhatsappStatus)
+	}
+
+	if _, err := service.SendReminder(ctx, identity, schemeID, accountID.String(), input); err != nil {
+		t.Fatalf("retry send reminder: %v", err)
+	}
+
+	var emailJobs int
+	if err := testPool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM background_jobs
+		WHERE kind = $1 AND idempotency_key = $2
+	`, jobs.KindCollectionReminderEmail, accountID.String()+":reminder_email").Scan(&emailJobs); err != nil {
+		t.Fatalf("count email jobs: %v", err)
+	}
+	var whatsappJobs int
+	if err := testPool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM background_jobs
+		WHERE kind = $1 AND idempotency_key = $2
+	`, jobs.KindCollectionReminderWhatsApp, accountID.String()+":reminder_whatsapp").Scan(&whatsappJobs); err != nil {
+		t.Fatalf("count whatsapp jobs: %v", err)
+	}
+	if emailJobs != 1 || whatsappJobs != 1 {
+		t.Fatalf("queued job counts = email:%d whatsapp:%d, want one job per channel after retry", emailJobs, whatsappJobs)
 	}
 }
 

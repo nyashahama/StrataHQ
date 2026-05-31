@@ -3,6 +3,7 @@ package integrations
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -424,6 +425,10 @@ func (s *Service) ListOpenAPILevyAccounts(ctx context.Context, schemeID string, 
 	}
 	var status pgtype.Text
 	if filters.Status != "" {
+		filters.Status = strings.TrimSpace(filters.Status)
+		if !validOpenAPILevyAccountStatus(filters.Status) {
+			return nil, 0, ErrInvalidInput
+		}
 		status = pgtype.Text{String: filters.Status, Valid: true}
 	}
 	var updatedSince pgtype.Timestamptz
@@ -472,6 +477,15 @@ func (s *Service) ListOpenAPILevyAccounts(ctx context.Context, schemeID string, 
 		})
 	}
 	return result, int(total), nil
+}
+
+func validOpenAPILevyAccountStatus(status string) bool {
+	switch status {
+	case "paid", "partial", "overdue", "pending":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Service) ListOpenAPILevyPayments(ctx context.Context, schemeID string, filters OpenAPILevyPaymentFilters) ([]OpenAPILevyPaymentInfo, int, error) {

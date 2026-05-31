@@ -137,7 +137,8 @@
             "name": "status",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": ["paid", "partial", "overdue", "pending"]
             }
           },
           {

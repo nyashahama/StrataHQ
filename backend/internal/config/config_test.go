@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -154,6 +155,33 @@ func TestLoad_MissingRequired(t *testing.T) {
 	_, err := Load()
 	if err == nil {
 		t.Fatal("expected error for missing required fields, got nil")
+	}
+}
+
+func TestLoad_WhitespaceOnlyRequired(t *testing.T) {
+	required := map[string]string{
+		"DATABASE_URL":   "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":      "redis://localhost:6379",
+		"JWT_SECRET":     "test-secret-that-is-long-enough-32ch",
+		"RESEND_API_KEY": "re_123",
+		"AI_BASE_URL":    "https://api.deepseek.com/v1",
+		"AI_API_KEY":     "sk-ai-123",
+		"AI_MODEL":       "deepseek-chat",
+		"APP_BASE_URL":   "http://localhost:3000",
+	}
+
+	for k, v := range required {
+		os.Setenv(k, v)
+		defer os.Unsetenv(k)
+	}
+
+	os.Setenv("DATABASE_URL", "   ")
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for whitespace-only required field, got nil")
+	}
+	if !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("error = %q, want DATABASE_URL", err)
 	}
 }
 

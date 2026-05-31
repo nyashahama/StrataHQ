@@ -103,6 +103,10 @@ func (h *Handler) Approve(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, response.CodeNotFound, "request not found")
 			return
 		}
+		if err == ErrAlreadyReviewed {
+			response.Error(w, http.StatusConflict, response.CodeConflict, "request already reviewed")
+			return
+		}
 		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to approve request")
 		return
 	}
@@ -124,6 +128,10 @@ func (h *Handler) Reject(w http.ResponseWriter, r *http.Request) {
 		}
 		if err == ErrNotFound {
 			response.Error(w, http.StatusNotFound, response.CodeNotFound, "request not found")
+			return
+		}
+		if err == ErrAlreadyReviewed {
+			response.Error(w, http.StatusConflict, response.CodeConflict, "request already reviewed")
 			return
 		}
 		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to reject request")
@@ -173,6 +181,8 @@ func (h *Handler) ApproveWithToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == ErrInvalidToken {
 			writeHTML(w, http.StatusUnauthorized, messagePage("Link expired", "This approve link is invalid or has expired."))
+		} else if err == ErrAlreadyReviewed {
+			writeHTML(w, http.StatusConflict, messagePage("Already reviewed", "This early access request has already been reviewed."))
 		} else if err == ErrNotFound {
 			writeHTML(w, http.StatusNotFound, messagePage("Not found", "This request no longer exists."))
 		} else {
@@ -208,6 +218,8 @@ func (h *Handler) RejectWithToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == ErrInvalidToken {
 			writeHTML(w, http.StatusUnauthorized, messagePage("Link expired", "This reject link is invalid or has expired."))
+		} else if err == ErrAlreadyReviewed {
+			writeHTML(w, http.StatusConflict, messagePage("Already reviewed", "This early access request has already been reviewed."))
 		} else if err == ErrNotFound {
 			writeHTML(w, http.StatusNotFound, messagePage("Not found", "This request no longer exists."))
 		} else {

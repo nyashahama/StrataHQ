@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,61 @@ import (
 	"github.com/stratahq/backend/internal/earlyaccess"
 	"github.com/stratahq/backend/internal/notification"
 )
+
+type fakeEarlyAccessAuthService struct {
+	registerCalls int
+	resetURLCalls int
+}
+
+func (f *fakeEarlyAccessAuthService) Register(_ context.Context, _, _, _ string) (*auth.AuthResponse, error) {
+	f.registerCalls++
+	return &auth.AuthResponse{}, nil
+}
+
+func (f *fakeEarlyAccessAuthService) IssuePasswordResetURL(_ context.Context, _, _ string) (string, error) {
+	f.resetURLCalls++
+	return "http://localhost:3000/auth/reset-password?token=test-token", nil
+}
+
+func (f *fakeEarlyAccessAuthService) Login(context.Context, string, string) (*auth.AuthResponse, error) {
+	return nil, errors.New("unexpected Login call")
+}
+
+func (f *fakeEarlyAccessAuthService) Refresh(context.Context, string) (*auth.RefreshResponse, error) {
+	return nil, errors.New("unexpected Refresh call")
+}
+
+func (f *fakeEarlyAccessAuthService) Logout(context.Context, string) error {
+	return errors.New("unexpected Logout call")
+}
+
+func (f *fakeEarlyAccessAuthService) Me(context.Context, string, string) (*auth.MeResponse, error) {
+	return nil, errors.New("unexpected Me call")
+}
+
+func (f *fakeEarlyAccessAuthService) Setup(context.Context, string, string, string, string, string, int32) (*auth.SetupResponse, error) {
+	return nil, errors.New("unexpected Setup call")
+}
+
+func (f *fakeEarlyAccessAuthService) ForgotPassword(context.Context, string) error {
+	return errors.New("unexpected ForgotPassword call")
+}
+
+func (f *fakeEarlyAccessAuthService) ResetPassword(context.Context, string, string) error {
+	return errors.New("unexpected ResetPassword call")
+}
+
+func (f *fakeEarlyAccessAuthService) UpdateProfile(context.Context, string, string, string, string, *string) (*auth.MeResponse, error) {
+	return nil, errors.New("unexpected UpdateProfile call")
+}
+
+func (f *fakeEarlyAccessAuthService) UpdateOrg(context.Context, string, string, *string, *string) (*auth.OrgInfo, error) {
+	return nil, errors.New("unexpected UpdateOrg call")
+}
+
+func (f *fakeEarlyAccessAuthService) ChangePassword(context.Context, string, string, string) error {
+	return errors.New("unexpected ChangePassword call")
+}
 
 func newEarlyAccessHandler(t *testing.T, adminEmail, adminSecret string) *earlyaccess.Handler {
 	t.Helper()
@@ -148,8 +204,66 @@ func TestEarlyAccess_SignedApprovalPostApprovesOnce(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, url, nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("second POST status=%d body=%s, want 401", w.Code, w.Body.String())
+	if w.Code != http.StatusConflict {
+		t.Fatalf("second POST status=%d body=%s, want 409", w.Code, w.Body.String())
+	}
+}
+
+func TestEarlyAccess_ProtectedReviewActionsOnlyTransitionPendingRequests(t *testing.T) {
+	adminEmail := uniqueEmail(t)
+	adminUser, err := testQ.CreateUser(t.Context(), dbgen.CreateUserParams{
+		Email:        adminEmail,
+		PasswordHash: "test-hash",
+		FullName:     "Platform Admin",
+	})
+	if err != nil {
+		t.Fatalf("create platform admin: %v", err)
+	}
+
+	authSvc := &fakeEarlyAccessAuthService{}
+	sender := &notification.NoopSender{}
+	svc := earlyaccess.NewService(
+		testQ,
+		authSvc,
+		sender,
+		"http://localhost:8080",
+		"http://localhost:3000",
+		adminEmail,
+		"platform-secret",
+	)
+	h := earlyaccess.NewHandler(svc)
+
+	requestID := createEarlyAccessRequest(t)
+	req := httptest.NewRequest(http.MethodPost, "/"+requestID+"/approve", nil)
+	req = withRouteParams(req, map[string]string{"id": requestID})
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), adminUser.ID.String(), uuid.NewString(), string(auth.RoleAdmin)))
+	w := httptest.NewRecorder()
+
+	h.Approve(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("first approve status=%d body=%s, want 200", w.Code, w.Body.String())
+	}
+	if got := loadEarlyAccessStatus(t, requestID); got != "approved" {
+		t.Fatalf("status after approve=%s, want approved", got)
+	}
+	if authSvc.registerCalls != 1 || authSvc.resetURLCalls != 1 || len(sender.InvitationsSent) != 1 {
+		t.Fatalf("approval side effects register=%d resetURL=%d emails=%d, want 1 each", authSvc.registerCalls, authSvc.resetURLCalls, len(sender.InvitationsSent))
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/"+requestID+"/reject", nil)
+	req = withRouteParams(req, map[string]string{"id": requestID})
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), adminUser.ID.String(), uuid.NewString(), string(auth.RoleAdmin)))
+	w = httptest.NewRecorder()
+
+	h.Reject(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("stale reject status=%d body=%s, want 409", w.Code, w.Body.String())
+	}
+	if got := loadEarlyAccessStatus(t, requestID); got != "approved" {
+		t.Fatalf("status after stale reject=%s, want approved", got)
+	}
+	if authSvc.registerCalls != 1 || authSvc.resetURLCalls != 1 || len(sender.InvitationsSent) != 1 {
+		t.Fatalf("stale review should not repeat approval side effects register=%d resetURL=%d emails=%d", authSvc.registerCalls, authSvc.resetURLCalls, len(sender.InvitationsSent))
 	}
 }
 

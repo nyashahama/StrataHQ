@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -284,5 +285,52 @@ func TestEarlyAccess_SignedApprovalRejectsEmptyAdminSecret(t *testing.T) {
 	}
 	if got := loadEarlyAccessStatus(t, requestID); got != "pending" {
 		t.Fatalf("status after empty-secret POST=%s, want pending", got)
+	}
+}
+
+func TestEarlyAccess_SubmitReturnsExistingPendingRequestOnDuplicateEmail(t *testing.T) {
+	h := newEarlyAccessHandler(t, "platform-admin@test.example.com", "platform-secret")
+	router := h.PublicRoutes()
+
+	email := uniqueEmail(t)
+	body := `{"full_name":"Person Example","email":"` + email + `","scheme_name":"Green View Estate","unit_count":12}`
+
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	first := httptest.NewRecorder()
+	router.ServeHTTP(first, req)
+	if first.Code != http.StatusCreated {
+		t.Fatalf("first submit status=%d body=%s, want 201", first.Code, first.Body.String())
+	}
+	firstResp := decodeSuccess[earlyaccess.RequestResponse](t, first)
+
+	req = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	second := httptest.NewRecorder()
+	router.ServeHTTP(second, req)
+	if second.Code != http.StatusCreated {
+		t.Fatalf("second submit status=%d body=%s, want 201", second.Code, second.Body.String())
+	}
+	secondResp := decodeSuccess[earlyaccess.RequestResponse](t, second)
+
+	if firstResp.ID != secondResp.ID {
+		t.Fatalf("expected duplicate submission to return same request id, got %q and %q", firstResp.ID, secondResp.ID)
+	}
+	if firstResp.Status != "pending" || secondResp.Status != "pending" {
+		t.Fatalf("expected pending statuses, got %q and %q", firstResp.Status, secondResp.Status)
+	}
+
+	rows, err := testQ.ListEarlyAccessRequests(context.Background())
+	if err != nil {
+		t.Fatalf("ListEarlyAccessRequests: %v", err)
+	}
+	pendingCount := 0
+	for _, row := range rows {
+		if row.Email == email && row.Status == dbgen.EarlyAccessStatusPending {
+			pendingCount++
+		}
+	}
+	if pendingCount != 1 {
+		t.Fatalf("expected one pending request for email %q, got %d", email, pendingCount)
 	}
 }

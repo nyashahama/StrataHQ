@@ -25,5 +25,6 @@ export const schemeKeys = {
   levy: (schemeId: string) => ["scheme", schemeId, "levy"] as const,
   agm: (schemeId: string) => ["scheme", schemeId, "agm"] as const,
   agmMembers: (schemeId: string) => ["scheme", schemeId, "agm", "members"] as const,
-  audit: (schemeId: string) => ["scheme", schemeId, "audit"] as const,
+  audit: (schemeId: string, limit = 50) =>
+    ["scheme", schemeId, "audit", `limit-${limit}`] as const,
 }

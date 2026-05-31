@@ -49,14 +49,20 @@ type DashboardResponse struct {
 }
 
 type Service struct {
-	db                   *database.Pool
-	listSchemesByOrgFn   func(context.Context, uuid.UUID) ([]dbgen.Scheme, error)
-	dashboardForSchemeFn func(context.Context, uuid.UUID) (*DashboardResponse, error)
+	db                    *database.Pool
+	listSchemesByOrgFn    func(context.Context, uuid.UUID) ([]dbgen.Scheme, error)
+	dashboardForSchemeFn  func(context.Context, uuid.UUID) (*DashboardResponse, error)
+	dashboardFn           func(context.Context, auth.Identity, string) (*DashboardResponse, error)
+	resolveSchemeAccessFn func(context.Context, auth.Identity, string) (dbgen.Scheme, string, error)
+	createAssessmentFn    func(context.Context, dbgen.CreateComplianceAssessmentParams) (dbgen.ComplianceAssessment, error)
 }
 
 func NewService(db *database.Pool) *Service {
 	svc := &Service{db: db}
 	svc.dashboardForSchemeFn = svc.dashboardForScheme
+	svc.dashboardFn = svc.Dashboard
+	svc.resolveSchemeAccessFn = svc.resolveSchemeAccess
+	svc.createAssessmentFn = svc.db.Q.CreateComplianceAssessment
 	return svc
 }
 
@@ -344,24 +350,38 @@ func (s *Service) DeleteItem(ctx context.Context, identity auth.Identity, scheme
 }
 
 func (s *Service) Assess(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
-	dashboard, err := s.Dashboard(ctx, identity, schemeID)
+	dashboardFn := s.dashboardFn
+	if dashboardFn == nil {
+		dashboardFn = s.Dashboard
+	}
+	dashboard, err := dashboardFn(ctx, identity, schemeID)
 	if err != nil {
 		return nil, err
 	}
 
-	scheme, _, err := s.resolveSchemeAccess(ctx, identity, schemeID)
+	resolveSchemeAccessFn := s.resolveSchemeAccessFn
+	if resolveSchemeAccessFn == nil {
+		resolveSchemeAccessFn = s.resolveSchemeAccess
+	}
+	scheme, _, err := resolveSchemeAccessFn(ctx, identity, schemeID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, _ = s.db.Q.CreateComplianceAssessment(ctx, dbgen.CreateComplianceAssessmentParams{
+	createAssessmentFn := s.createAssessmentFn
+	if createAssessmentFn == nil {
+		createAssessmentFn = s.db.Q.CreateComplianceAssessment
+	}
+	if _, err := createAssessmentFn(ctx, dbgen.CreateComplianceAssessmentParams{
 		SchemeID:          scheme.ID,
 		Score:             int32(dashboard.Score),
 		TotalItems:        int32(dashboard.Total),
 		CompliantCount:    int32(dashboard.CompliantCount),
 		AtRiskCount:       int32(dashboard.AtRiskCount),
 		NonCompliantCount: int32(dashboard.NonCompliantCount),
-	})
+	}); err != nil {
+		return nil, err
+	}
 
 	return dashboard, nil
 }

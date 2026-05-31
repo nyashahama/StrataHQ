@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/stratahq/backend/internal/auth"
 	"github.com/stratahq/backend/internal/platform/response"
@@ -196,7 +197,12 @@ func (h *Handler) CollectionEvents(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
 		return
 	}
-	items, err := h.service.CollectionEvents(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"))
+	accountID, err := accountIDFromRoute(r)
+	if err != nil {
+		writeLevyError(w, err, "invalid account id")
+		return
+	}
+	items, err := h.service.CollectionEvents(r.Context(), identity, chi.URLParam(r, "schemeId"), accountID)
 	if err != nil {
 		writeLevyError(w, err, "failed to load collection events")
 		return
@@ -228,7 +234,12 @@ func (h *Handler) RecordCollectionEvent(w http.ResponseWriter, r *http.Request) 
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "promise_to_pay requires amount and date")
 		return
 	}
-	created, err := h.service.RecordCollectionEvent(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"), RecordCollectionEventInput{
+	accountID, err := accountIDFromRoute(r)
+	if err != nil {
+		writeLevyError(w, err, "invalid account id")
+		return
+	}
+	created, err := h.service.RecordCollectionEvent(r.Context(), identity, chi.URLParam(r, "schemeId"), accountID, RecordCollectionEventInput{
 		EventType:          strings.TrimSpace(req.EventType),
 		Note:               normalizeOptionalString(req.Note),
 		PromiseAmountCents: req.PromiseAmountCents,
@@ -258,7 +269,12 @@ func (h *Handler) ReminderDraft(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "missing auth context")
 		return
 	}
-	draft, err := h.service.ReminderDraft(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"))
+	accountID, err := accountIDFromRoute(r)
+	if err != nil {
+		writeLevyError(w, err, "invalid account id")
+		return
+	}
+	draft, err := h.service.ReminderDraft(r.Context(), identity, chi.URLParam(r, "schemeId"), accountID)
 	if err != nil {
 		writeLevyError(w, err, "failed to load reminder draft")
 		return
@@ -287,7 +303,12 @@ func (h *Handler) SendReminder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	event, err := h.service.SendReminder(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"), input)
+	accountID, err := accountIDFromRoute(r)
+	if err != nil {
+		writeLevyError(w, err, "invalid account id")
+		return
+	}
+	event, err := h.service.SendReminder(r.Context(), identity, chi.URLParam(r, "schemeId"), accountID, input)
 	if err != nil {
 		writeLevyError(w, err, "failed to send reminder")
 		return
@@ -401,6 +422,14 @@ func (h *Handler) ApplyBankStatementImport(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.JSON(w, http.StatusOK, result)
+}
+
+func accountIDFromRoute(r *http.Request) (string, error) {
+	accountID := chi.URLParam(r, "accountId")
+	if _, err := uuid.Parse(accountID); err != nil {
+		return "", ErrInvalidInput
+	}
+	return accountID, nil
 }
 
 func writeLevyError(w http.ResponseWriter, err error, fallback string) {

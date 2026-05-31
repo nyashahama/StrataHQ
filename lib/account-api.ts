@@ -2,7 +2,22 @@
 
 import { apiFetch } from "@/lib/api";
 import { readApiData, buildApiHttpError } from "@/lib/api-contract";
+import { readBrowserCSRFToken } from "@/lib/csrf";
 import type { SessionOrg, SessionUser } from "@/lib/session";
+
+async function refreshSession(): Promise<SessionUser> {
+  const csrfToken = readBrowserCSRFToken();
+  const res = await fetch("/api/session/refresh", {
+    method: "POST",
+    headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+  });
+
+  if (!res.ok) {
+    throw await buildApiHttpError(res, "Failed to refresh session");
+  }
+
+  return readApiData<SessionUser>(res);
+}
 
 export async function updateProfile(input: {
   email: string;
@@ -22,7 +37,12 @@ export async function updateProfile(input: {
     throw await buildApiHttpError(res, "Failed to update profile");
   }
 
-  return readApiData<SessionUser>(res);
+  const updated = await readApiData<SessionUser>(res);
+  try {
+    return await refreshSession();
+  } catch {
+    return updated;
+  }
 }
 
 export async function updateOrgSettings(input: {
@@ -46,7 +66,12 @@ export async function updateOrgSettings(input: {
     );
   }
 
-  return readApiData<SessionOrg>(res);
+  const updated = await readApiData<SessionOrg>(res);
+  try {
+    return (await refreshSession()).org ?? updated;
+  } catch {
+    return updated;
+  }
 }
 
 export async function changePassword(input: {

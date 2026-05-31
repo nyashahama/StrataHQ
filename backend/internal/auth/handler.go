@@ -58,11 +58,13 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	if req.Email == "" || req.Password == "" || req.FullName == "" {
+	email := strings.TrimSpace(req.Email)
+	fullName := strings.TrimSpace(req.FullName)
+	if email == "" || req.Password == "" || fullName == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email, password, and full_name are required")
 		return
 	}
-	if !ValidateEmail(req.Email) {
+	if !ValidateEmail(email) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
 		return
 	}
@@ -70,7 +72,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
 		return
 	}
-	res, err := h.service.Register(r.Context(), req.Email, req.Password, req.FullName)
+	res, err := h.service.Register(r.Context(), email, req.Password, fullName)
 	if err != nil {
 		if err == ErrEmailExists {
 			response.Error(w, http.StatusConflict, response.CodeConflict, "email already registered")
@@ -105,15 +107,19 @@ func (h *Handler) Setup(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	if req.OrgName == "" || req.ContactEmail == "" || req.SchemeName == "" || req.SchemeAddress == "" || req.UnitCount <= 0 {
+	orgName := strings.TrimSpace(req.OrgName)
+	contactEmail := strings.TrimSpace(req.ContactEmail)
+	schemeName := strings.TrimSpace(req.SchemeName)
+	schemeAddress := strings.TrimSpace(req.SchemeAddress)
+	if orgName == "" || contactEmail == "" || schemeName == "" || schemeAddress == "" || req.UnitCount <= 0 {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "org_name, contact_email, scheme_name, scheme_address, and unit_count are required")
 		return
 	}
-	if !ValidateEmail(req.ContactEmail) {
+	if !ValidateEmail(contactEmail) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid contact_email format")
 		return
 	}
-	res, err := h.service.Setup(r.Context(), identity.OrgID, req.OrgName, req.ContactEmail, req.SchemeName, req.SchemeAddress, req.UnitCount)
+	res, err := h.service.Setup(r.Context(), identity.OrgID, orgName, contactEmail, schemeName, schemeAddress, req.UnitCount)
 	if err != nil {
 		if errors.Is(err, ErrSetupAlreadyComplete) {
 			response.Error(w, http.StatusConflict, response.CodeConflict, "onboarding setup has already been completed")

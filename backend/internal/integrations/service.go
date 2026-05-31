@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
@@ -68,6 +69,9 @@ func (s *Service) CreateAPIClient(ctx context.Context, identity auth.Identity, i
 		return nil, ErrInvalidInput
 	}
 	if input.Name == "" || len(input.SchemeIDs) == 0 {
+		return nil, ErrInvalidInput
+	}
+	if input.ExpiresAt != nil && !input.ExpiresAt.After(time.Now()) {
 		return nil, ErrInvalidInput
 	}
 	scopeValues := input.Scopes
@@ -355,7 +359,10 @@ func (s *Service) GetOpenAPIScheme(ctx context.Context, identity Identity, schem
 	}
 	row, err := s.db.Q.GetOpenAPISchemeByClient(ctx, dbgen.GetOpenAPISchemeByClientParams{ClientID: clientID, SchemeID: sid})
 	if err != nil {
-		return nil, ErrNotFound
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
 	}
 	return &OpenAPISchemeInfo{
 		ID:        row.ID.String(),

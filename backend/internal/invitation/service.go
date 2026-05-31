@@ -255,6 +255,10 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 		return nil, err
 	}
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+	inviteURL := appBaseURL + "/auth/invite/" + token
+	if err = s.sender.SendInvitation(ctx, existing.Email, existing.FullName, inviteURL); err != nil {
+		return nil, err
+	}
 
 	inv, err := s.q.UpdateInvitationToken(ctx, dbgen.UpdateInvitationTokenParams{
 		Token:     token,
@@ -282,11 +286,6 @@ func (s *Service) Resend(ctx context.Context, orgID, invitationID, appBaseURL st
 			Status:       inv.Status,
 			ExpiresAt:    inv.ExpiresAt,
 		}))
-	}
-
-	inviteURL := appBaseURL + "/auth/invite/" + token
-	if err := s.sender.SendInvitation(ctx, inv.Email, inv.FullName, inviteURL); err != nil {
-		return nil, err
 	}
 
 	return toResponse(inv), nil

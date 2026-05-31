@@ -124,7 +124,7 @@ describe("AuditPage", () => {
     const { default: AuditPage } = await import("@/app/app/[schemeId]/audit/page");
     render(<AuditPage />);
 
-    expect(screen.getByText("Showing latest 50 of 120 audit events.")).toBeInTheDocument();
+    expect(screen.getByText("Showing latest 50 of 120 audit events. More older events are available.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show more events" })).toBeInTheDocument();
   });
 });

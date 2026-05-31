@@ -97,7 +97,8 @@ backend/
 | Command | Description |
 |---------|-------------|
 | `make run` | Run the server locally |
-| `make build` | Build binary to `bin/server` |
+| `make worker` | Run the background worker locally |
+| `make build` | Build API and worker binaries to `bin/server` and `bin/worker` |
 | `make test` | Run unit tests |
 | `make test-integration` | Run integration tests (requires Docker services) |
 | `make test-all` | Run all tests |
@@ -110,7 +111,7 @@ backend/
 | `make migrate-status` | Show migration status |
 | `make docker-up` | Start Postgres + Redis containers |
 | `make docker-down` | Stop containers |
-| `make docker-all` | Build and start all services |
+| `make docker-all` | Build, migrate, and start the API, worker, Postgres, and Redis services |
 | `make seed` | Seed the development database |
 
 ## Load Testing

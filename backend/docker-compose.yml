@@ -1,9 +1,23 @@
 services:
+  migrate:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgres://stratahq:stratahq@postgres:5432/stratahq?sslmode=disable
+    entrypoint: ["./goose"]
+    command: ["-dir", "db/migrations", "postgres", "postgres://stratahq:stratahq@postgres:5432/stratahq?sslmode=disable", "up"]
+
   backend:
     build: .
     ports:
       - "8080:8080"
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
@@ -13,6 +27,22 @@ services:
     environment:
       - DATABASE_URL=postgres://stratahq:stratahq@postgres:5432/stratahq?sslmode=disable
       - REDIS_URL=redis://redis:6379
+
+  worker:
+    build: .
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgres://stratahq:stratahq@postgres:5432/stratahq?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+    entrypoint: ["./worker"]
 
   postgres:
     image: postgres:17-alpine

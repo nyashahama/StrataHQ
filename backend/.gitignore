@@ -1,7 +1,5 @@
 # Binary
 bin/
-/server
-/worker
 server/
 worker/
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	dbgen "github.com/stratahq/backend/db/gen"
 	"github.com/stratahq/backend/internal/auth"
@@ -84,6 +85,14 @@ func validateActionToken(secret, id, action, sig string, exp int64) bool {
 }
 
 func (s *Service) Submit(ctx context.Context, p SubmitParams) (*RequestResponse, error) {
+	pending, err := s.getPendingByEmail(ctx, p.Email)
+	if err != nil {
+		return nil, err
+	}
+	if pending != nil {
+		return toResponse(*pending), nil
+	}
+
 	row, err := s.db.CreateEarlyAccessRequest(ctx, dbgen.CreateEarlyAccessRequestParams{
 		FullName:   p.FullName,
 		Email:      p.Email,
@@ -91,6 +100,15 @@ func (s *Service) Submit(ctx context.Context, p SubmitParams) (*RequestResponse,
 		UnitCount:  p.UnitCount,
 	})
 	if err != nil {
+		if isUniqueViolation(err) {
+			pending, lookupErr := s.getPendingByEmail(ctx, p.Email)
+			if lookupErr == nil && pending != nil {
+				return toResponse(*pending), nil
+			}
+			if lookupErr != nil {
+				return nil, lookupErr
+			}
+		}
 		return nil, err
 	}
 
@@ -105,6 +123,26 @@ func (s *Service) Submit(ctx context.Context, p SubmitParams) (*RequestResponse,
 	}
 
 	return toResponse(row), nil
+}
+
+func (s *Service) getPendingByEmail(ctx context.Context, email string) (*dbgen.EarlyAccessRequest, error) {
+	rows, err := s.db.ListEarlyAccessRequests(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, req := range rows {
+		if req.Status == dbgen.EarlyAccessStatusPending && strings.EqualFold(req.Email, email) {
+			return &req, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func (s *Service) List(ctx context.Context) ([]RequestResponse, error) {

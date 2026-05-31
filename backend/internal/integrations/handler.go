@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
@@ -301,25 +303,40 @@ func (h *Handler) OpenFinancials(w http.ResponseWriter, r *http.Request) {
 		writeIntegrationsError(w, ErrInvalidInput)
 		return
 	}
-	periodLabel := r.URL.Query().Get("period")
-	var periodFilter pgtype.Text
-	if periodLabel != "" {
-		periodFilter = pgtype.Text{String: periodLabel, Valid: true}
-	}
-	lines, err := h.service.db.Q.ListOpenAPIBudgetLinesByScheme(r.Context(), dbgen.ListOpenAPIBudgetLinesBySchemeParams{
-		SchemeID:    sid,
-		PeriodLabel: periodFilter,
-	})
+	result, err := openAPIFinancials(r.Context(), h.service.db.Q, sid, r.URL.Query().Get("period"))
 	if err != nil {
 		writeIntegrationsError(w, err)
 		return
 	}
-	reserve, _ := h.service.db.Q.GetOpenAPIReserveFundByScheme(r.Context(), sid)
+	response.JSON(w, http.StatusOK, result)
+}
+
+type openAPIFinancialsQuerier interface {
+	ListOpenAPIBudgetLinesByScheme(ctx context.Context, arg dbgen.ListOpenAPIBudgetLinesBySchemeParams) ([]dbgen.BudgetLine, error)
+	GetOpenAPIReserveFundByScheme(ctx context.Context, schemeID uuid.UUID) (dbgen.ReserveFund, error)
+}
+
+func openAPIFinancials(ctx context.Context, q openAPIFinancialsQuerier, schemeID uuid.UUID, periodLabel string) (map[string]any, error) {
+	var periodFilter pgtype.Text
+	if periodLabel != "" {
+		periodFilter = pgtype.Text{String: periodLabel, Valid: true}
+	}
+	lines, err := q.ListOpenAPIBudgetLinesByScheme(ctx, dbgen.ListOpenAPIBudgetLinesBySchemeParams{
+		SchemeID:    schemeID,
+		PeriodLabel: periodFilter,
+	})
+	if err != nil {
+		return nil, err
+	}
+	reserve, err := q.GetOpenAPIReserveFundByScheme(ctx, schemeID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
 	result := map[string]any{
 		"budget_lines": lines,
 	}
-	if reserve.SchemeID != uuid.Nil {
+	if err == nil && reserve.SchemeID != uuid.Nil {
 		result["reserve_fund"] = reserve
 	}
-	response.JSON(w, http.StatusOK, result)
+	return result, nil
 }

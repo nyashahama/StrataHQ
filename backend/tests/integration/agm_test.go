@@ -31,7 +31,7 @@ func TestAgm_ScheduleVoteAndAssignProxy(t *testing.T) {
 
 	createBody, _ := json.Marshal(map[string]any{
 		"date":            "2026-11-20",
-		"quorum_required": 3,
+		"quorum_required": 2,
 		"resolutions": []map[string]any{
 			{
 				"title":       "Approve 2027 maintenance budget",

@@ -156,7 +156,7 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 	if err != nil {
 		return nil, err
 	}
-	if err := validateScheduleMeetingInput(input, totalEligible); err != nil {
+	if validationErr := validateScheduleMeetingInput(input, totalEligible); validationErr != nil {
 		return nil, ErrInvalidInput
 	}
 

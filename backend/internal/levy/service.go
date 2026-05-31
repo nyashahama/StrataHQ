@@ -283,8 +283,8 @@ func (s *Service) CreatePeriod(ctx context.Context, identity auth.Identity, sche
 	if err != nil {
 		return nil, err
 	}
-	if err := validateCreatePeriodInput(input, len(units), periods); err != nil {
-		return nil, err
+	if validationErr := validateCreatePeriodInput(input, len(units), periods); validationErr != nil {
+		return nil, validationErr
 	}
 
 	tx, err := s.db.Begin(ctx)

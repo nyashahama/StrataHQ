@@ -6,7 +6,7 @@ Go backend for [StrataHQ](https://stratahq.com) — property management software
 
 | Tool | Purpose |
 |------|---------|
-| [Go 1.24](https://go.dev/) | Language |
+| [Go 1.25.9+](https://go.dev/) | Language |
 | [Chi](https://github.com/go-chi/chi) | HTTP router |
 | [PostgreSQL 17](https://www.postgresql.org/) | Primary database |
 | [pgx/v5](https://github.com/jackc/pgx) | Postgres driver |
@@ -23,7 +23,7 @@ Go backend for [StrataHQ](https://stratahq.com) — property management software
 
 ### Prerequisites
 
-- [Go 1.24+](https://go.dev/dl/)
+- [Go 1.25.9+](https://go.dev/dl/)
 - [Docker](https://docs.docker.com/get-docker/) & Docker Compose
 - [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html)
 - [goose](https://github.com/pressly/goose#install)

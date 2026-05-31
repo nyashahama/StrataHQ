@@ -25,6 +25,25 @@ func (q *Queries) CountResourceAuditEventsByScheme(ctx context.Context, schemeID
 	return count, err
 }
 
+const countResourceAuditEventsBySchemeAndOrg = `-- name: CountResourceAuditEventsBySchemeAndOrg :one
+SELECT COUNT(*)
+FROM resource_audit_events
+WHERE scheme_id = $1
+  AND org_id = $2
+`
+
+type CountResourceAuditEventsBySchemeAndOrgParams struct {
+	SchemeID uuid.UUID `json:"scheme_id"`
+	OrgID    uuid.UUID `json:"org_id"`
+}
+
+func (q *Queries) CountResourceAuditEventsBySchemeAndOrg(ctx context.Context, arg CountResourceAuditEventsBySchemeAndOrgParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countResourceAuditEventsBySchemeAndOrg, arg.SchemeID, arg.OrgID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createResourceAuditEvent = `-- name: CreateResourceAuditEvent :one
 INSERT INTO resource_audit_events (
     scheme_id,
@@ -150,6 +169,54 @@ type ListResourceAuditEventsBySchemeAndActionParams struct {
 
 func (q *Queries) ListResourceAuditEventsBySchemeAndAction(ctx context.Context, arg ListResourceAuditEventsBySchemeAndActionParams) ([]ResourceAuditEvent, error) {
 	rows, err := q.db.Query(ctx, listResourceAuditEventsBySchemeAndAction, arg.SchemeID, arg.Action, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ResourceAuditEvent{}
+	for rows.Next() {
+		var i ResourceAuditEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.SchemeID,
+			&i.OrgID,
+			&i.ActorUserID,
+			&i.ActorRole,
+			&i.ResourceType,
+			&i.ResourceID,
+			&i.Action,
+			&i.BeforeState,
+			&i.AfterState,
+			&i.Metadata,
+			&i.OccurredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listResourceAuditEventsBySchemeAndOrg = `-- name: ListResourceAuditEventsBySchemeAndOrg :many
+SELECT id, scheme_id, org_id, actor_user_id, actor_role, resource_type, resource_id, action, before_state, after_state, metadata, occurred_at
+FROM resource_audit_events
+WHERE scheme_id = $1
+  AND org_id = $2
+ORDER BY occurred_at DESC, id DESC
+LIMIT $3
+`
+
+type ListResourceAuditEventsBySchemeAndOrgParams struct {
+	SchemeID uuid.UUID `json:"scheme_id"`
+	OrgID    uuid.UUID `json:"org_id"`
+	Limit    int32     `json:"limit"`
+}
+
+func (q *Queries) ListResourceAuditEventsBySchemeAndOrg(ctx context.Context, arg ListResourceAuditEventsBySchemeAndOrgParams) ([]ResourceAuditEvent, error) {
+	rows, err := q.db.Query(ctx, listResourceAuditEventsBySchemeAndOrg, arg.SchemeID, arg.OrgID, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

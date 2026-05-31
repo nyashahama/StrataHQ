@@ -30,6 +30,20 @@ WHERE scheme_id = $1
 ORDER BY occurred_at DESC, id DESC
 LIMIT $3;
 
+-- name: ListResourceAuditEventsBySchemeAndOrg :many
+SELECT *
+FROM resource_audit_events
+WHERE scheme_id = $1
+  AND org_id = $2
+ORDER BY occurred_at DESC, id DESC
+LIMIT $3;
+
+-- name: CountResourceAuditEventsBySchemeAndOrg :one
+SELECT COUNT(*)
+FROM resource_audit_events
+WHERE scheme_id = $1
+  AND org_id = $2;
+
 -- name: CountResourceAuditEventsByScheme :one
 SELECT COUNT(*)
 FROM resource_audit_events

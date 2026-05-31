@@ -9,6 +9,7 @@ import BankStatementImportModal from '@/components/BankStatementImportModal'
 import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
 import { invalidateCache } from '@/lib/data-cache'
+import { formatDateOnly, formatShortDate } from '@/lib/date-format'
 import { createLevyPeriod, getLevyDashboard, reconcileLevyPayments } from '@/lib/levy-api'
 import type { LevyAccountInfo, LevyDashboard, ReconcilePaymentInput } from '@/lib/levy'
 import { useToast } from '@/lib/toast'
@@ -19,13 +20,6 @@ import { useAuthenticatedQuery } from '@/hooks/useAuthenticatedQuery'
 
 function formatRand(cents: number): string {
   return `R ${(cents / 100).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`
-}
-
-function formatShortDate(value: string): string {
-  return new Date(value).toLocaleDateString('en-ZA', {
-    day: 'numeric',
-    month: 'short',
-  })
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -202,7 +196,7 @@ export default function LevyPaymentsPage() {
                 <div key={payment.id} className={`flex items-center justify-between px-5 py-3 text-[13px] min-w-[400px] ${index < myPayments.length - 1 ? 'border-b border-border' : ''}`}>
                   <div>
                     <span className="font-medium text-ink">{formatRand(payment.amount_cents)}</span>
-                    <span className="text-muted ml-3">{new Date(payment.payment_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    <span className="text-muted ml-3">{formatDateOnly(payment.payment_date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                   </div>
                   <span className="text-[11px] text-muted font-mono flex-shrink-0">{payment.reference}</span>
                 </div>

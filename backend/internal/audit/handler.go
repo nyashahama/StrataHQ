@@ -31,6 +31,10 @@ func (h *Handler) ListSchemeEvents(w http.ResponseWriter, r *http.Request) {
 			response.ErrorWithRequest(w, r, http.StatusBadRequest, response.CodeBadRequest, "invalid limit")
 			return
 		}
+		if parsed < 1 || parsed > 200 {
+			response.ErrorWithRequest(w, r, http.StatusBadRequest, response.CodeBadRequest, "invalid limit")
+			return
+		}
 		limit = int32(parsed)
 	}
 	result, err := h.service.ListSchemeEvents(r.Context(), identity, chi.URLParam(r, "schemeId"), limit)

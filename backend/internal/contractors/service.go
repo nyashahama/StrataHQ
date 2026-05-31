@@ -3,6 +3,7 @@ package contractors
 import (
 	"context"
 	"errors"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -349,9 +350,13 @@ func (s *Service) contractorParams(ctx context.Context, orgID uuid.UUID, input U
 			return dbgen.CreateContractorParams{}, nil, ErrForbidden
 		}
 	}
+	email, err := optionalEmailText(input.Email)
+	if err != nil {
+		return dbgen.CreateContractorParams{}, nil, ErrInvalidInput
+	}
 	return dbgen.CreateContractorParams{
 		OrgID: orgID, Name: name, Trade: dbgen.MaintenanceCategory(input.Trade),
-		Phone: optionalText(input.Phone), Email: optionalText(input.Email),
+		Phone: optionalText(input.Phone), Email: email,
 		Suburb: suburb, City: city, Province: province,
 		PublicProfile: input.PublicProfile, Vetted: input.Vetted, Active: input.Active,
 		Notes: optionalText(input.Notes),
@@ -468,6 +473,31 @@ func optionalText(value *string) pgtype.Text {
 		return pgtype.Text{}
 	}
 	return pgtype.Text{String: trimmed, Valid: true}
+}
+
+func optionalEmailText(value *string) (pgtype.Text, error) {
+	if value == nil {
+		return pgtype.Text{}, nil
+	}
+	email := strings.TrimSpace(*value)
+	if email == "" {
+		return pgtype.Text{}, nil
+	}
+	if len(email) > 254 {
+		return pgtype.Text{}, errors.New("email is too long")
+	}
+	addr, err := mail.ParseAddress(email)
+	if err != nil {
+		return pgtype.Text{}, err
+	}
+	if addr.Name != "" || addr.Address != email {
+		return pgtype.Text{}, errors.New("invalid email format")
+	}
+	local := strings.SplitN(addr.Address, "@", 2)[0]
+	if local == "" || !strings.Contains(addr.Address, "@") {
+		return pgtype.Text{}, errors.New("invalid email format")
+	}
+	return pgtype.Text{String: strings.ToLower(addr.Address), Valid: true}, nil
 }
 
 func textPtr(value pgtype.Text) *string {

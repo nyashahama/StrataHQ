@@ -104,7 +104,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 				r.With(middleware.PerEndpointRateLimit(rdb, "auth-refresh", cfg.AuthRefreshRateLimit, 1*time.Minute)).Post("/refresh", h.Auth.Refresh)
 				r.With(middleware.PerEndpointRateLimit(rdb, "auth-register", 5, 1*time.Minute)).Post("/register", h.Auth.Register)
 				r.With(middleware.PerEndpointRateLimit(rdb, "auth-logout", 20, 1*time.Minute)).Post("/logout", h.Auth.Logout)
-				r.With(middleware.PerEndpointRateLimit(rdb, "auth-forgot-password", 3, 1*time.Minute)).Post("/forgot-password", h.Auth.ForgotPassword)
+				r.With(middleware.PerEndpointRateLimit(rdb, "auth-forgot-password", cfg.AuthForgotPasswordRateLimit, 1*time.Minute)).Post("/forgot-password", h.Auth.ForgotPassword)
 				r.With(middleware.PerEndpointRateLimit(rdb, "auth-reset-password", 10, 1*time.Minute)).Post("/reset-password", h.Auth.ResetPassword)
 			})
 			r.Group(func(r chi.Router) {
@@ -118,11 +118,12 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 				}
 			})
 			r.Group(func(r chi.Router) {
+				r.Use(middleware.PerEndpointRateLimit(rdb, "invitation-accept", cfg.InvitationAcceptRateLimit, 1*time.Minute))
 				r.Use(middleware.AuditEvents(auditRecorder, logger))
 				r.Mount("/invitations/verify", h.Invitation.PublicRoutes())
 			})
 			r.Route("/early-access", func(r chi.Router) {
-				r.Use(middleware.PerEndpointRateLimit(rdb, "earlyaccess", 3, 1*time.Minute))
+				r.Use(middleware.PerEndpointRateLimit(rdb, "earlyaccess", cfg.EarlyAccessRateLimit, 1*time.Minute))
 				r.Use(middleware.AuditEvents(auditRecorder, logger))
 				r.Mount("/", h.EarlyAccess.PublicRoutes())
 			})

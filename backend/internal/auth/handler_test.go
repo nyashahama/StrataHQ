@@ -98,10 +98,14 @@ func (m *mockService) IssuePasswordResetURL(_ context.Context, _, _ string) (str
 
 // helpers
 
-func body(t *testing.T, m map[string]string) *bytes.Reader {
+func body(t *testing.T, m any) *bytes.Reader {
 	t.Helper()
 	b, _ := json.Marshal(m)
 	return bytes.NewReader(b)
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 func TestRegister_UnknownFields(t *testing.T) {
@@ -152,6 +156,58 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 	}
 }
 
+func TestRegister_TrimsLeadingAndTrailingWhitespace(t *testing.T) {
+	var capturedEmail, capturedFullName string
+	svc := &mockService{
+		registerFn: func(_ context.Context, email, _, fullName string) (*AuthResponse, error) {
+			capturedEmail = email
+			capturedFullName = fullName
+			return &AuthResponse{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+				ExpiresIn:    900,
+				User:         UserInfo{ID: "u1", Email: email, FullName: fullName},
+				Session:      MeResponse{ID: "u1", Email: email, FullName: fullName, Org: OrgInfo{ID: "o1", Name: "Org"}, Role: "admin"},
+			}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
+		"email": "  a@b.com  ", "password": "Pass_1234", "full_name": "  New Name  ",
+	}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Register(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201", w.Code)
+	}
+	if capturedEmail != "a@b.com" {
+		t.Fatalf("capturedEmail = %q, want %q", capturedEmail, "a@b.com")
+	}
+	if capturedFullName != "New Name" {
+		t.Fatalf("capturedFullName = %q, want %q", capturedFullName, "New Name")
+	}
+}
+
+func TestRegister_RejectsWhitespaceOnlyRequiredFields(t *testing.T) {
+	svcCalled := false
+	svc := &mockService{
+		registerFn: func(_ context.Context, _, _, _ string) (*AuthResponse, error) {
+			svcCalled = true
+			return nil, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
+		"email": "   ", "password": "Pass_1234", "full_name": "   ",
+	}))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Register(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+	if svcCalled {
+		t.Fatalf("service should not be called with whitespace-only required fields")
+	}
+}
+
 func TestRegister_Success(t *testing.T) {
 	svc := &mockService{
 		registerFn: func(_ context.Context, _, _, _ string) (*AuthResponse, error) {
@@ -184,6 +240,86 @@ func TestRegister_Success(t *testing.T) {
 	}
 	if resp.Data.Session.ID == "" {
 		t.Error("expected session in response")
+	}
+}
+
+func TestSetup_TrimsRequiredFieldsAndCallsService(t *testing.T) {
+	var capturedOrgName, capturedContactEmail, capturedSchemeName, capturedSchemeAddress string
+	var capturedUnitCount int32
+	svc := &mockService{
+		setupFn: func(_ context.Context, _, orgName, contactEmail, schemeName, schemeAddress string, unitCount int32) (*SetupResponse, error) {
+			capturedOrgName = orgName
+			capturedContactEmail = contactEmail
+			capturedSchemeName = schemeName
+			capturedSchemeAddress = schemeAddress
+			capturedUnitCount = unitCount
+			return &SetupResponse{
+				Org: OrgInfo{
+					ID:           "o1",
+					Name:         orgName,
+					ContactEmail: strPtr("admin@org.com"),
+				},
+				Scheme: struct {
+					ID   string "json:\"id\""
+					Name string "json:\"name\""
+				}{ID: "s1", Name: "Scheme Name"},
+			}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/setup", body(t, map[string]interface{}{
+		"org_name":       "  Test Org  ",
+		"contact_email":  "  admin@org.com  ",
+		"scheme_name":    "  Scheme Name  ",
+		"scheme_address": "  10 Downing St  ",
+		"unit_count":     12,
+	}))
+	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
+	w := httptest.NewRecorder()
+
+	NewHandler(svc).Setup(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201", w.Code)
+	}
+	if capturedOrgName != "Test Org" {
+		t.Fatalf("capturedOrgName = %q, want %q", capturedOrgName, "Test Org")
+	}
+	if capturedContactEmail != "admin@org.com" {
+		t.Fatalf("capturedContactEmail = %q, want %q", capturedContactEmail, "admin@org.com")
+	}
+	if capturedSchemeName != "Scheme Name" {
+		t.Fatalf("capturedSchemeName = %q, want %q", capturedSchemeName, "Scheme Name")
+	}
+	if capturedSchemeAddress != "10 Downing St" {
+		t.Fatalf("capturedSchemeAddress = %q, want %q", capturedSchemeAddress, "10 Downing St")
+	}
+	if capturedUnitCount != 12 {
+		t.Fatalf("capturedUnitCount = %d, want 12", capturedUnitCount)
+	}
+}
+
+func TestSetup_RejectsWhitespaceOnlyRequiredFields(t *testing.T) {
+	called := false
+	svc := &mockService{
+		setupFn: func(_ context.Context, _ string, _ string, _ string, _ string, _ string, _ int32) (*SetupResponse, error) {
+			called = true
+			return nil, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/setup", body(t, map[string]interface{}{
+		"org_name":       "   ",
+		"contact_email":  "admin@org.com",
+		"scheme_name":    "   ",
+		"scheme_address": "   ",
+		"unit_count":     12,
+	}))
+	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
+	w := httptest.NewRecorder()
+	NewHandler(svc).Setup(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", w.Code)
+	}
+	if called {
+		t.Fatal("service should not be called with whitespace-only required fields")
 	}
 }
 

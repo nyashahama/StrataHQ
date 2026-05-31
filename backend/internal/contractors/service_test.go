@@ -1,9 +1,13 @@
 package contractors
 
 import (
+	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestValidRating(t *testing.T) {
@@ -45,5 +49,34 @@ func TestContractorAggregateQueriesUseDistinctCounts(t *testing.T) {
 		if !strings.Contains(content, expected) {
 			t.Fatalf("contractor aggregate query missing %q", expected)
 		}
+	}
+}
+
+func TestContractorParamsRejectsInvalidEmail(t *testing.T) {
+	email := "AquaFix <contact@example.com>"
+	_, _, err := (&Service{}).contractorParams(context.Background(), uuid.New(), UpsertContractorInput{
+		Name:   "AquaFix",
+		Trade:  "plumbing",
+		Suburb: "Observatory",
+		Email:  &email,
+	})
+	if !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("contractorParams() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestContractorParamsNormalizesEmail(t *testing.T) {
+	email := " Contact@Example.COM "
+	params, _, err := (&Service{}).contractorParams(context.Background(), uuid.New(), UpsertContractorInput{
+		Name:   "AquaFix",
+		Trade:  "plumbing",
+		Suburb: "Observatory",
+		Email:  &email,
+	})
+	if err != nil {
+		t.Fatalf("contractorParams() error = %v", err)
+	}
+	if !params.Email.Valid || params.Email.String != "contact@example.com" {
+		t.Fatalf("email = %+v, want contact@example.com", params.Email)
 	}
 }

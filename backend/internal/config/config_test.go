@@ -18,6 +18,7 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 		"REFRESH_EXPIRY":        "48h",
 		"STRIPE_SECRET_KEY":     "sk_test_123",
 		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
 		"RESEND_API_KEY":        "re_123",
 		"AI_BASE_URL":           "https://api.deepseek.com/v1",
 		"AI_API_KEY":            "sk-ai-123",
@@ -69,6 +70,7 @@ func TestLoad_Defaults(t *testing.T) {
 		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
 		"STRIPE_SECRET_KEY":     "sk_test_123",
 		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
 		"RESEND_API_KEY":        "re_123",
 		"AI_BASE_URL":           "https://api.deepseek.com/v1",
 		"AI_API_KEY":            "sk-ai-123",
@@ -120,6 +122,9 @@ func TestLoad_AuthRateLimitOverrides(t *testing.T) {
 		"DATABASE_URL":            "postgres://user:pass@localhost:5432/db",
 		"REDIS_URL":               "redis://localhost:6379",
 		"JWT_SECRET":              "test-secret-that-is-long-enough-32ch",
+		"STRIPE_SECRET_KEY":       "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET":   "whsec_123",
+		"STRIPE_PRICE_ID":         "price_test_123",
 		"RESEND_API_KEY":          "re_123",
 		"AI_BASE_URL":             "https://api.deepseek.com/v1",
 		"AI_API_KEY":              "sk-ai-123",
@@ -148,7 +153,7 @@ func TestLoad_AuthRateLimitOverrides(t *testing.T) {
 }
 
 func TestLoad_MissingRequired(t *testing.T) {
-	for _, key := range []string{"DATABASE_URL", "REDIS_URL", "JWT_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "RESEND_API_KEY", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "APP_BASE_URL"} {
+	for _, key := range []string{"DATABASE_URL", "REDIS_URL", "JWT_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID", "RESEND_API_KEY", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "APP_BASE_URL"} {
 		os.Unsetenv(key)
 	}
 
@@ -160,14 +165,17 @@ func TestLoad_MissingRequired(t *testing.T) {
 
 func TestLoad_WhitespaceOnlyRequired(t *testing.T) {
 	required := map[string]string{
-		"DATABASE_URL":   "postgres://user:pass@localhost:5432/db",
-		"REDIS_URL":      "redis://localhost:6379",
-		"JWT_SECRET":     "test-secret-that-is-long-enough-32ch",
-		"RESEND_API_KEY": "re_123",
-		"AI_BASE_URL":    "https://api.deepseek.com/v1",
-		"AI_API_KEY":     "sk-ai-123",
-		"AI_MODEL":       "deepseek-chat",
-		"APP_BASE_URL":   "http://localhost:3000",
+		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":             "redis://localhost:6379",
+		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
+		"STRIPE_SECRET_KEY":     "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
+		"RESEND_API_KEY":        "re_123",
+		"AI_BASE_URL":           "https://api.deepseek.com/v1",
+		"AI_API_KEY":            "sk-ai-123",
+		"AI_MODEL":              "deepseek-chat",
+		"APP_BASE_URL":          "http://localhost:3000",
 	}
 
 	for k, v := range required {
@@ -192,6 +200,7 @@ func TestLoad_TwilioAuthTokenMustBeConfiguredWithOtherTwilioSettings(t *testing.
 		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
 		"STRIPE_SECRET_KEY":     "sk_test_123",
 		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
 		"RESEND_API_KEY":        "re_123",
 		"AI_BASE_URL":           "https://api.deepseek.com/v1",
 		"AI_API_KEY":            "sk-ai-123",

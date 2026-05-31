@@ -244,6 +244,7 @@ Important variables include:
 | `JWT_SECRET` | JWT signing secret |
 | `STRIPE_SECRET_KEY` | Stripe API key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+| `STRIPE_PRICE_ID` | Stripe price identifier |
 | `RESEND_API_KEY` | Transactional email API key |
 | `AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL` | AI provider configuration |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins |

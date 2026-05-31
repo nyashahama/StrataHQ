@@ -126,7 +126,6 @@ export default function MembersPage() {
   }
 
   async function handleInvite() {
-    invalidateCache(`scheme:${schemeId}:members`)
     if (!inviteForm.full_name.trim() || !inviteForm.email.trim()) return
     if (inviteForm.role === 'resident' && !inviteForm.unit_id) {
       addToast('Residents require a unit assignment', 'error')
@@ -150,6 +149,7 @@ export default function MembersPage() {
         throw new Error(await readApiError(response, 'Failed to send invitation'))
       }
 
+      invalidateCache(`scheme:${schemeId}:members`)
       setShowInviteModal(false)
       setInviteForm(EMPTY_INVITE_FORM)
       addToast(`Invite sent to ${inviteForm.email.trim()}`, 'success')

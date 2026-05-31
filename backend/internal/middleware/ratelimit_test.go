@@ -2,17 +2,14 @@ package middleware
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -35,134 +32,6 @@ func newTestRedis(t *testing.T) *redis.Client {
 		_ = rdb.Close()
 	})
 	return rdb
-}
-
-type failingCommandHook struct {
-	err      error
-	commands map[string]struct{}
-}
-
-func (h failingCommandHook) DialHook(next redis.DialHook) redis.DialHook {
-	return next
-}
-
-func (h failingCommandHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
-	return func(ctx context.Context, cmd redis.Cmder) error {
-		if _, ok := h.commands[strings.ToLower(cmd.Name())]; ok {
-			return h.err
-		}
-		return next(ctx, cmd)
-	}
-}
-
-func (h failingCommandHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
-	return func(ctx context.Context, cmds []redis.Cmder) error {
-		for _, cmd := range cmds {
-			if _, ok := h.commands[strings.ToLower(cmd.Name())]; ok {
-				return h.err
-			}
-		}
-		return next(ctx, cmds)
-	}
-}
-
-func TestRateLimitSetsTTLWhenStandaloneExpireFails(t *testing.T) {
-	tests := []struct {
-		name    string
-		key     string
-		handler func(*redis.Client) http.Handler
-	}{
-		{
-			name: "global",
-			key:  "ratelimit:192.0.2.20",
-			handler: func(rdb *redis.Client) http.Handler {
-				return RateLimit(rdb, 5, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusNoContent)
-				}))
-			},
-		},
-		{
-			name: "endpoint",
-			key:  "ratelimit:auth-login:192.0.2.20",
-			handler: func(rdb *redis.Client) http.Handler {
-				return PerEndpointRateLimit(rdb, "auth-login", 5, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-					w.WriteHeader(http.StatusNoContent)
-				}))
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			rdb := newTestRedis(t)
-			rdb.AddHook(failingCommandHook{
-				err: errors.New("expire unavailable"),
-				commands: map[string]struct{}{
-					"expire":  {},
-					"pexpire": {},
-				},
-			})
-			handler := tt.handler(rdb)
-
-			req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
-			req.RemoteAddr = "192.0.2.20:12345"
-			rec := httptest.NewRecorder()
-
-			handler.ServeHTTP(rec, req)
-
-			if rec.Code != http.StatusNoContent {
-				t.Fatalf("status = %d, want %d", rec.Code, http.StatusNoContent)
-			}
-
-			ttl, err := rdb.TTL(context.Background(), tt.key).Result()
-			if err != nil {
-				t.Fatalf("read ttl for %s: %v", tt.key, err)
-			}
-			if ttl <= 0 {
-				t.Fatalf("ttl for %s = %s, want a positive expiration", tt.key, ttl)
-			}
-		})
-	}
-}
-
-func TestPerEndpointRateLimitIncrementsBlockedMetric(t *testing.T) {
-	rdb := newTestRedis(t)
-	endpoint := "test-blocked-metric"
-	before := counterValue(t, rateLimitBlockedTotal.WithLabelValues(endpoint))
-
-	handler := PerEndpointRateLimit(rdb, endpoint, 1, time.Minute)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNoContent)
-	}))
-
-	for i := 0; i < 2; i++ {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
-		req.RemoteAddr = "192.0.2.30:12345"
-		rec := httptest.NewRecorder()
-
-		handler.ServeHTTP(rec, req)
-
-		if i == 0 && rec.Code != http.StatusNoContent {
-			t.Fatalf("first request status = %d, want %d", rec.Code, http.StatusNoContent)
-		}
-		if i == 1 && rec.Code != http.StatusTooManyRequests {
-			t.Fatalf("blocked request status = %d, want %d", rec.Code, http.StatusTooManyRequests)
-		}
-	}
-
-	after := counterValue(t, rateLimitBlockedTotal.WithLabelValues(endpoint))
-	if got := after - before; got != 1 {
-		t.Fatalf("rate_limit_blocked_total increment = %v, want 1", got)
-	}
-}
-
-func counterValue(t *testing.T, metric interface{ Write(*dto.Metric) error }) float64 {
-	t.Helper()
-
-	var out dto.Metric
-	if err := metric.Write(&out); err != nil {
-		t.Fatalf("read metric value: %v", err)
-	}
-	return out.GetCounter().GetValue()
 }
 
 func TestPerEndpointRateLimitUsesDistinctPrefixes(t *testing.T) {

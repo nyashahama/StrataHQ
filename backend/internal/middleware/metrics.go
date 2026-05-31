@@ -27,14 +27,6 @@ var (
 		},
 		[]string{"method", "path"},
 	)
-
-	rateLimitBlockedTotal = promauto.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "rate_limit_blocked_total",
-			Help: "Total number of requests blocked by rate limiting",
-		},
-		[]string{"endpoint"},
-	)
 )
 
 func Metrics(next http.Handler) http.Handler {
@@ -63,11 +55,4 @@ func routeLabel(r *http.Request) string {
 		}
 	}
 	return "unmatched"
-}
-
-func recordRateLimitBlocked(endpoint string) {
-	if endpoint == "" {
-		endpoint = "global"
-	}
-	rateLimitBlockedTotal.WithLabelValues(endpoint).Inc()
 }

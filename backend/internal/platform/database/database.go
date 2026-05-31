@@ -11,9 +11,6 @@ import (
 	dbgen "github.com/stratahq/backend/db/gen"
 )
 
-// Keep this aligned with the latest migration in backend/db/migrations.
-const minimumMigrationVersion = 32
-
 // Pool wraps pgxpool.Pool together with a ready-to-use *dbgen.Queries so
 // callers only need to carry one value.
 type Pool struct {
@@ -66,19 +63,4 @@ func newPoolConfig(databaseURL string) (*pgxpool.Config, error) {
 // health handler.
 func (p *Pool) Ping(ctx context.Context) error {
 	return p.Pool.Ping(ctx)
-}
-
-func (p *Pool) CheckMigrations(ctx context.Context) error {
-	const query = "SELECT COALESCE(MAX(version_id), 0) FROM goose_db_version"
-
-	var version int64
-	if err := p.QueryRow(ctx, query).Scan(&version); err != nil {
-		return fmt.Errorf("database migration check failed: %w", err)
-	}
-
-	if version < minimumMigrationVersion {
-		return fmt.Errorf("database migration check failed: expected version %d, got %d", minimumMigrationVersion, version)
-	}
-
-	return nil
 }

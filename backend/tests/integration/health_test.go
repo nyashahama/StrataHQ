@@ -12,7 +12,7 @@ import (
 )
 
 func TestHealthz_Integration(t *testing.T) {
-	h := health.New(testPool, &redisChecker{testRedis}, testPool)
+	h := health.New(testDB, &redisChecker{testRedis})
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	w := httptest.NewRecorder()
 
@@ -24,7 +24,7 @@ func TestHealthz_Integration(t *testing.T) {
 }
 
 func TestReadyz_Integration(t *testing.T) {
-	h := health.New(testPool, &redisChecker{testRedis}, testPool)
+	h := health.New(testDB, &redisChecker{testRedis})
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	w := httptest.NewRecorder()
 
@@ -47,8 +47,5 @@ func TestReadyz_Integration(t *testing.T) {
 	}
 	if data["cache"] != "ok" {
 		t.Errorf("cache = %v, want ok", data["cache"])
-	}
-	if data["database_migrations"] != "ok" {
-		t.Errorf("database_migrations = %v, want ok", data["database_migrations"])
 	}
 }

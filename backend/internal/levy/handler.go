@@ -278,15 +278,16 @@ func (h *Handler) SendReminder(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	if !req.Email.Enabled && !req.WhatsApp.Enabled {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "at least one channel must be enabled")
+	input := normalizeSendReminderInput(SendReminderInput{
+		Email:    ReminderChannelInput{Enabled: req.Email.Enabled, Subject: req.Email.Subject, Body: req.Email.Body},
+		WhatsApp: ReminderChannelInput{Enabled: req.WhatsApp.Enabled, Body: req.WhatsApp.Body},
+	})
+	if err := validateSendReminderInput(input); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "enabled reminder channels require message content")
 		return
 	}
 
-	event, err := h.service.SendReminder(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"), SendReminderInput{
-		Email:    ReminderChannelInput{Enabled: req.Email.Enabled, Subject: strings.TrimSpace(req.Email.Subject), Body: strings.TrimSpace(req.Email.Body)},
-		WhatsApp: ReminderChannelInput{Enabled: req.WhatsApp.Enabled, Body: strings.TrimSpace(req.WhatsApp.Body)},
-	})
+	event, err := h.service.SendReminder(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "accountId"), input)
 	if err != nil {
 		writeLevyError(w, err, "failed to send reminder")
 		return
@@ -328,7 +329,7 @@ func (h *Handler) ImportBankStatement(w http.ResponseWriter, r *http.Request) {
 	import_, err := h.service.ImportBankStatement(r.Context(), identity, chi.URLParam(r, "schemeId"), BankStatementImportInput{
 		BankName:         bank,
 		OriginalFilename: header.Filename,
-		RawCSV:          rawCSV,
+		RawCSV:           rawCSV,
 	})
 	if err != nil {
 		writeLevyError(w, err, "failed to import bank statement")

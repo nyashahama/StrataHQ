@@ -154,3 +154,48 @@ func TestSendReminderRejectsMissingChannels(t *testing.T) {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 }
+
+func TestSendReminderRejectsBlankEnabledChannelContent(t *testing.T) {
+	tests := []struct {
+		name string
+		body []byte
+	}{
+		{
+			name: "email subject",
+			body: []byte(`{"email":{"enabled":true,"subject":"  ","body":"Please pay"},"whatsapp":{"enabled":false}}`),
+		},
+		{
+			name: "email body",
+			body: []byte(`{"email":{"enabled":true,"subject":"Levy reminder","body":"  "},"whatsapp":{"enabled":false}}`),
+		},
+		{
+			name: "whatsapp body",
+			body: []byte(`{"email":{"enabled":false},"whatsapp":{"enabled":true,"body":"  "}}`),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &fakeAttentionService{}
+			h := NewHandlerWithService(svc)
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/levies/scheme-1/accounts/account-1/reminders", bytes.NewReader(tt.body))
+			req = req.WithContext(auth.ContextWithIdentity(req.Context(), "user-1", "org-1", "trustee"))
+
+			rctx := chi.NewRouteContext()
+			rctx.URLParams.Add("schemeId", "scheme-1")
+			rctx.URLParams.Add("accountId", "account-1")
+			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+
+			w := httptest.NewRecorder()
+			h.SendReminder(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d body=%s, want %d", w.Code, w.Body.String(), http.StatusBadRequest)
+			}
+			if svc.sendCalled {
+				t.Fatalf("service should not be called for blank enabled %s", tt.name)
+			}
+		})
+	}
+}

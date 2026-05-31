@@ -9,8 +9,8 @@ import {
 } from './auth-and-dashboard-config.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
-const TEST_EMAIL = __ENV.TEST_EMAIL || 'demo@stratahq.com';
-const TEST_PASSWORD = __ENV.TEST_PASSWORD || 'Demo2024!';
+const TEST_EMAIL = __ENV.TEST_EMAIL || 'agent@demo.stratahq.test';
+const TEST_PASSWORD = __ENV.TEST_PASSWORD || __ENV.SEED_DEMO_PASSWORD || 'StrataDemo!2026';
 
 const loginSuccessRate = new Rate('login_success');
 const refreshBlockedRate = new Rate('refresh_blocked');

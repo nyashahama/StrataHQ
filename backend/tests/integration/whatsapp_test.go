@@ -173,7 +173,7 @@ func TestWhatsAppDashboardAndBroadcast(t *testing.T) {
 	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
 	req = req.WithContext(auth.ContextWithIdentity(req.Context(), residentUserID, orgID, string(auth.RoleResident)))
 	w = httptest.NewRecorder()
-		h.CreateBroadcast(w, req)
+	h.CreateBroadcast(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("resident create broadcast should be forbidden: status=%d body=%s", w.Code, w.Body)
 	}
@@ -251,9 +251,14 @@ func TestWhatsAppBroadcastReportsFailedRecipients(t *testing.T) {
 
 func newWhatsAppWebhookHandler(t *testing.T) *whatsapp.WebhookHandler {
 	t.Helper()
+	return newWhatsAppWebhookHandlerWithSender(t, whatsapp.NewNoOpSender())
+}
+
+func newWhatsAppWebhookHandlerWithSender(t *testing.T, sender whatsapp.MessageSender) *whatsapp.WebhookHandler {
+	t.Helper()
 	svc := whatsapp.NewService(testPool, whatsapp.NewNoOpSender(), slog.Default())
 	bot := whatsapp.NewBot(testPool)
-	h := whatsapp.NewWebhookHandler(testPool, whatsapp.NewNoOpSender(), bot, svc, slog.Default(), "twilio-token")
+	h := whatsapp.NewWebhookHandler(testPool, sender, bot, svc, slog.Default(), "twilio-token")
 	h.SetSkipSigVerify(true)
 	return h
 }
@@ -362,6 +367,70 @@ func TestWhatsAppWebhookCreatesMaintenanceTicketWithMedia(t *testing.T) {
 	}
 	if ticketIntake == nil {
 		t.Fatalf("expected intake with ticket_created status, got %d intakes", len(intakes))
+	}
+}
+
+func TestWhatsAppWebhookDoesNotPersistBotReplyWhenProviderFails(t *testing.T) {
+	h := newWhatsAppWebhookHandlerWithSender(t, &scriptedWhatsAppSender{
+		failOnNth: 1,
+		failErr:   errors.New("whatsapp provider unavailable"),
+	})
+
+	accessToken, orgID := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+
+	unitID := createUnitRecord(t, schemeID, "6B")
+	residentEmail := uniqueEmail(t)
+	residentUserID := createMemberRecord(t, orgID, schemeID, residentEmail, "Resident User", string(auth.RoleResident), &unitID)
+
+	schemeUUID := mustParseUUID(schemeID)
+	residentUnitUUID := mustParseUUID(unitID)
+	residentUserUUID := mustParseUUID(residentUserID)
+	now := time.Now().UTC()
+
+	if _, err := testQ.CreateWhatsAppThread(t.Context(), dbgen.CreateWhatsAppThreadParams{
+		SchemeID:       schemeUUID,
+		UnitID:         residentUnitUUID,
+		ResidentUserID: pgtype.UUID{Bytes: residentUserUUID, Valid: true},
+		PhoneNumber:    pgtype.Text{String: "+27715550408", Valid: true},
+		Connected:      true,
+		ConsentedAt:    pgtype.Timestamptz{Time: now.Add(-24 * time.Hour), Valid: true},
+		UnreadCount:    0,
+		LastActiveAt:   now,
+	}); err != nil {
+		t.Fatalf("create connected thread: %v", err)
+	}
+
+	threads, err := testQ.GetConnectedWhatsAppThreadByPhone(t.Context(), pgtype.Text{String: "+27715550408", Valid: true})
+	if err != nil || len(threads) == 0 {
+		t.Fatalf("find thread by phone: err=%v count=%d", err, len(threads))
+	}
+	threadID := threads[0].ID
+
+	form := url.Values{}
+	form.Set("From", "whatsapp:+27715550408")
+	form.Set("Body", "how are the rates")
+
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/whatsapp/webhooks", strings.NewReader(form.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.Inbound(w, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("webhook: status=%d body=%s", w.Code, w.Body)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	messages, err := testQ.ListWhatsAppMessagesByThread(t.Context(), threadID)
+	if err != nil {
+		t.Fatalf("list messages: %v", err)
+	}
+	if len(messages) != 1 {
+		t.Fatalf("expected only resident inbound message when send fails, got %d messages", len(messages))
+	}
+	if messages[0].Sender != dbgen.WhatsappMessageSenderResident {
+		t.Fatalf("expected inbound message sender resident, got %q", messages[0].Sender)
 	}
 }
 

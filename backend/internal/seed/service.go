@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -205,10 +207,12 @@ func (s *Service) SeedDemo(ctx context.Context) (*Result, error) {
 			return txErr
 		}
 
-		if txErr = seedDemoWhatsApp(ctx, q, scheme.ID, adminUser.ID, residentUser.ID, unitIDs); txErr != nil {
+		seedDates := newDemoSeedDateContext(time.Now().UTC())
+
+		if txErr = seedDemoWhatsApp(ctx, q, scheme.ID, adminUser.ID, residentUser.ID, unitIDs, seedDates); txErr != nil {
 			return txErr
 		}
-		if txErr = seedDemoCompliance(ctx, q, scheme.ID); txErr != nil {
+		if txErr = seedDemoCompliance(ctx, q, scheme.ID, seedDates); txErr != nil {
 			return txErr
 		}
 
@@ -258,6 +262,48 @@ func (s *Service) describeExisting(ctx context.Context, adminUserID uuid.UUID) (
 	return result, nil
 }
 
+type demoSeedDateContext struct {
+	anchor time.Time
+}
+
+func newDemoSeedDateContext(reference time.Time) demoSeedDateContext {
+	reference = reference.UTC()
+	anchor := time.Date(reference.Year(), reference.Month(), 1, 9, 17, 0, 0, time.UTC)
+	if reference.Day() < 16 {
+		anchor = anchor.AddDate(0, -1, 15)
+	} else {
+		anchor = anchor.AddDate(0, 0, 15)
+	}
+
+	return demoSeedDateContext{anchor: anchor}
+}
+
+func (ctx demoSeedDateContext) assessedAt() time.Time {
+	return ctx.anchor.AddDate(0, 0, 12)
+}
+
+func (ctx demoSeedDateContext) monthStart(offset int) time.Time {
+	return time.Date(ctx.anchor.Year(), ctx.anchor.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, offset, 0)
+}
+
+func (ctx demoSeedDateContext) monthEnd(offset int) time.Time {
+	return ctx.monthStart(offset+1).AddDate(0, 0, -1)
+}
+
+func (ctx demoSeedDateContext) nextAgmAt() time.Time {
+	agm := time.Date(ctx.anchor.Year(), ctx.anchor.Month(), 14, 18, 30, 0, 0, time.UTC)
+	if !agm.After(ctx.anchor) {
+		agm = agm.AddDate(0, 1, 0)
+	}
+
+	return agm
+}
+
+func (ctx demoSeedDateContext) financialYearLabel() string {
+	as := ctx.assessedAt()
+	return fmt.Sprintf("FY%d/%02d", as.Year()-1, as.Year()%100)
+}
+
 func demoPassword() (string, error) {
 	if password := os.Getenv(SeedDemoPasswordEnv); password != "" {
 		return password, nil
@@ -271,8 +317,13 @@ func demoPassword() (string, error) {
 	return "Demo-" + hex.EncodeToString(buf) + "!", nil
 }
 
-func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUserID, residentUserID uuid.UUID, unitIDs map[string]uuid.UUID) error {
-	base := time.Date(2025, time.October, 16, 9, 17, 0, 0, time.UTC)
+func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUserID, residentUserID uuid.UUID, unitIDs map[string]uuid.UUID, dates demoSeedDateContext) error {
+	base := dates.anchor
+	agmDate := dates.nextAgmAt()
+	levyMonth := base.Format("January 2006")
+	agmLabel := agmDate.Format("Monday, 2 January 2006 at 15:04")
+	levyDueDate := dates.monthStart(0).Format("2 Jan 2006")
+	levyReference := fmt.Sprintf("SH-2B-%s", strings.ToUpper(base.Format("Jan06")))
 
 	type threadSeed struct {
 		lastActiveAt   time.Time
@@ -302,9 +353,9 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 				{sender: dbgen.WhatsappMessageSenderResident, body: "Hi"},
 				{sender: dbgen.WhatsappMessageSenderBot, body: "Hi Molefe! Welcome to Sunridge Heights on WhatsApp.\n\nReply with:\n1 Balance - check your levy account\n2 Request - log a maintenance request\n3 Notices - see recent scheme notices"},
 				{sender: dbgen.WhatsappMessageSenderResident, body: "1"},
-				{sender: dbgen.WhatsappMessageSenderBot, body: "Unit 2B levy account for October 2025:\nMonthly levy: R 2 450\nAmount paid: R 1 200\nOutstanding: R 1 250\nDue date: 1 Oct 2025"},
+				{sender: dbgen.WhatsappMessageSenderBot, body: fmt.Sprintf("Unit 2B levy account for %s:\nMonthly levy: R 2 450\nAmount paid: R 1 200\nOutstanding: R 1 250\nDue date: %s", levyMonth, levyDueDate)},
 				{sender: dbgen.WhatsappMessageSenderResident, body: "ok thanks ill pay tomorrow"},
-				{sender: dbgen.WhatsappMessageSenderBot, body: "No problem. Please use reference SH-2B-OCT25 when paying."},
+				{sender: dbgen.WhatsappMessageSenderBot, body: fmt.Sprintf("No problem. Please use reference %s when paying.", levyReference)},
 			},
 		},
 		{
@@ -335,7 +386,7 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 				body   string
 			}{
 				{sender: dbgen.WhatsappMessageSenderResident, body: "Did you receive my levy payment?"},
-				{sender: dbgen.WhatsappMessageSenderBot, body: "Payment confirmed for Unit 1A. October 2025 levy status: paid in full."},
+				{sender: dbgen.WhatsappMessageSenderBot, body: fmt.Sprintf("Payment confirmed for Unit 1A. %s levy status: paid in full.", levyMonth)},
 				{sender: dbgen.WhatsappMessageSenderResident, body: "great thanks"},
 			},
 		},
@@ -350,7 +401,7 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 				body   string
 			}{
 				{sender: dbgen.WhatsappMessageSenderResident, body: "When is the agm?"},
-				{sender: dbgen.WhatsappMessageSenderBot, body: "The next AGM is scheduled for Tuesday, 14 October 2025 at 18:30 in the community room."},
+				{sender: dbgen.WhatsappMessageSenderBot, body: fmt.Sprintf("The next AGM is scheduled for %s in the community room.", agmLabel)},
 				{sender: dbgen.WhatsappMessageSenderResident, body: "ill be there"},
 			},
 		},
@@ -419,13 +470,13 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 		{
 			sentAt:         base.Add(-5 * 24 * time.Hour),
 			kind:           dbgen.WhatsappBroadcastTypeAgm,
-			message:        "AGM notice: the annual general meeting will be held on Tuesday, 14 October 2025 at 18:30 in the community room.",
+			message:        fmt.Sprintf("AGM notice: the annual general meeting will be held on %s in the community room.", agmLabel),
 			recipientCount: 4,
 		},
 		{
 			sentAt:         base.Add(-15 * 24 * time.Hour),
 			kind:           dbgen.WhatsappBroadcastTypeLevy,
-			message:        "October 2025 levy reminder: please use your unit reference when making payment.",
+			message:        fmt.Sprintf("%s levy reminder: please use your unit reference when making payment.", levyMonth),
 			recipientCount: 4,
 		},
 	}
@@ -445,7 +496,22 @@ func seedDemoWhatsApp(ctx context.Context, q *dbgen.Queries, schemeID, adminUser
 	return nil
 }
 
-func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUID) error {
+func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUID, dates demoSeedDateContext) error {
+	agmDate := dates.nextAgmAt()
+	assessedAt := dates.assessedAt()
+	financialYear := dates.financialYearLabel()
+	statementsDate := dates.monthEnd(-2)
+	reserveFundDueDate := dates.monthStart(2)
+	csosPaidDate := dates.monthStart(-6).AddDate(0, 0, 14)
+	csosNextDue := csosPaidDate.AddDate(1, 0, 0)
+	agmShort := agmDate.Format("2 Jan 2006")
+	q3Label := fmt.Sprintf("Q3 %d (Jul–Sep)", assessedAt.Year())
+	trusteeMinutesDueDate := dates.monthEnd(0)
+	rulesDueDate := dates.monthEnd(1)
+	maintenancePlanDueDate := dates.monthEnd(4)
+	valuationDueDate := dates.monthEnd(2)
+	policyRenewedDate := dates.monthStart(-7)
+	policyReference := fmt.Sprintf("BC-%d-9834", policyRenewedDate.Year())
 	items := []struct {
 		assessedAt  time.Time
 		dueDate     *time.Time
@@ -461,9 +527,9 @@ func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUI
 			title:       "Annual financial statements",
 			requirement: "Financial statements must be prepared and approved within 4 months of financial year end.",
 			status:      dbgen.ComplianceStatusCompliant,
-			detail:      "Statements for FY2024/25 approved on 31 Aug 2025.",
+			detail:      fmt.Sprintf("Statements for %s approved on %s.", financialYear, statementsDate.Format("2 Jan 2006")),
 			action:      "No action required.",
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryFinancial,
@@ -472,54 +538,54 @@ func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUI
 			status:      dbgen.ComplianceStatusAtRisk,
 			detail:      "Reserve fund at R 67 420 — 67% of the recommended R 100 000 target. Current contribution rate is 6.2%.",
 			action:      "Increase reserve fund levy contribution to at least 10% before the next budget cycle.",
-			dueDate:     timePointer(time.Date(2025, time.December, 1, 0, 0, 0, 0, time.UTC)),
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			dueDate:     timePointer(reserveFundDueDate),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryFinancial,
 			title:       "CSOS levy payment",
 			requirement: "Annual Community Schemes Ombud Service (CSOS) levy must be paid.",
 			status:      dbgen.ComplianceStatusCompliant,
-			detail:      "CSOS levy of R 1 850 paid on 15 Apr 2025. Next due Apr 2026.",
+			detail:      fmt.Sprintf("CSOS levy of R 1 850 paid on %s. Next due %s.", csosPaidDate.Format("2 Jan 2006"), csosNextDue.Format("Jan 2006")),
 			action:      "No action required.",
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryFinancial,
 			title:       "Approved annual budget",
 			requirement: "Budget must be approved by trustees and presented at AGM before the start of the financial year.",
 			status:      dbgen.ComplianceStatusCompliant,
-			detail:      "FY2025/26 budget of R 420 000 approved at AGM on 14 Oct 2025.",
+			detail:      fmt.Sprintf("%s budget of R 420 000 approved at AGM on %s.", financialYear, agmShort),
 			action:      "No action required.",
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryGovernance,
 			title:       "Annual General Meeting held",
 			requirement: "AGM must be held within 4 months of the financial year end each year (STSMA Reg 17).",
 			status:      dbgen.ComplianceStatusCompliant,
-			detail:      "AGM held on 14 Oct 2025 with 62% quorum achieved.",
+			detail:      fmt.Sprintf("AGM held on %s with 62%% quorum achieved.", agmShort),
 			action:      "No action required.",
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryGovernance,
 			title:       "Trustee meeting minutes",
 			requirement: "Minutes of all trustee meetings must be recorded and kept on file.",
 			status:      dbgen.ComplianceStatusAtRisk,
-			detail:      "Q3 2025 (Jul–Sep) trustee meeting minutes have not been uploaded to the document vault.",
+			detail:      fmt.Sprintf("%s trustee meeting minutes have not been uploaded to the document vault.", q3Label),
 			action:      "Upload Q3 trustee meeting minutes to the document vault.",
-			dueDate:     timePointer(time.Date(2025, time.October, 31, 0, 0, 0, 0, time.UTC)),
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			dueDate:     timePointer(trusteeMinutesDueDate),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryGovernance,
 			title:       "Trustee election on record",
 			requirement: "Trustee committee elections must be held at the AGM and results recorded.",
 			status:      dbgen.ComplianceStatusCompliant,
-			detail:      "Three trustees elected at Oct 2025 AGM. Election recorded in meeting minutes.",
+			detail:      fmt.Sprintf("Three trustees elected at %s AGM. Election recorded in meeting minutes.", agmShort),
 			action:      "No action required.",
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryAdministrative,
@@ -528,8 +594,8 @@ func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUI
 			status:      dbgen.ComplianceStatusNonCompliant,
 			detail:      "Scheme rules have not been registered with CSOS. This is a legal requirement under STSMA s10.",
 			action:      "Submit scheme rules to CSOS via the CSOS online portal. Filing fee: R 400.",
-			dueDate:     timePointer(time.Date(2025, time.November, 30, 0, 0, 0, 0, time.UTC)),
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			dueDate:     timePointer(rulesDueDate),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryAdministrative,
@@ -538,8 +604,8 @@ func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUI
 			status:      dbgen.ComplianceStatusNonCompliant,
 			detail:      "No formal maintenance plan on record. The reserve fund target cannot be properly justified without one.",
 			action:      "Appoint a qualified assessor to compile a 10-year maintenance plan.",
-			dueDate:     timePointer(time.Date(2026, time.February, 28, 0, 0, 0, 0, time.UTC)),
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			dueDate:     timePointer(maintenancePlanDueDate),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryAdministrative,
@@ -548,26 +614,26 @@ func seedDemoCompliance(ctx context.Context, q *dbgen.Queries, schemeID uuid.UUI
 			status:      dbgen.ComplianceStatusCompliant,
 			detail:      "Conduct rules adopted and distributed to all residents. On file in document vault.",
 			action:      "No action required.",
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryInsurance,
 			title:       "Building insurance in force",
 			requirement: "Body corporate must insure all buildings to full replacement value (STSMA s3(1)(b)).",
 			status:      dbgen.ComplianceStatusCompliant,
-			detail:      "Santam policy BC-2025-9834. Buildings insured to R 18.5M replacement value. Renewed Mar 2025.",
+			detail:      fmt.Sprintf("Santam policy %s. Buildings insured to R 18.5M replacement value. Renewed %s.", policyReference, policyRenewedDate.Format("Jan 2006")),
 			action:      "No action required.",
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			assessedAt:  assessedAt,
 		},
 		{
 			category:    dbgen.ComplianceCategoryInsurance,
 			title:       "Replacement valuation current",
 			requirement: "Insurance replacement valuation must be updated at least every 3 years.",
 			status:      dbgen.ComplianceStatusAtRisk,
-			detail:      "Last valuation: August 2022 (3 years 2 months ago). May no longer reflect replacement cost.",
+			detail:      fmt.Sprintf("Last valuation: %s (3 years 2 months ago). May no longer reflect replacement cost.", assessedAt.AddDate(-3, -2, 0).Format("2 Jan 2006")),
 			action:      "Commission an updated replacement valuation from a registered quantity surveyor.",
-			dueDate:     timePointer(time.Date(2025, time.December, 31, 0, 0, 0, 0, time.UTC)),
-			assessedAt:  time.Date(2025, time.October, 28, 9, 0, 0, 0, time.UTC),
+			dueDate:     timePointer(valuationDueDate),
+			assessedAt:  assessedAt,
 		},
 	}
 

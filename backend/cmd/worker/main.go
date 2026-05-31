@@ -46,7 +46,8 @@ func main() {
 	if cfg.TwilioAccountSID != "" && cfg.TwilioAuthToken != "" && cfg.TwilioWhatsAppNumber != "" {
 		sender = twilio.NewClient(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioWhatsAppNumber)
 	} else {
-		sender = whatsapp.NewNoOpSender()
+		sender = whatsapp.NewDisabledSender()
+		logger.Info("twilio whatsapp disabled, using disabled sender")
 	}
 
 	levyService := levy.NewService(db, nil, nil)

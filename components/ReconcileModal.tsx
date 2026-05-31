@@ -10,6 +10,7 @@ interface ReconcileModalProps {
   periodLabel: string
   onConfirm: (payments: ReconcilePaymentInput[]) => void
   onClose: () => void
+  allowSampleStatement?: boolean
 }
 
 type Step = 'upload' | 'review' | 'confirm'
@@ -34,6 +35,7 @@ export default function ReconcileModal({
   periodLabel,
   onConfirm,
   onClose,
+  allowSampleStatement = false,
 }: ReconcileModalProps) {
   const [step, setStep] = useState<Step>('upload')
   const [matches, setMatches] = useState<ReconcileMatch[]>([])
@@ -197,12 +199,14 @@ export default function ReconcileModal({
                 <div className="flex-1 h-px bg-border" />
               </div>
 
-              <button
-                onClick={handleLoadSample}
-                className="mt-4 w-full text-[13px] text-accent font-medium border border-accent rounded-lg px-4 py-3 hover:bg-accent-dim transition-colors"
-              >
-                Load sample statement (demo)
-              </button>
+              {allowSampleStatement && (
+                <button
+                  onClick={handleLoadSample}
+                  className="mt-4 w-full text-[13px] text-accent font-medium border border-accent rounded-lg px-4 py-3 hover:bg-accent-dim transition-colors"
+                >
+                  Load sample statement
+                </button>
+              )}
             </div>
           )}
 

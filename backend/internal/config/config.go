@@ -182,14 +182,17 @@ func load() (*Config, error) {
 
 func requiredConfigForAPI(c *Config) map[string]string {
 	return map[string]string{
-		"DATABASE_URL":   c.DatabaseURL,
-		"REDIS_URL":      c.RedisURL,
-		"JWT_SECRET":     c.JWTSecret,
-		"RESEND_API_KEY": c.ResendAPIKey,
-		"AI_BASE_URL":    c.AIBaseURL,
-		"AI_API_KEY":     c.AIAPIKey,
-		"AI_MODEL":       c.AIModel,
-		"APP_BASE_URL":   c.AppBaseURL,
+		"DATABASE_URL":          c.DatabaseURL,
+		"REDIS_URL":             c.RedisURL,
+		"JWT_SECRET":            c.JWTSecret,
+		"RESEND_API_KEY":        c.ResendAPIKey,
+		"AI_BASE_URL":           c.AIBaseURL,
+		"AI_API_KEY":            c.AIAPIKey,
+		"AI_MODEL":              c.AIModel,
+		"APP_BASE_URL":          c.AppBaseURL,
+		"STRIPE_SECRET_KEY":     c.StripeSecretKey,
+		"STRIPE_WEBHOOK_SECRET": c.StripeWebhookSecret,
+		"STRIPE_PRICE_ID":       c.StripePriceID,
 	}
 }
 

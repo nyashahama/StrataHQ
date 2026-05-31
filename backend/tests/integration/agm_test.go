@@ -31,7 +31,7 @@ func TestAgm_ScheduleVoteAndAssignProxy(t *testing.T) {
 
 	createBody, _ := json.Marshal(map[string]any{
 		"date":            "2026-11-20",
-		"quorum_required": 3,
+		"quorum_required": 2,
 		"resolutions": []map[string]any{
 			{
 				"title":       "Approve 2027 maintenance budget",
@@ -125,5 +125,65 @@ func TestAgm_ScheduleVoteAndAssignProxy(t *testing.T) {
 	}
 	if updatedDashboard.Upcoming.Resolutions[0].UserVote != nil {
 		t.Fatalf("delegating member should not see a direct vote recorded, got %+v", updatedDashboard.Upcoming.Resolutions[0])
+	}
+}
+
+func TestAgm_ScheduleMeetingRejectsInvalidQuorum(t *testing.T) {
+	h := newAgmHandler(t)
+	accessToken, orgID := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+
+	createBody, _ := json.Marshal(map[string]any{
+		"date":            "2026-11-20",
+		"quorum_required": 3,
+		"resolutions": []map[string]any{
+			{
+				"title":       "Adopt financials",
+				"description": "Approve the proposed maintenance budget.",
+			},
+		},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/agm/"+schemeID+"/meetings", bytes.NewReader(createBody))
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w := httptest.NewRecorder()
+	h.ScheduleMeeting(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("schedule meeting with zero eligible voters: status=%d body=%s", w.Code, w.Body)
+	}
+
+	unitResidentID := createUnitRecord(t, schemeID, "2A")
+	residentEmail := uniqueEmail(t)
+	createMemberRecord(t, orgID, schemeID, residentEmail, "Resident Owner", string(auth.RoleResident), &unitResidentID)
+
+	req = httptest.NewRequest(http.MethodPost, "/agm/"+schemeID+"/meetings", bytes.NewReader(createBody))
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.ScheduleMeeting(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("quorum higher than eligible voters expected 400: status=%d body=%s", w.Code, w.Body)
+	}
+
+	committeeUserID := uniqueEmail(t)
+	createMemberRecord(t, orgID, schemeID, committeeUserID, "Trustee Member", string(auth.RoleTrustee), nil)
+
+	validBody, _ := json.Marshal(map[string]any{
+		"date":            "2026-11-20",
+		"quorum_required": 2,
+		"resolutions": []map[string]any{
+			{
+				"title":       "Adopt financials",
+				"description": "Approve the proposed maintenance budget.",
+			},
+		},
+	})
+	req = httptest.NewRequest(http.MethodPost, "/agm/"+schemeID+"/meetings", bytes.NewReader(validBody))
+	req = withRouteParams(req, map[string]string{"schemeId": schemeID})
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w = httptest.NewRecorder()
+	h.ScheduleMeeting(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("schedule meeting after adding second eligible voter should succeed: status=%d body=%s", w.Code, w.Body)
 	}
 }

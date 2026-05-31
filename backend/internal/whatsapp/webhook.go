@@ -262,6 +262,11 @@ func (h *WebhookHandler) processMessageAfterSave(ctx context.Context, phoneNumbe
 		}
 	}
 
+	if sendErr := h.sender.SendWhatsAppMessage(phoneNumber, reply); sendErr != nil {
+		h.logger.Error("failed to send WhatsApp reply", "phone", phoneNumber, "error", sendErr)
+		return
+	}
+
 	if _, replyErr := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
 		ThreadID:             thread.ID,
 		Sender:               dbgen.WhatsappMessageSenderBot,
@@ -271,10 +276,6 @@ func (h *WebhookHandler) processMessageAfterSave(ctx context.Context, phoneNumbe
 	}); replyErr != nil {
 		h.logger.Error("failed to save bot response", "error", replyErr)
 		return
-	}
-
-	if sendErr := h.sender.SendWhatsAppMessage(phoneNumber, reply); sendErr != nil {
-		h.logger.Error("failed to send WhatsApp reply", "phone", phoneNumber, "error", sendErr)
 	}
 }
 

@@ -110,6 +110,8 @@ func (h *Handler) Resend(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusNotFound, response.CodeNotFound, "invitation not found")
 		case ErrForbidden:
 			response.Error(w, http.StatusForbidden, response.CodeForbidden, "invitation belongs to a different org")
+		case ErrInvalidToken:
+			response.Error(w, http.StatusConflict, response.CodeConflict, "only pending invitations can be resent")
 		default:
 			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to resend invitation")
 		}

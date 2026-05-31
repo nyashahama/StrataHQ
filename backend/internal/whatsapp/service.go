@@ -663,6 +663,19 @@ func (s *Service) CreateMaintenanceFromMessage(ctx context.Context, identity aut
 		}
 	}
 
+	intakes, intakeErr := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
+	if intakeErr != nil {
+		return nil, intakeErr
+	}
+	for _, row := range intakes {
+		if row.MessageID != mid {
+			continue
+		}
+		if row.Status == "dismissed" {
+			return nil, ErrInvalidInput
+		}
+	}
+
 	title := strings.TrimSpace(input.Title)
 	description := strings.TrimSpace(input.Description)
 	category := strings.TrimSpace(input.Category)

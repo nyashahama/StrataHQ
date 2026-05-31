@@ -1,10 +1,30 @@
 import Link from 'next/link'
 import LogoIcon from './LogoIcon'
 
-const footerLinks = {
-  Product: ['Features', 'Modules', 'Pricing', 'Changelog'],
-  Resources: ['Documentation', 'STSMA guide', 'Blog', 'Help centre'],
-  Company: ['About', 'Contact', 'Privacy policy', 'Terms'],
+interface FooterLink {
+  label: string
+  href: string
+}
+
+const footerLinks: Record<string, FooterLink[]> = {
+  Product: [
+    { label: 'Features', href: '/#features' },
+    { label: 'Modules', href: '/#modules' },
+    { label: 'Pricing', href: '/#pricing' },
+    { label: 'Changelog', href: '/#roles' },
+  ],
+  Resources: [
+    { label: 'Documentation', href: '/#features' },
+    { label: 'STSMA guide', href: '/#problem' },
+    { label: 'Blog', href: '/early-access' },
+    { label: 'Help centre', href: '/auth/login' },
+  ],
+  Company: [
+    { label: 'About', href: '/#roles' },
+    { label: 'Contact', href: '/#problem' },
+    { label: 'Privacy policy', href: '/auth/login' },
+    { label: 'Terms', href: '/auth/login' },
+  ],
 }
 
 export default function Footer() {
@@ -37,12 +57,12 @@ export default function Footer() {
               </div>
               <ul className="flex flex-col">
                 {links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <Link
-                      href="#"
+                      href={link.href}
                       className="inline-block text-[13px] text-muted no-underline hover:text-ink transition-colors duration-200 py-[7px]"
                     >
-                      {link}
+                      {link.label}
                     </Link>
                   </li>
                 ))}

@@ -1,14 +1,49 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import LogoIcon from '@/components/LogoIcon'
+import { postLoginPath } from '@/lib/session'
+import type { SessionUser } from '@/lib/session'
+import { readBrowserCSRFToken } from '@/lib/csrf'
 
 export default function PendingPage() {
   const [checking, setChecking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
-  function handleCheckAgain() {
+  async function handleCheckAgain() {
     setChecking(true)
-    setTimeout(() => setChecking(false), 1500)
+    setError(null)
+
+    try {
+      const csrfToken = readBrowserCSRFToken()
+      const response = await fetch('/api/session/refresh', {
+        method: 'POST',
+        headers: csrfToken ? { 'x-csrf-token': csrfToken } : undefined,
+      })
+
+      if (response.status === 401 || response.status === 403) {
+        setError('Your account is still pending setup. Please try again.')
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to check account status. Please try again.')
+      }
+
+      const session = (await response.json()) as SessionUser | null
+      if (!session) {
+        setError('Your account is still pending setup. Please try again.')
+        return
+      }
+
+      router.replace(postLoginPath(session))
+    } catch {
+      setError('Failed to check account status. Please try again.')
+    } finally {
+      setChecking(false)
+    }
   }
 
   return (
@@ -77,6 +112,8 @@ export default function PendingPage() {
             'Check again'
           )}
         </button>
+
+        {error ? <p className="mt-4 text-xs text-red">{error}</p> : null}
       </div>
     </main>
   )

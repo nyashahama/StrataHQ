@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
 
 interface Toast {
-  id: number
+  id: string
   message: string
   type: 'success' | 'info' | 'error'
 }
@@ -16,9 +16,10 @@ const ToastContext = createContext<ToastContextValue>({ addToast: () => {} })
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
   const dismissalTimers = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+  const nextToastID = useRef(0)
 
   const addToast = useCallback((message: string, type: Toast['type'] = 'success') => {
-    const id = Date.now()
+    const id = `${nextToastID.current++}-${Date.now()}`
     setToasts(prev => [...prev, { id, message, type }])
     const timer = setTimeout(() => {
       dismissalTimers.current.delete(timer)

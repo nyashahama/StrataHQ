@@ -2,7 +2,6 @@ package compliance
 
 import (
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -96,11 +95,9 @@ func (h *Handler) CreateItem(w http.ResponseWriter, r *http.Request) {
 	var dueDate *time.Time
 	if req.DueDate != "" {
 		t, err := time.Parse("2006-01-02", req.DueDate)
-		if err != nil {
-			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request")
-			return
+		if err == nil {
+			dueDate = &t
 		}
-		dueDate = &t
 	}
 
 	item, err := h.service.CreateItem(r.Context(), identity, chi.URLParam(r, "schemeId"), CreateItemInput{
@@ -133,25 +130,15 @@ func (h *Handler) UpdateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := UpdateItemInput{
-		Status: req.Status,
-		Detail: req.Detail,
-		Action: req.Action,
+		Status:  req.Status,
+		Detail:  req.Detail,
+		Action:  req.Action,
 	}
 	if req.DueDate != nil {
 		t, err := time.Parse("2006-01-02", *req.DueDate)
-		if err != nil {
-			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request")
-			return
+		if err == nil {
+			input.DueDate = &t
 		}
-		input.DueDate = &t
-	}
-	if req.Status != nil {
-		status := strings.TrimSpace(*req.Status)
-		if !validStatus(status) {
-			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request")
-			return
-		}
-		input.Status = &status
 	}
 
 	item, err := h.service.UpdateItem(r.Context(), identity, chi.URLParam(r, "schemeId"), chi.URLParam(r, "itemId"), input)

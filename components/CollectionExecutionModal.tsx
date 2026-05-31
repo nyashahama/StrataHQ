@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Modal from "@/components/Modal";
 import { useToast } from "@/lib/toast";
 import { getCollectionReminderDraft, sendCollectionReminder } from "@/lib/attention-api";
@@ -20,15 +20,35 @@ export default function CollectionExecutionModal({
   onSent: () => void;
 }) {
   const { addToast } = useToast();
+  const addToastRef = useRef(addToast);
   const [draft, setDraft] = useState<ReminderDraft | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    addToastRef.current = addToast;
+  }, [addToast]);
+
+  const loadDraft = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    setDraft(null);
+    try {
+      setDraft(await getCollectionReminderDraft(schemeId, accountId));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load reminder draft";
+      setLoadError(message);
+      addToastRef.current(message, "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [accountId, schemeId]);
+
+  useEffect(() => {
     if (!open) return;
-    getCollectionReminderDraft(schemeId, accountId)
-      .then(setDraft)
-      .catch((error) => addToast(error instanceof Error ? error.message : "Failed to load reminder draft", "error"));
-  }, [open, schemeId, accountId, addToast]);
+    void loadDraft();
+  }, [loadDraft, open]);
 
   async function handleSend() {
     if (!draft) return;
@@ -57,7 +77,19 @@ export default function CollectionExecutionModal({
 
   return (
     <Modal open={open} onClose={() => !sending && onClose()} title="Send reminder">
-      {!draft ? (
+      {loadError ? (
+        <div className="space-y-3 py-6 text-center">
+          <p className="text-sm font-semibold text-ink">Could not load reminder draft</p>
+          <p className="text-xs text-muted">{loadError}</p>
+          <button
+            onClick={loadDraft}
+            disabled={loading}
+            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {loading ? "Retrying…" : "Try again"}
+          </button>
+        </div>
+      ) : !draft ? (
         <div className="py-8 text-center text-sm text-muted">Loading reminder draft…</div>
       ) : (
         <div className="space-y-4">

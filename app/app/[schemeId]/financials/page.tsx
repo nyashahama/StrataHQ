@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
+import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
 import { invalidateCache } from '@/lib/data-cache'
 import { getFinancialDashboard, updateReserveFund, upsertBudgetLine } from '@/lib/financials-api'
@@ -77,7 +78,7 @@ export default function FinancialsPage() {
 
   const canManage = user?.role === 'admin' || user?.role === 'trustee'
 
-  const { data: dashboard, isLoading: loading } = useAuthenticatedQuery<FinancialDashboard>({
+  const { data: dashboard, isLoading: loading, error, refetch } = useAuthenticatedQuery<FinancialDashboard>({
     queryKey: schemeKeys.financials(schemeId, selectedPeriod || 'current'),
     queryFn: () => getFinancialDashboard(schemeId, selectedPeriod || undefined),
     staleTime: 30_000,
@@ -217,6 +218,16 @@ export default function FinancialsPage() {
           Loading financial dashboard…
         </div>
       </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <RetryState
+        title="Could not load financial data"
+        message="Temporary service issue. Try again."
+        onRetry={refetch}
+      />
     )
   }
 

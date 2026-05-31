@@ -15,7 +15,6 @@ export function useAuthenticatedQuery<T>(
   return useQuery<T>({
     queryKey,
     queryFn,
-    placeholderData: (previousData) => previousData,
     ...rest,
   });
 }

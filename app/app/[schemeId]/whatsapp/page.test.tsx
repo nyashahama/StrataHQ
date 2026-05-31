@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const mockUseAuth = vi.hoisted(() => vi.fn());
 const mockGetCached = vi.hoisted(() => vi.fn());
 const mockSetCached = vi.hoisted(() => vi.fn());
 const mockInvalidateCache = vi.hoisted(() => vi.fn());
+const mockGetWhatsAppDashboard = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth", () => ({
   useAuth: mockUseAuth,
@@ -23,6 +24,13 @@ vi.mock("@/lib/data-cache", () => ({
   getCached: mockGetCached,
   setCached: mockSetCached,
   invalidateCache: mockInvalidateCache,
+}));
+
+vi.mock("@/lib/whatsapp-api", () => ({
+  createMaintenanceRequestFromWhatsAppMessage: vi.fn(),
+  createWhatsAppBroadcast: vi.fn(),
+  dismissWhatsAppMaintenanceIntake: vi.fn(),
+  getWhatsAppDashboard: mockGetWhatsAppDashboard,
 }));
 
 const mockDashboard = {
@@ -103,6 +111,7 @@ describe("WhatsAppPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetCached.mockReturnValue(mockDashboard);
+    mockGetWhatsAppDashboard.mockResolvedValue(mockDashboard);
     mockUseAuth.mockReturnValue({ user: { id: "user-1", role: "admin" } });
   });
 
@@ -168,5 +177,19 @@ describe("WhatsAppPage", () => {
     render(<WhatsAppPage />);
 
     expect(screen.getByText("No messages yet")).toBeInTheDocument();
+  });
+
+  it("shows a retry state when the dashboard request fails without cached data", async () => {
+    mockGetCached.mockReturnValue(null);
+    mockGetWhatsAppDashboard.mockRejectedValueOnce(new Error("service unavailable"));
+
+    const { default: WhatsAppPage } = await import("@/app/app/[schemeId]/whatsapp/page");
+    render(<WhatsAppPage />);
+
+    expect(await screen.findByText("Could not load WhatsApp data")).toBeInTheDocument();
+    expect(screen.queryByText("Loading WhatsApp…")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    await waitFor(() => expect(mockGetWhatsAppDashboard).toHaveBeenCalledTimes(2));
   });
 });

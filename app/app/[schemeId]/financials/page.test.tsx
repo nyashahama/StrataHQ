@@ -141,4 +141,19 @@ describe("FinancialsPage predictive levy analytics", () => {
     });
     expect(mockUpsertBudgetLine).not.toHaveBeenCalled();
   });
+
+  it("shows a retry state instead of zero balances when the dashboard load fails", async () => {
+    mockUseAuthenticatedQuery.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("backend unavailable"),
+      refetch: vi.fn(),
+    });
+    const { default: FinancialsPage } = await import("@/app/app/[schemeId]/financials/page");
+
+    render(<FinancialsPage />);
+
+    expect(screen.getByText("Could not load financial data")).toBeInTheDocument();
+    expect(screen.queryByText("Total budget")).not.toBeInTheDocument();
+  });
 });

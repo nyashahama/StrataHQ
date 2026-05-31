@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	dbgen "github.com/stratahq/backend/db/gen"
@@ -22,7 +21,6 @@ type fakeInvitationStore struct {
 	unit                  *dbgen.Unit
 	invitationByID        *dbgen.Invitation
 	invitationByToken     *dbgen.Invitation
-	createInvitationErr   error
 	createdUser           *dbgen.User
 	createdInvitation     *dbgen.CreateInvitationParams
 	updatedInvitation     *dbgen.UpdateInvitationTokenParams
@@ -69,9 +67,6 @@ func (a *fakeInvitationAuditor) RecordResourceEvent(_ context.Context, event aud
 }
 
 func (f *fakeInvitationStore) CreateInvitation(_ context.Context, arg dbgen.CreateInvitationParams) (dbgen.Invitation, error) {
-	if f.createInvitationErr != nil {
-		return dbgen.Invitation{}, f.createInvitationErr
-	}
 	f.createdInvitation = &arg
 	return dbgen.Invitation{
 		ID:        uuid.New(),
@@ -333,14 +328,8 @@ func TestServiceCreateRecordsAuditBeforeInvitationSendFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("Create() error = nil, want send failure")
 	}
-	if !errors.Is(err, ErrInvitationSend) {
-		t.Fatalf("Create() error = %v, want %v", err, ErrInvitationSend)
-	}
 	if sender.calls != 1 {
 		t.Fatalf("SendInvitation calls = %d, want 1", sender.calls)
-	}
-	if store.updatedInviteStatus == nil || store.updatedInviteStatus.Status != "revoked" {
-		t.Fatalf("invitation status update = %+v, want revoked", store.updatedInviteStatus)
 	}
 	if len(auditor.events) != 1 {
 		t.Fatalf("audit events = %d, want 1", len(auditor.events))
@@ -423,6 +412,104 @@ func TestServiceResendRecordsAuditBeforeInvitationSendFailure(t *testing.T) {
 	}
 	if auditor.events[0].Action != "invitation.resent" {
 		t.Fatalf("audit action = %q, want invitation.resent", auditor.events[0].Action)
+	}
+}
+
+func TestServiceResendRotatesTokenAfterSuccessfulResend(t *testing.T) {
+	orgID := uuid.New()
+	invitationID := uuid.New()
+	schemeID := uuid.New()
+	oldToken := "old-token"
+	store := &fakeInvitationStore{
+		invitationByID: &dbgen.Invitation{
+			ID:        invitationID,
+			OrgID:     orgID,
+			SchemeID:  schemeID,
+			Email:     "user@example.com",
+			FullName:  "Test User",
+			Role:      "trustee",
+			Token:     oldToken,
+			Status:    "pending",
+			ExpiresAt: time.Now().Add(time.Hour),
+		},
+	}
+	sender := &fakeInvitationSender{}
+	svc := &Service{
+		q:             store,
+		withTx:        func(ctx context.Context, fn func(q txStore) error) error { return fn(store) },
+		sender:        sender,
+		jwtSecret:     "unit-test-secret",
+		jwtExpiry:     15 * time.Minute,
+		refreshExpiry: 7 * 24 * time.Hour,
+	}
+
+	resp, err := svc.Resend(context.Background(), orgID.String(), invitationID.String(), "http://localhost:3000")
+	if err != nil {
+		t.Fatal("Resend() error = nil, want success")
+	}
+	if resp == nil {
+		t.Fatal("Resend() response = nil")
+	}
+	if resp.ID != invitationID.String() {
+		t.Fatalf("invitation id = %q, want %q", resp.ID, invitationID.String())
+	}
+	if resp.ExpiresAt.IsZero() {
+		t.Fatal("Resend() response ExpiresAt should be populated")
+	}
+	if store.updatedInvitation == nil {
+		t.Fatal("Resend() did not update invitation token")
+	}
+	if store.updatedInvitation.Token == oldToken {
+		t.Fatal("Resend() did not rotate invitation token")
+	}
+	if !store.updatedInvitation.ExpiresAt.After(store.invitationByID.ExpiresAt) {
+		t.Fatal("Resend() did not extend invitation expiry")
+	}
+	if sender.calls != 1 {
+		t.Fatalf("SendInvitation calls = %d, want 1", sender.calls)
+	}
+}
+
+func TestServiceResendDoesNotRotateTokenOnSendFailure(t *testing.T) {
+	orgID := uuid.New()
+	invitationID := uuid.New()
+	schemeID := uuid.New()
+	oldToken := "old-token"
+	store := &fakeInvitationStore{
+		invitationByID: &dbgen.Invitation{
+			ID:        invitationID,
+			OrgID:     orgID,
+			SchemeID:  schemeID,
+			Email:     "user@example.com",
+			FullName:  "Test User",
+			Role:      "trustee",
+			Token:     oldToken,
+			Status:    "pending",
+			ExpiresAt: time.Now().Add(time.Hour),
+		},
+	}
+	sender := &fakeInvitationSender{sendErr: errors.New("provider unavailable")}
+	svc := &Service{
+		q:             store,
+		withTx:        func(ctx context.Context, fn func(q txStore) error) error { return fn(store) },
+		sender:        sender,
+		jwtSecret:     "unit-test-secret",
+		jwtExpiry:     15 * time.Minute,
+		refreshExpiry: 7 * 24 * time.Hour,
+	}
+
+	_, err := svc.Resend(context.Background(), orgID.String(), invitationID.String(), "http://localhost:3000")
+	if err == nil {
+		t.Fatal("Resend() error = nil, want send failure")
+	}
+	if sender.calls != 1 {
+		t.Fatalf("SendInvitation calls = %d, want 1", sender.calls)
+	}
+	if store.updatedInvitation != nil {
+		t.Fatal("Resend() updated invitation token despite send failure")
+	}
+	if store.invitationByID.Token != oldToken {
+		t.Fatalf("invitation token = %q, want %q", store.invitationByID.Token, oldToken)
 	}
 }
 

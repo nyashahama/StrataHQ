@@ -383,7 +383,7 @@ func countOpenMaintenance(requests []dbgen.MaintenanceRequest) int {
 
 func collectionPctFromRows(accounts []dbgen.ListLevyAccountsByPeriodRow) int {
 	if len(accounts) == 0 {
-		return 0
+		return 100
 	}
 	var totalDue int64
 	var totalPaid int64
@@ -392,7 +392,7 @@ func collectionPctFromRows(accounts []dbgen.ListLevyAccountsByPeriodRow) int {
 		totalPaid += minInt64(account.PaidCents, account.AmountCents)
 	}
 	if totalDue == 0 {
-		return 0
+		return 100
 	}
 	return int(math.Round(float64(totalPaid) * 100 / float64(totalDue)))
 }

@@ -101,4 +101,4 @@ WHERE lp.scheme_id = $1
 ORDER BY lp.due_date DESC, u.identifier ASC;
 
 -- name: ClearBankStatementImportRawCsv :exec
-UPDATE bank_statement_imports SET raw_csv = NULL WHERE id = $1;
+UPDATE bank_statement_imports SET raw_csv = ''::bytea WHERE id = $1;

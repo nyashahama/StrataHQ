@@ -36,6 +36,41 @@ func TestParseFNBStatementCSV(t *testing.T) {
 	}
 }
 
+func TestParseFNBStatementCSVSkipsNonPositiveRows(t *testing.T) {
+	csvData := []byte(`Date,Description,Reference,Amount
+2026-04-01,EFT UNIT 12A,12A,2450.00
+2026-04-02,EFT UNIT 12A,12A,-2450.00
+2026-04-03,EFT UNIT 12A,12A,0.00
+2026-04-04,EFT UNIT 12A,12A,1200.00
+`)
+	rows, err := parseFNBStatementCSV(csvData)
+	if err != nil {
+		t.Fatalf("parse csv: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows = %d, want 2", len(rows))
+	}
+	if rows[0].RowNumber != 2 || rows[1].RowNumber != 5 {
+		t.Fatalf("row numbers = %d,%d, want 2,5", rows[0].RowNumber, rows[1].RowNumber)
+	}
+}
+
+func TestParseFNBStatementCSVSupportsDDMMYYYY(t *testing.T) {
+	csvData := []byte(`Date,Description,Reference,Amount
+01/04/2026,EFT UNIT 12A,12A,2450.00
+`)
+	rows, err := parseFNBStatementCSV(csvData)
+	if err != nil {
+		t.Fatalf("parse csv: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(rows))
+	}
+	if rows[0].TransactionDate != dateTime(2026, time.April, 1) {
+		t.Fatalf("date = %s, want 2026-04-01", rows[0].TransactionDate.Format("2006-01-02"))
+	}
+}
+
 func TestMatchBankStatementRowPrefersExactUnitToken(t *testing.T) {
 	account := candidateLevyAccount{
 		LevyAccountID:    uuid.New(),
@@ -54,6 +89,27 @@ func TestMatchBankStatementRowPrefersExactUnitToken(t *testing.T) {
 	}
 	if got.MatchedLevyAccountID == nil || *got.MatchedLevyAccountID != account.LevyAccountID {
 		t.Fatal("expected exact unit token match")
+	}
+}
+
+func TestMatchBankStatementRowDoesNotMatchWhenReferenceIsBlank(t *testing.T) {
+	account := candidateLevyAccount{
+		LevyAccountID:    uuid.New(),
+		UnitIdentifier:   "12A",
+		OwnerName:        "No Match",
+		OutstandingCents: 50000,
+	}
+	row := ParsedBankStatementRow{
+		AmountCents: 50000,
+		Reference:   "   ",
+		Description: "General ledger credit",
+	}
+	got := matchBankStatementRow(row, []candidateLevyAccount{account})
+	if got.Status != "unmatched" {
+		t.Fatalf("status = %q, want unmatched", got.Status)
+	}
+	if got.MatchedLevyAccountID != nil {
+		t.Fatal("blank reference should not create an initial unit match")
 	}
 }
 

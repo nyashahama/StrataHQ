@@ -155,6 +155,13 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 	if input.MeetingDate.IsZero() || input.QuorumRequired <= 0 {
 		return nil, ErrInvalidInput
 	}
+	totalEligible, err := s.totalEligibleVoters(ctx, access.scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+	if totalEligible <= 0 || input.QuorumRequired > totalEligible {
+		return nil, ErrInvalidInput
+	}
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -168,11 +175,6 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 		MeetingDate:    dateValue(input.MeetingDate),
 		QuorumRequired: input.QuorumRequired,
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	totalEligible, err := s.totalEligibleVoters(ctx, access.scheme.ID)
 	if err != nil {
 		return nil, err
 	}

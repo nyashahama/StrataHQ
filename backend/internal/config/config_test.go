@@ -18,6 +18,7 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 		"REFRESH_EXPIRY":        "48h",
 		"STRIPE_SECRET_KEY":     "sk_test_123",
 		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
 		"RESEND_API_KEY":        "re_123",
 		"AI_BASE_URL":           "https://api.deepseek.com/v1",
 		"AI_API_KEY":            "sk-ai-123",
@@ -69,6 +70,7 @@ func TestLoad_Defaults(t *testing.T) {
 		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
 		"STRIPE_SECRET_KEY":     "sk_test_123",
 		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
 		"RESEND_API_KEY":        "re_123",
 		"AI_BASE_URL":           "https://api.deepseek.com/v1",
 		"AI_API_KEY":            "sk-ai-123",
@@ -120,6 +122,9 @@ func TestLoad_AuthRateLimitOverrides(t *testing.T) {
 		"DATABASE_URL":            "postgres://user:pass@localhost:5432/db",
 		"REDIS_URL":               "redis://localhost:6379",
 		"JWT_SECRET":              "test-secret-that-is-long-enough-32ch",
+		"STRIPE_SECRET_KEY":       "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET":   "whsec_123",
+		"STRIPE_PRICE_ID":         "price_test_123",
 		"RESEND_API_KEY":          "re_123",
 		"AI_BASE_URL":             "https://api.deepseek.com/v1",
 		"AI_API_KEY":              "sk-ai-123",
@@ -148,7 +153,7 @@ func TestLoad_AuthRateLimitOverrides(t *testing.T) {
 }
 
 func TestLoad_MissingRequired(t *testing.T) {
-	for _, key := range []string{"DATABASE_URL", "REDIS_URL", "JWT_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "RESEND_API_KEY", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "APP_BASE_URL"} {
+	for _, key := range []string{"DATABASE_URL", "REDIS_URL", "JWT_SECRET", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "STRIPE_PRICE_ID", "RESEND_API_KEY", "AI_BASE_URL", "AI_API_KEY", "AI_MODEL", "APP_BASE_URL"} {
 		os.Unsetenv(key)
 	}
 
@@ -160,14 +165,17 @@ func TestLoad_MissingRequired(t *testing.T) {
 
 func TestLoad_WhitespaceOnlyRequired(t *testing.T) {
 	required := map[string]string{
-		"DATABASE_URL":   "postgres://user:pass@localhost:5432/db",
-		"REDIS_URL":      "redis://localhost:6379",
-		"JWT_SECRET":     "test-secret-that-is-long-enough-32ch",
-		"RESEND_API_KEY": "re_123",
-		"AI_BASE_URL":    "https://api.deepseek.com/v1",
-		"AI_API_KEY":     "sk-ai-123",
-		"AI_MODEL":       "deepseek-chat",
-		"APP_BASE_URL":   "http://localhost:3000",
+		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":             "redis://localhost:6379",
+		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
+		"STRIPE_SECRET_KEY":     "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
+		"RESEND_API_KEY":        "re_123",
+		"AI_BASE_URL":           "https://api.deepseek.com/v1",
+		"AI_API_KEY":            "sk-ai-123",
+		"AI_MODEL":              "deepseek-chat",
+		"APP_BASE_URL":          "http://localhost:3000",
 	}
 
 	for k, v := range required {
@@ -185,6 +193,62 @@ func TestLoad_WhitespaceOnlyRequired(t *testing.T) {
 	}
 }
 
+func TestLoadWorker_AllFieldsSet(t *testing.T) {
+	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db")
+	os.Setenv("RESEND_API_KEY", "re_123")
+	defer func() {
+		os.Unsetenv("DATABASE_URL")
+		os.Unsetenv("RESEND_API_KEY")
+	}()
+
+	cfg, err := LoadWorker()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.DatabaseURL != "postgres://user:pass@localhost:5432/db" {
+		t.Errorf("DatabaseURL = %q, want %q", cfg.DatabaseURL, "postgres://user:pass@localhost:5432/db")
+	}
+	if cfg.ResendAPIKey != "re_123" {
+		t.Errorf("ResendAPIKey = %q, want %q", cfg.ResendAPIKey, "re_123")
+	}
+}
+
+func TestLoadWorker_MissingRequired(t *testing.T) {
+	t.Run("missing database URL", func(t *testing.T) {
+		os.Unsetenv("DATABASE_URL")
+		os.Setenv("RESEND_API_KEY", "re_123")
+		defer func() {
+			os.Unsetenv("DATABASE_URL")
+			os.Unsetenv("RESEND_API_KEY")
+		}()
+
+		_, err := LoadWorker()
+		if err == nil {
+			t.Fatal("expected error for missing DATABASE_URL, got nil")
+		}
+		if !strings.Contains(err.Error(), "DATABASE_URL") {
+			t.Fatalf("error = %q, want DATABASE_URL", err)
+		}
+	})
+
+	t.Run("missing resend api key", func(t *testing.T) {
+		os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db")
+		os.Unsetenv("RESEND_API_KEY")
+		defer func() {
+			os.Unsetenv("DATABASE_URL")
+			os.Unsetenv("RESEND_API_KEY")
+		}()
+
+		_, err := LoadWorker()
+		if err == nil {
+			t.Fatal("expected error for missing RESEND_API_KEY, got nil")
+		}
+		if !strings.Contains(err.Error(), "RESEND_API_KEY") {
+			t.Fatalf("error = %q, want RESEND_API_KEY", err)
+		}
+	})
+}
+
 func TestLoad_TwilioAuthTokenMustBeConfiguredWithOtherTwilioSettings(t *testing.T) {
 	base := map[string]string{
 		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",
@@ -192,6 +256,7 @@ func TestLoad_TwilioAuthTokenMustBeConfiguredWithOtherTwilioSettings(t *testing.
 		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
 		"STRIPE_SECRET_KEY":     "sk_test_123",
 		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
 		"RESEND_API_KEY":        "re_123",
 		"AI_BASE_URL":           "https://api.deepseek.com/v1",
 		"AI_API_KEY":            "sk-ai-123",

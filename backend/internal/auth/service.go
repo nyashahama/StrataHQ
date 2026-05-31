@@ -22,15 +22,33 @@ import (
 
 // Sentinel errors.
 var (
-	ErrEmailExists        = errors.New("email already registered")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInvalidToken       = errors.New("invalid or expired token")
-	ErrWrongPassword      = errors.New("current password is incorrect")
+	ErrEmailExists          = errors.New("email already registered")
+	ErrInvalidCredentials   = errors.New("invalid credentials")
+	ErrInvalidToken         = errors.New("invalid or expired token")
+	ErrWrongPassword        = errors.New("current password is incorrect")
 	ErrWeakPassword         = errors.New("password does not meet requirements")
 	ErrSetupAlreadyComplete = errors.New("setup already complete")
 )
 
 const passwordResetTTL = time.Hour
+const consumedResetToken = "__consumed_pwreset__"
+
+const consumeResetTokenScript = `
+local value = redis.call("GET", KEYS[1])
+if not value then
+	return nil
+end
+if value == "` + consumedResetToken + `" then
+	return value
+end
+local ttl = redis.call("PTTL", KEYS[1])
+if ttl < 0 then
+	redis.call("SET", KEYS[1], "` + consumedResetToken + `")
+else
+	redis.call("PSETEX", KEYS[1], ttl, "` + consumedResetToken + `")
+end
+return value
+`
 
 // Response types returned by the service.
 
@@ -536,8 +554,12 @@ func (s *Service) IssuePasswordResetURL(ctx context.Context, email, appBaseURL s
 
 func (s *Service) ResetPassword(ctx context.Context, token, password string) error {
 	key := "pwreset:" + HashRefreshToken(token)
-	userIDStr, err := s.cache.GetDel(ctx, key).Result()
+	rawUserID, err := s.cache.Eval(ctx, consumeResetTokenScript, []string{key}).Result()
 	if err != nil {
+		return ErrInvalidToken
+	}
+	userIDStr, ok := rawUserID.(string)
+	if !ok || userIDStr == "" || userIDStr == consumedResetToken {
 		return ErrInvalidToken
 	}
 

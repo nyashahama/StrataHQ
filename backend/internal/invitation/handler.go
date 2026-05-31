@@ -66,6 +66,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			response.Error(w, http.StatusForbidden, response.CodeForbidden, "scheme belongs to a different org")
 		case err.Error() == "invalid scheme_id", err.Error() == "invalid unit_id":
 			response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
+		case err == ErrDuplicateInvite:
+			response.Error(w, http.StatusConflict, response.CodeConflict, "only one pending invitation allowed per recipient for this membership")
 		default:
 			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to create invitation")
 		}

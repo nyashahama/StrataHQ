@@ -54,5 +54,5 @@ func routeLabel(r *http.Request) string {
 			return pattern
 		}
 	}
-	return r.URL.Path
+	return "unmatched"
 }

@@ -28,6 +28,7 @@ export default function Copilot() {
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const requestInFlight = useRef(false)
   const schemeId = pathname.startsWith('/app/') ? pathname.split('/')[2] ?? null : null
   const isVisible = Boolean(user) && !isResidentRole(user?.role)
 
@@ -45,9 +46,11 @@ export default function Copilot() {
   if (!isVisible) return null
 
   async function sendMessage(text: string) {
-    if (!text.trim() || streaming) return
+    const payload = text.trim()
+    if (!payload || streaming || requestInFlight.current) return
 
-    const userMessage: Message = { role: 'user', content: text.trim() }
+    requestInFlight.current = true
+    const userMessage: Message = { role: 'user', content: payload }
     const history = messages
     setMessages(prev => [...prev, userMessage])
     setInput('')
@@ -65,7 +68,7 @@ export default function Copilot() {
       const response = await fetch('/api/copilot', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ message: text.trim(), history, scheme_id: schemeId }),
+        body: JSON.stringify({ message: payload, history, scheme_id: schemeId }),
       })
 
       if (!response.ok || !response.body) {
@@ -92,6 +95,7 @@ export default function Copilot() {
       setError('Network error — check your connection and try again.')
     } finally {
       setStreaming(false)
+      requestInFlight.current = false
     }
   }
 
@@ -169,6 +173,7 @@ export default function Copilot() {
                   {SUGGESTED_QUESTIONS.map(q => (
                     <button
                       key={q}
+                      disabled={streaming}
                       onClick={() => sendMessage(q)}
                       className="w-full text-left text-[12px] text-ink bg-page border border-border rounded-lg px-3 py-2 hover:border-accent hover:bg-accent-dim transition-colors leading-snug"
                     >

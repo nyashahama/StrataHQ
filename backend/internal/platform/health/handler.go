@@ -12,13 +12,18 @@ type Checker interface {
 	Ping(ctx context.Context) error
 }
 
-type Handler struct {
-	db    Checker
-	cache Checker
+type MigrationChecker interface {
+	CheckMigrations(ctx context.Context) error
 }
 
-func New(db Checker, cache Checker) *Handler {
-	return &Handler{db: db, cache: cache}
+type Handler struct {
+	db               Checker
+	cache            Checker
+	migrationChecker MigrationChecker
+}
+
+func New(db Checker, cache Checker, migrationChecker MigrationChecker) *Handler {
+	return &Handler{db: db, cache: cache, migrationChecker: migrationChecker}
 }
 
 func (h *Handler) Healthz(w http.ResponseWriter, r *http.Request) {
@@ -47,6 +52,15 @@ func (h *Handler) Readyz(w http.ResponseWriter, r *http.Request) {
 			healthy = false
 		} else {
 			checks["cache"] = "ok"
+		}
+	}
+
+	if h.migrationChecker != nil {
+		if err := h.migrationChecker.CheckMigrations(ctx); err != nil {
+			checks["database_migrations"] = err.Error()
+			healthy = false
+		} else {
+			checks["database_migrations"] = "ok"
 		}
 	}
 

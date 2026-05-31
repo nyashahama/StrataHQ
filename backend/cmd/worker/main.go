@@ -25,7 +25,7 @@ func main() {
 	slog.SetDefault(logger)
 	_ = godotenv.Load()
 
-	cfg, err := config.Load()
+	cfg, err := config.LoadWorker()
 	if err != nil {
 		logger.Error("failed to load config", "error", err)
 		os.Exit(1)
@@ -46,7 +46,8 @@ func main() {
 	if cfg.TwilioAccountSID != "" && cfg.TwilioAuthToken != "" && cfg.TwilioWhatsAppNumber != "" {
 		sender = twilio.NewClient(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioWhatsAppNumber)
 	} else {
-		sender = whatsapp.NewNoOpSender()
+		sender = whatsapp.NewDisabledSender()
+		logger.Info("twilio whatsapp disabled, using disabled sender")
 	}
 
 	levyService := levy.NewService(db, nil, nil)

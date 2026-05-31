@@ -1,7 +1,12 @@
+"use client";
+
+import { useCallback, useState } from "react";
 import Link from "next/link";
 
 import AttentionQueue from "@/components/AttentionQueue";
+import { useToast } from "@/lib/toast";
 import type { AttentionItem } from "@/lib/attention";
+import { getSchemeAttentionQueue } from "@/lib/attention-api";
 import type { SchemeDetail } from "@/lib/scheme-api";
 
 const HEALTH_STYLES = {
@@ -27,6 +32,30 @@ export function SchemeOverview({
   attentionItems: AttentionItem[];
   isResident: boolean;
 }) {
+  const { addToast } = useToast();
+  const [items, setItems] = useState(attentionItems);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshAttentionQueue = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { items } = await getSchemeAttentionQueue(scheme.id);
+      setItems(items);
+    } catch (refreshError) {
+      setError(
+        refreshError instanceof Error
+          ? refreshError.message
+          : "Could not refresh collections attention queue",
+      );
+      addToast("Could not refresh collections attention queue", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast, scheme.id]);
+
   const unitLabel = scheme.unit_identifier
     ? `Unit ${scheme.unit_identifier}`
     : "No unit linked yet";
@@ -155,10 +184,11 @@ export function SchemeOverview({
             </p>
           </div>
           <AttentionQueue
-            items={attentionItems}
+            items={items}
             scope="scheme"
-            loading={false}
-            error={null}
+            loading={loading}
+            error={error}
+            onRefresh={refreshAttentionQueue}
           />
         </section>
       )}

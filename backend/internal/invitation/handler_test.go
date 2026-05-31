@@ -95,6 +95,41 @@ func TestHandlerResendReturnsConflictForNonPendingInvitation(t *testing.T) {
 	}
 }
 
+func TestHandlerCreateReturnsConflictForDuplicatePendingInvitation(t *testing.T) {
+	h := NewHandler(&stubServicer{
+		createFn: func(context.Context, string, CreateParams, string) (*InvitationResponse, error) {
+			return nil, ErrDuplicateInvite
+		},
+	}, "http://localhost:3000")
+
+	body, _ := json.Marshal(map[string]string{
+		"email":     "user@example.com",
+		"full_name": "User Example",
+		"role":      "trustee",
+		"scheme_id": "11111111-1111-1111-1111-111111111111",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/invitations", bytes.NewReader(body))
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), uuidMustString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), uuidMustString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), string(auth.RoleAdmin)))
+	w := httptest.NewRecorder()
+
+	h.Create(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusConflict)
+	}
+
+	var payload struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("response decode: %v", err)
+	}
+	if payload.Error.Message == "" {
+		t.Fatal("expected non-empty error message")
+	}
+}
+
 func uuidMustString(raw string) string {
 	return raw
 }

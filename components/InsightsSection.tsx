@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 const alerts = [
@@ -12,6 +13,7 @@ const alerts = [
     body: 'R 9,300 outstanding · 90+ days · Payment probability 9%. Attorney referral window closing in ~10 days.',
     action: 'Refer to attorney →',
     actionColor: 'bg-red-bg border-[rgba(155,44,44,0.25)] text-red hover:bg-[rgba(155,44,44,0.12)]',
+    actionHref: '/early-access?focus=attorney',
   },
   {
     icon: '📉',
@@ -22,6 +24,7 @@ const alerts = [
     body: '89% collected vs 94% last month. 7 units unpaid. Automated reminders not yet sent — act now.',
     action: 'Send reminders →',
     actionColor: 'bg-accent-bg border-[rgba(43,108,176,0.2)] text-accent hover:bg-accent-dim',
+    actionHref: '/early-access?focus=collection-reminders',
   },
   {
     icon: '📅',
@@ -32,6 +35,7 @@ const alerts = [
     body: 'At current spend, reserve fund depletes in 7.4 years. Recommend R 120/unit/month increase to meet 10-year plan.',
     action: 'Model scenarios →',
     actionColor: 'bg-page border-border-2 text-ink-2 hover:bg-hover-subtle',
+    actionHref: '/early-access?focus=reserve-risk',
   },
 ]
 
@@ -201,12 +205,12 @@ export default function InsightsSection() {
                   </div>
                   <div className="text-[14px] font-semibold text-white leading-[1.3] mb-2">{a.title}</div>
                   <div className="text-[12px] text-white/55 leading-[1.6] mb-4">{a.body}</div>
-                  <button
-                    className={`text-[12px] font-medium px-3.5 py-[7px] rounded-lg border transition-colors duration-200 cursor-pointer ${a.actionColor}`}
-                    onClick={() => {}}
+                  <Link
+                    href={a.actionHref}
+                    className={`inline-block text-[12px] font-medium px-3.5 py-[7px] rounded-lg border transition-colors duration-200 ${a.actionColor}`}
                   >
                     {a.action}
-                  </button>
+                  </Link>
                 </div>
               ))}
 

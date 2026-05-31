@@ -101,8 +101,8 @@ func main() {
 		sender = twilio.NewClient(cfg.TwilioAccountSID, cfg.TwilioAuthToken, cfg.TwilioWhatsAppNumber)
 		logger.Info("twilio whatsapp enabled", "number", cfg.TwilioWhatsAppNumber)
 	} else {
-		sender = whatsapp.NewNoOpSender()
-		logger.Info("twilio whatsapp disabled, using no-op sender")
+		sender = whatsapp.NewDisabledSender()
+		logger.Info("twilio whatsapp disabled, using disabled sender")
 	}
 	jobService := jobs.NewService(db.Q, jobs.Registry{}, logger, jobs.RealClock{}, jobs.Config{
 		WorkerID:  "api-enqueuer",
@@ -125,7 +125,7 @@ func main() {
 
 	// Handlers
 	handlers := server.Handlers{
-		Health:          health.New(db, &redisChecker{rdb}),
+		Health:          health.New(db, &redisChecker{rdb}, db),
 		Auth:            auth.NewHandler(authService),
 		Audit:           audit.NewHandler(resourceAuditService),
 		Agm:             agm.NewHandler(agmService),

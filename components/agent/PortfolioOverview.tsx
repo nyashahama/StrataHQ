@@ -1,7 +1,12 @@
+"use client";
+
+import { useCallback, useState } from "react";
 import Link from "next/link";
 
 import AttentionQueue from "@/components/AttentionQueue";
+import { useToast } from "@/lib/toast";
 import type { AttentionItem } from "@/lib/attention";
+import { getPortfolioAttentionQueue } from "@/lib/attention-api";
 import type { SchemeSummary } from "@/lib/scheme-api";
 
 const HEALTH_STYLES: Record<SchemeSummary["health"], string> = {
@@ -17,6 +22,30 @@ export function PortfolioOverview({
   schemes: SchemeSummary[];
   attentionItems: AttentionItem[];
 }) {
+  const { addToast } = useToast();
+  const [items, setItems] = useState(attentionItems);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshAttentionQueue = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { items } = await getPortfolioAttentionQueue();
+      setItems(items);
+    } catch (refreshError) {
+      setError(
+        refreshError instanceof Error
+          ? refreshError.message
+          : "Could not refresh collections attention queue",
+      );
+      addToast("Could not refresh collections attention queue", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
   const totalUnits = schemes.reduce((sum, scheme) => sum + scheme.unit_count, 0);
   const totalMaintenance = schemes.reduce(
     (sum, scheme) => sum + scheme.open_maintenance_count,
@@ -132,10 +161,11 @@ export function PortfolioOverview({
           </p>
         </div>
         <AttentionQueue
-          items={attentionItems}
+          items={items}
           scope="portfolio"
-          loading={false}
-          error={null}
+          loading={loading}
+          error={error}
+          onRefresh={refreshAttentionQueue}
         />
       </section>
     </div>

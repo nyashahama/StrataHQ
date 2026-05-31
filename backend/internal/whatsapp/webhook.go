@@ -262,6 +262,11 @@ func (h *WebhookHandler) processMessageAfterSave(ctx context.Context, phoneNumbe
 		}
 	}
 
+	if sendErr := h.sender.SendWhatsAppMessage(phoneNumber, reply); sendErr != nil {
+		h.logger.Error("failed to send WhatsApp reply", "phone", phoneNumber, "error", sendErr)
+		return
+	}
+
 	if _, replyErr := h.db.Q.CreateWhatsAppMessage(ctx, dbgen.CreateWhatsAppMessageParams{
 		ThreadID:             thread.ID,
 		Sender:               dbgen.WhatsappMessageSenderBot,
@@ -272,19 +277,25 @@ func (h *WebhookHandler) processMessageAfterSave(ctx context.Context, phoneNumbe
 		h.logger.Error("failed to save bot response", "error", replyErr)
 		return
 	}
-
-	if sendErr := h.sender.SendWhatsAppMessage(phoneNumber, reply); sendErr != nil {
-		h.logger.Error("failed to send WhatsApp reply", "phone", phoneNumber, "error", sendErr)
-	}
 }
 
 func findBestThread(threads []dbgen.WhatsappThread) *dbgen.WhatsappThread {
 	if len(threads) == 0 {
 		return nil
 	}
-	best := &threads[0]
+	var best *dbgen.WhatsappThread
 	for i := range threads {
-		if threads[i].LastActiveAt.After(best.LastActiveAt) {
+		thread := &threads[i]
+		if best == nil {
+			best = thread
+			continue
+		}
+		bestHasResident := best.ResidentUserID.Valid
+		threadHasResident := thread.ResidentUserID.Valid
+		switch {
+		case threadHasResident && !bestHasResident:
+			best = thread
+		case threadHasResident == bestHasResident && thread.LastActiveAt.After(best.LastActiveAt):
 			best = &threads[i]
 		}
 	}

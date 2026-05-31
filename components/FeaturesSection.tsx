@@ -72,7 +72,7 @@ function FeatureBlock({ tag, heading, body, items, MockPanel, flip = false, acce
 
 export default function FeaturesSection() {
   return (
-    <>
+    <section id="features">
       <FeatureBlock
         tag="Levy & Payments"
         heading={<>Automate collections.<br />Eliminate the chase.</>}
@@ -116,6 +116,6 @@ export default function FeaturesSection() {
         ]}
         MockPanel={AGMMockPanel}
       />
-    </>
+    </section>
   )
 }

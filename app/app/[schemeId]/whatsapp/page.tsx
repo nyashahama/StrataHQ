@@ -329,19 +329,33 @@ function OperatorView({
   }
 
   async function createTicketFromIntake(intake: WhatsAppMaintenanceIntake) {
-    await createMaintenanceRequestFromWhatsAppMessage(schemeId, intake.message_id, {
-      title: intake.title,
-      description: intake.description,
-      category: intake.category,
-    })
-    await onReload()
-    addToast('Maintenance ticket created from WhatsApp.', 'success')
+    try {
+      await createMaintenanceRequestFromWhatsAppMessage(schemeId, intake.message_id, {
+        title: intake.title,
+        description: intake.description,
+        category: intake.category,
+      })
+      await onReload()
+      addToast('Maintenance ticket created from WhatsApp.', 'success')
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Failed to create maintenance ticket from WhatsApp.',
+        'error',
+      )
+    }
   }
 
   async function dismissIntake(intake: WhatsAppMaintenanceIntake) {
-    await dismissWhatsAppMaintenanceIntake(schemeId, intake.id)
-    await onReload()
-    addToast('WhatsApp maintenance intake dismissed.', 'success')
+    try {
+      await dismissWhatsAppMaintenanceIntake(schemeId, intake.id)
+      await onReload()
+      addToast('WhatsApp maintenance intake dismissed.', 'success')
+    } catch (error) {
+      addToast(
+        error instanceof Error ? error.message : 'Failed to dismiss WhatsApp maintenance intake.',
+        'error',
+      )
+    }
   }
 
   return (

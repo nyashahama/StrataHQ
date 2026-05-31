@@ -19,10 +19,10 @@ func TestRouteLabelUsesChiPatternWhenAvailable(t *testing.T) {
 	}
 }
 
-func TestRouteLabelFallsBackToURLPath(t *testing.T) {
-	req := httptest.NewRequest("GET", "/healthz", nil)
+func TestRouteLabelFallsBackToUnmatched(t *testing.T) {
+	req := httptest.NewRequest("GET", "/healthz/abc/def", nil)
 
-	if got := routeLabel(req); got != "/healthz" {
-		t.Fatalf("route label = %q, want %q", got, "/healthz")
+	if got := routeLabel(req); got != "unmatched" {
+		t.Fatalf("route label = %q, want %q", got, "unmatched")
 	}
 }

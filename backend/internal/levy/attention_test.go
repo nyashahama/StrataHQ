@@ -173,6 +173,40 @@ func TestBuildReminderDraftGeneratesDeterministicBodies(t *testing.T) {
 	}
 }
 
+func TestValidateSendReminderInputRejectsBlankEnabledChannelContent(t *testing.T) {
+	tests := []struct {
+		name  string
+		input SendReminderInput
+	}{
+		{
+			name: "email subject",
+			input: SendReminderInput{
+				Email: ReminderChannelInput{Enabled: true, Subject: " ", Body: "Please pay"},
+			},
+		},
+		{
+			name: "email body",
+			input: SendReminderInput{
+				Email: ReminderChannelInput{Enabled: true, Subject: "Levy reminder", Body: " "},
+			},
+		},
+		{
+			name: "whatsapp body",
+			input: SendReminderInput{
+				WhatsApp: ReminderChannelInput{Enabled: true, Body: " "},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateSendReminderInput(tt.input); err != ErrInvalidInput {
+				t.Fatalf("validateSendReminderInput error = %v, want ErrInvalidInput", err)
+			}
+		})
+	}
+}
+
 func TestScoreAttentionItemSuppressesReminderForActivePromise(t *testing.T) {
 	now := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
 	item := attentionAccount{

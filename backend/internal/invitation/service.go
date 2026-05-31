@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 
@@ -21,10 +22,12 @@ import (
 )
 
 var (
-	ErrNotFound     = errors.New("invitation not found")
-	ErrForbidden    = errors.New("invitation belongs to a different org")
-	ErrInvalidToken = errors.New("invalid, expired, or already used invitation token")
-	ErrEmailExists  = errors.New("email already registered")
+	ErrNotFound        = errors.New("invitation not found")
+	ErrForbidden       = errors.New("invitation belongs to a different org")
+	ErrInvalidToken    = errors.New("invalid, expired, or already used invitation token")
+	ErrEmailExists     = errors.New("email already registered")
+	ErrDuplicateInvite = errors.New("a pending invitation for this recipient already exists")
+	ErrInvitationSend  = errors.New("failed to send invitation")
 )
 
 type CreateParams struct {
@@ -167,6 +170,10 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 		ExpiresAt: expiresAt,
 	})
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "invitations_org_scheme_unit_email_pending_idx" {
+			return nil, ErrDuplicateInvite
+		}
 		return nil, err
 	}
 
@@ -191,7 +198,13 @@ func (s *Service) Create(ctx context.Context, orgID string, p CreateParams, appB
 
 	inviteURL := appBaseURL + "/auth/invite/" + token
 	if err := s.sender.SendInvitation(ctx, p.Email, p.FullName, inviteURL); err != nil {
-		return nil, err
+		if revokeErr := s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
+			Status: "revoked",
+			ID:     inv.ID,
+		}); revokeErr != nil {
+			return nil, err
+		}
+		return nil, ErrInvitationSend
 	}
 
 	return toResponse(inv), nil

@@ -178,11 +178,16 @@ func validScopes(scopes []string) bool {
 
 func parseUUIDs(values []string) ([]uuid.UUID, error) {
 	ids := make([]uuid.UUID, 0, len(values))
+	seen := make(map[uuid.UUID]struct{}, len(values))
 	for _, value := range values {
 		id, err := uuid.Parse(value)
 		if err != nil {
 			return nil, err
 		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
 		ids = append(ids, id)
 	}
 	return ids, nil

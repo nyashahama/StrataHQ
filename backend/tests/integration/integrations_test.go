@@ -73,6 +73,30 @@ func TestOpenAPI_LevyAccountsRejectsInvalidStatusFilter(t *testing.T) {
 	}
 }
 
+func TestIntegrations_AdminCreatesAPIClientWithDuplicateSchemeIDs(t *testing.T) {
+	h := newIntegrationsHandler(t)
+	accessToken, _ := setupAgent(t)
+	schemeID := setupScheme(t, accessToken)
+
+	body, _ := json.Marshal(map[string]any{
+		"name":       "Duplicate Scheme Reader",
+		"scheme_ids": []string{schemeID, schemeID},
+		"scopes":     []string{"read:schemes"},
+	})
+	req := httptest.NewRequest(http.MethodPost, "/integrations/api-clients", bytes.NewReader(body))
+	req = withAuthContext(req, accessToken, testJWTSigningKey)
+	w := httptest.NewRecorder()
+	h.CreateAPIClient(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create client with duplicate scheme ids: status=%d body=%s", w.Code, w.Body)
+	}
+
+	created := decodeSuccess[integrations.APIClientCreateResponse](t, w)
+	if len(created.SchemeIDs) != 1 || created.SchemeIDs[0] != schemeID {
+		t.Fatalf("expected duplicate scheme ids to be stored once, got %+v", created.SchemeIDs)
+	}
+}
+
 func TestIntegrations_AdminCreatesAndRevokesAPIClient(t *testing.T) {
 	h := newIntegrationsHandler(t)
 	accessToken, orgID := setupAgent(t)

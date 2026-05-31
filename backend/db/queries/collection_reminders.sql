@@ -18,7 +18,7 @@ JOIN units u ON u.id = la.unit_id
 LEFT JOIN scheme_memberships owner_membership
     ON owner_membership.scheme_id = s.id
    AND owner_membership.unit_id = u.id
-   AND owner_membership.role = 'owner'
+   AND owner_membership.role IN ('owner', 'resident')
 LEFT JOIN users owner_user ON owner_user.id = owner_membership.user_id
 LEFT JOIN whatsapp_threads thread ON thread.unit_id = u.id
 WHERE la.id = $1

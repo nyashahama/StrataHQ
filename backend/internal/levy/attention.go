@@ -3,6 +3,7 @@ package levy
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -165,6 +166,27 @@ func validateCollectionEventInput(input RecordCollectionEventInput) error {
 	default:
 		return ErrInvalidInput
 	}
+}
+
+func normalizeSendReminderInput(input SendReminderInput) SendReminderInput {
+	input.Email.Subject = strings.TrimSpace(input.Email.Subject)
+	input.Email.Body = strings.TrimSpace(input.Email.Body)
+	input.WhatsApp.Body = strings.TrimSpace(input.WhatsApp.Body)
+	return input
+}
+
+func validateSendReminderInput(input SendReminderInput) error {
+	input = normalizeSendReminderInput(input)
+	if !input.Email.Enabled && !input.WhatsApp.Enabled {
+		return ErrInvalidInput
+	}
+	if input.Email.Enabled && (input.Email.Subject == "" || input.Email.Body == "") {
+		return ErrInvalidInput
+	}
+	if input.WhatsApp.Enabled && input.WhatsApp.Body == "" {
+		return ErrInvalidInput
+	}
+	return nil
 }
 
 func sortAttentionItems(items []AttentionItem) {

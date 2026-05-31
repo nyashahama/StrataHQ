@@ -1127,7 +1127,8 @@ func (s *Service) ReminderDraft(ctx context.Context, identity auth.Identity, sch
 }
 
 func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, schemeID, accountID string, input SendReminderInput) (*CollectionEvent, error) {
-	if !input.Email.Enabled && !input.WhatsApp.Enabled {
+	input = normalizeSendReminderInput(input)
+	if err := validateSendReminderInput(input); err != nil {
 		return nil, ErrInvalidInput
 	}
 

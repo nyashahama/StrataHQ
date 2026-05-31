@@ -13,6 +13,7 @@ import (
 
 type stubServicer struct {
 	createFn func(ctx context.Context, orgID string, p CreateParams, appBaseURL string) (*InvitationResponse, error)
+	resendFn func(context.Context, string, string, string) (*InvitationResponse, error)
 }
 
 func (s *stubServicer) Create(ctx context.Context, orgID string, p CreateParams, appBaseURL string) (*InvitationResponse, error) {
@@ -23,8 +24,11 @@ func (s *stubServicer) List(context.Context, string) ([]InvitationResponse, erro
 	panic("unexpected List call")
 }
 
-func (s *stubServicer) Resend(context.Context, string, string, string) (*InvitationResponse, error) {
-	panic("unexpected Resend call")
+func (s *stubServicer) Resend(ctx context.Context, orgID string, invitationID string, appBaseURL string) (*InvitationResponse, error) {
+	if s.resendFn == nil {
+		panic("unexpected Resend call")
+	}
+	return s.resendFn(ctx, orgID, invitationID, appBaseURL)
 }
 
 func (s *stubServicer) Revoke(context.Context, string, string) error {
@@ -59,6 +63,35 @@ func TestHandlerCreateReturnsForbiddenForForeignScheme(t *testing.T) {
 	h.Create(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestHandlerResendReturnsConflictForNonPendingInvitation(t *testing.T) {
+	h := NewHandler(&stubServicer{
+		resendFn: func(context.Context, string, string, string) (*InvitationResponse, error) {
+			return nil, ErrInvalidToken
+		},
+	}, "http://localhost:3000")
+
+	req := httptest.NewRequest(http.MethodPost, "/invitations/11111111-1111-1111-1111-111111111111/resend", nil)
+	req = req.WithContext(auth.ContextWithIdentity(req.Context(), "00000000-0000-0000-0000-000000000003", "00000000-0000-0000-0000-000000000004", string(auth.RoleAdmin)))
+	w := httptest.NewRecorder()
+
+	h.Resend(w, req)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusConflict)
+	}
+
+	var payload struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("response decode: %v", err)
+	}
+	if payload.Error.Message != "only pending invitations can be resent" {
+		t.Fatalf("message = %q, want %q", payload.Error.Message, "only pending invitations can be resent")
 	}
 }
 

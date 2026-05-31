@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,6 +13,14 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stratahq/backend/internal/platform/response"
 )
+
+var incrementRateLimitScript = redis.NewScript(`
+local count = redis.call("INCR", KEYS[1])
+if count == 1 then
+	redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+return count
+`)
 
 func RateLimit(rdb *redis.Client, limit int, window time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -25,17 +34,14 @@ func RateLimit(rdb *redis.Client, limit int, window time.Duration) func(http.Han
 			key := fmt.Sprintf("ratelimit:%s", ip)
 			ctx := r.Context()
 
-			count, err := rdb.Incr(ctx, key).Result()
+			count, err := incrementRateLimit(ctx, rdb, key, window)
 			if err != nil {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			if count == 1 {
-				rdb.Expire(ctx, key, window)
-			}
-
 			if count > int64(limit) {
+				recordRateLimitBlocked("global")
 				response.ErrorWithRequest(w, r, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests")
 				return
 			}
@@ -59,17 +65,14 @@ func PerEndpointRateLimit(rdb *redis.Client, prefix string, limit int, window ti
 			key := fmt.Sprintf("ratelimit:%s:%s", prefix, ip)
 			ctx := r.Context()
 
-			count, err := rdb.Incr(ctx, key).Result()
+			count, err := incrementRateLimit(ctx, rdb, key, window)
 			if err != nil {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			if count == 1 {
-				rdb.Expire(ctx, key, window)
-			}
-
 			if count > int64(limit) {
+				recordRateLimitBlocked(prefix)
 				response.ErrorWithRequest(w, r, http.StatusTooManyRequests, "RATE_LIMITED", "too many requests")
 				return
 			}
@@ -77,6 +80,14 @@ func PerEndpointRateLimit(rdb *redis.Client, prefix string, limit int, window ti
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func incrementRateLimit(ctx context.Context, rdb *redis.Client, key string, window time.Duration) (int64, error) {
+	windowMillis := window.Milliseconds()
+	if window > 0 && windowMillis == 0 {
+		windowMillis = 1
+	}
+	return incrementRateLimitScript.Run(ctx, rdb, []string{key}, windowMillis).Int64()
 }
 
 func clientIP(r *http.Request) string {

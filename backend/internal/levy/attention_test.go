@@ -95,6 +95,31 @@ func TestScoreAttentionItemSuppressesUrgencyWhenFreshFollowUpExists(t *testing.T
 	}
 }
 
+func TestScoreAttentionItemSuppressesRepeatedLegalReviewRecommendation(t *testing.T) {
+	now := time.Date(2026, 4, 16, 0, 0, 0, 0, time.UTC)
+	item := attentionAccount{
+		LevyAccountID:     "acc-1",
+		SchemeID:          "scheme-1",
+		SchemeName:        "Rosewood Estate",
+		UnitID:            "unit-1",
+		UnitIdentifier:    "12C",
+		OwnerName:         "Owner Example",
+		OutstandingCents:  930000,
+		DaysOverdue:       97,
+		LastActionType:    "legal_review_flagged",
+		LastActionDaysAgo: 1,
+	}
+
+	scored := scoreAttentionItem(item, now)
+
+	if scored.RecommendedAction != "follow_up_logged" {
+		t.Fatalf("recommended_action = %q, want follow_up_logged after recent legal review", scored.RecommendedAction)
+	}
+	if scored.RiskScore >= 65 {
+		t.Fatalf("risk score = %d, want reduced score below 65 after recent legal review", scored.RiskScore)
+	}
+}
+
 func TestBuildReminderDraftMarksMissingChannels(t *testing.T) {
 	item := attentionAccount{
 		LevyAccountID:    "acc-1",

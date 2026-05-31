@@ -35,9 +35,12 @@ type AttentionItem struct {
 	RecommendedAction string   `json:"recommended_action"`
 }
 
+const legalReviewCooldownDays = 7
+
 func scoreAttentionItem(item attentionAccount, _ time.Time) AttentionItem {
 	score := 0
 	drivers := make([]string, 0, 4)
+	recentLegalReview := item.LastActionType == "legal_review_flagged" && item.LastActionDaysAgo <= legalReviewCooldownDays
 
 	switch {
 	case item.DaysOverdue >= 90:
@@ -72,8 +75,15 @@ func scoreAttentionItem(item attentionAccount, _ time.Time) AttentionItem {
 		drivers = append(drivers, "recent reminder already sent")
 	}
 
+	if recentLegalReview {
+		score -= 25
+		drivers = append(drivers, "recent legal review already flagged")
+	}
+
 	recommended := "reminder_sent"
 	if item.LastActionType == "reminder_sent" && item.LastActionDaysAgo <= 2 {
+		recommended = "follow_up_logged"
+	} else if recentLegalReview {
 		recommended = "follow_up_logged"
 	} else if item.HasActivePromise {
 		score -= 20

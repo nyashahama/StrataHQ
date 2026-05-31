@@ -1,4 +1,4 @@
--- backend/db/migrations/00033_invitation_pending_unique.sql
+-- backend/db/migrations/00034_invitation_pending_unique.sql
 -- +goose Up
 
 CREATE UNIQUE INDEX invitations_org_scheme_unit_email_pending_idx

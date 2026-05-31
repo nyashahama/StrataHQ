@@ -21,6 +21,7 @@ describe("schemeKeys", () => {
       "scheme",
       "scheme-1",
       "audit",
+      "limit-50",
     ])
   })
 })

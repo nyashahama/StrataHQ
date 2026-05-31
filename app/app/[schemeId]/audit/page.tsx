@@ -1,6 +1,7 @@
 'use client'
 
 import { useParams } from 'next/navigation'
+import { useState } from 'react'
 
 import { useAuth } from '@/lib/auth'
 import { schemeKeys } from '@/lib/query-keys'
@@ -82,6 +83,7 @@ function EventRow({ event }: { event: AuditEventInfo }) {
 }
 
 export default function AuditPage() {
+  const [limit, setLimit] = useState(50)
   const { user } = useAuth()
   const params = useParams()
   const schemeId = params.schemeId as string
@@ -92,8 +94,8 @@ export default function AuditPage() {
     error,
     refetch,
   } = useAuthenticatedQuery<{ events: AuditEventInfo[]; total: number; limit: number }>({
-    queryKey: schemeKeys.audit(schemeId),
-    queryFn: () => getSchemeAuditEvents(schemeId),
+    queryKey: schemeKeys.audit(schemeId, limit),
+    queryFn: () => getSchemeAuditEvents(schemeId, limit),
     staleTime: 30_000,
   })
 
@@ -130,12 +132,39 @@ export default function AuditPage() {
   }
 
   const events = data?.events ?? []
+  const total = data?.total ?? 0
+  const responseLimit = data?.limit ?? limit
+  const truncated = total > responseLimit
+  const canLoadMore = total > responseLimit && responseLimit < 200
+  const hasMore = total > events.length
+
+  const loadMore = () => {
+    setLimit(total > 200 ? 200 : total)
+  }
 
   return (
     <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
       <p className="text-[12px] text-muted mb-4">Scheme › Audit log</p>
       <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Audit log</h1>
-      <p className="text-[14px] text-muted mb-8">Scheme activity trail showing recent changes.</p>
+      <p className="text-[14px] text-muted mb-8">
+        Scheme activity trail showing recent changes.
+      </p>
+      {truncated && (
+        <p className="text-[12px] text-muted mb-6">
+          Showing latest {events.length} of {total} audit events.
+          {hasMore ? " More older events are available." : ""}
+        </p>
+      )}
+      {canLoadMore && (
+        <div className="mb-8">
+          <button
+            type="button"
+            onClick={loadMore}
+            className="text-[13px] font-medium text-accent hover:underline">
+            Show more events
+          </button>
+        </div>
+      )}
 
       {events.length === 0 ? (
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-[14px] text-muted">

@@ -57,24 +57,25 @@ type ConfigInts struct {
 }
 
 func Load() (*Config, error) {
+	appBaseURL := strings.TrimSpace(os.Getenv("APP_BASE_URL"))
 	cfg := &Config{
 		ConfigStrings: ConfigStrings{
 			Port:                 getEnv("PORT", "8080"),
 			Env:                  getEnv("ENV", "development"),
-			DatabaseURL:          os.Getenv("DATABASE_URL"),
-			RedisURL:             os.Getenv("REDIS_URL"),
-			JWTSecret:            os.Getenv("JWT_SECRET"),
-			JWTIssuer:            getEnv("JWT_ISSUER", os.Getenv("APP_BASE_URL")),
+			DatabaseURL:          strings.TrimSpace(os.Getenv("DATABASE_URL")),
+			RedisURL:             strings.TrimSpace(os.Getenv("REDIS_URL")),
+			JWTSecret:            strings.TrimSpace(os.Getenv("JWT_SECRET")),
+			JWTIssuer:            getEnv("JWT_ISSUER", appBaseURL),
 			JWTAudience:          getEnv("JWT_AUDIENCE", "stratahq-api"),
 			StripeSecretKey:      os.Getenv("STRIPE_SECRET_KEY"),
 			StripeWebhookSecret:  os.Getenv("STRIPE_WEBHOOK_SECRET"),
 			StripePriceID:        os.Getenv("STRIPE_PRICE_ID"),
-			ResendAPIKey:         os.Getenv("RESEND_API_KEY"),
-			AIBaseURL:            os.Getenv("AI_BASE_URL"),
-			AIAPIKey:             os.Getenv("AI_API_KEY"),
-			AIModel:              os.Getenv("AI_MODEL"),
-			AppBaseURL:           os.Getenv("APP_BASE_URL"),
-			BackendBaseURL:       getEnv("BACKEND_BASE_URL", os.Getenv("APP_BASE_URL")),
+			ResendAPIKey:         strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
+			AIBaseURL:            strings.TrimSpace(os.Getenv("AI_BASE_URL")),
+			AIAPIKey:             strings.TrimSpace(os.Getenv("AI_API_KEY")),
+			AIModel:              strings.TrimSpace(os.Getenv("AI_MODEL")),
+			AppBaseURL:           appBaseURL,
+			BackendBaseURL:       getEnv("BACKEND_BASE_URL", appBaseURL),
 			EmailFrom:            getEnv("EMAIL_FROM", "noreply@stratahq.co.za"),
 			AdminEmail:           os.Getenv("ADMIN_EMAIL"),
 			AdminSecret:          os.Getenv("ADMIN_SECRET"),
@@ -156,7 +157,7 @@ func (c *Config) validate() error {
 
 	var missing []string
 	for name, val := range required {
-		if val == "" {
+		if strings.TrimSpace(val) == "" {
 			missing = append(missing, name)
 		}
 	}

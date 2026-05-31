@@ -146,4 +146,27 @@ describe("WhatsAppPage", () => {
     expect(screen.queryByText("Maintenance")).not.toBeInTheDocument();
     expect(screen.getByText("Connect via WhatsApp")).toBeInTheDocument();
   });
+
+  it("renders an operator thread with no messages without crashing", async () => {
+    const baseThread = mockDashboard.threads[0];
+    if (!baseThread) throw new Error("missing base thread");
+
+    mockGetCached.mockReturnValue({
+      ...mockDashboard,
+      threads: [
+        {
+          ...baseThread,
+          id: "thread-empty",
+          messages: [],
+          unread: 0,
+        },
+      ],
+      unread_count: 0,
+    });
+
+    const { default: WhatsAppPage } = await import("@/app/app/[schemeId]/whatsapp/page");
+    render(<WhatsAppPage />);
+
+    expect(screen.getByText("No messages yet")).toBeInTheDocument();
+  });
 });

@@ -184,7 +184,7 @@ function ResidentView({ thread, phoneNumber }: { thread?: WhatsAppThread | null;
 
 function ThreadCard({ thread }: { thread: WhatsAppThread }) {
   const [expanded, setExpanded] = useState(false)
-  const lastMsg = thread.messages[thread.messages.length - 1]
+  const lastMsg = thread.messages.length > 0 ? thread.messages[thread.messages.length - 1] : null
 
   return (
     <div className={`border-b border-border last:border-b-0 ${!thread.connected ? 'opacity-50' : ''}`}>

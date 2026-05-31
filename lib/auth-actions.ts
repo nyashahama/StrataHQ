@@ -209,11 +209,15 @@ export async function setupAction(data: {
 // ─── Forgot password ──────────────────────────────────────────────────────────
 
 export async function forgotPasswordAction(email: string): Promise<void> {
-  fetchWithTimeout(`${BACKEND()}/api/v1/auth/forgot-password`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  }).catch(() => {});
+  try {
+    await fetchWithTimeout(`${BACKEND()}/api/v1/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    // Intentionally ignore; endpoint returns a generic response for UX + anti-enumeration.
+  }
   // Always succeeds from the client's perspective (no email enumeration)
 }
 

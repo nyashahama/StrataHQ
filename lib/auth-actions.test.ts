@@ -220,4 +220,27 @@ describe("auth actions", () => {
       session: expect.objectContaining({ id: "user-1" }),
     });
   });
+
+  it("awaits the forgot-password request before returning", async () => {
+    let resolveFetch: (value: Response) => void;
+    const fetchPromise = new Promise<Response>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const fetchMock = vi.fn(() => fetchPromise);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { forgotPasswordAction } = await import("./auth-actions");
+    let resolved = false;
+    const action = forgotPasswordAction("person@example.com").then(() => {
+      resolved = true;
+    });
+
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveFetch!(new Response(null, { status: 200 }));
+    await action;
+    expect(resolved).toBe(true);
+  });
 });

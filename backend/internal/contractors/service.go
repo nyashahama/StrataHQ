@@ -218,7 +218,7 @@ func (s *Service) Marketplace(ctx context.Context, identity auth.Identity, schem
 	}
 	result := make([]ContractorInfo, 0, len(rows))
 	for _, row := range rows {
-		mapped, mapErr := s.mapMarketplaceRow(ctx, row, auth.IsAdminRole(identity.Role))
+		mapped, mapErr := s.mapMarketplaceRow(ctx, row, auth.IsAdminRole(identity.Role) && row.OrgID.String() == identity.OrgID)
 		if mapErr != nil {
 			return nil, mapErr
 		}

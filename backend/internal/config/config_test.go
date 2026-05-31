@@ -193,6 +193,62 @@ func TestLoad_WhitespaceOnlyRequired(t *testing.T) {
 	}
 }
 
+func TestLoadWorker_AllFieldsSet(t *testing.T) {
+	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db")
+	os.Setenv("RESEND_API_KEY", "re_123")
+	defer func() {
+		os.Unsetenv("DATABASE_URL")
+		os.Unsetenv("RESEND_API_KEY")
+	}()
+
+	cfg, err := LoadWorker()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.DatabaseURL != "postgres://user:pass@localhost:5432/db" {
+		t.Errorf("DatabaseURL = %q, want %q", cfg.DatabaseURL, "postgres://user:pass@localhost:5432/db")
+	}
+	if cfg.ResendAPIKey != "re_123" {
+		t.Errorf("ResendAPIKey = %q, want %q", cfg.ResendAPIKey, "re_123")
+	}
+}
+
+func TestLoadWorker_MissingRequired(t *testing.T) {
+	t.Run("missing database URL", func(t *testing.T) {
+		os.Unsetenv("DATABASE_URL")
+		os.Setenv("RESEND_API_KEY", "re_123")
+		defer func() {
+			os.Unsetenv("DATABASE_URL")
+			os.Unsetenv("RESEND_API_KEY")
+		}()
+
+		_, err := LoadWorker()
+		if err == nil {
+			t.Fatal("expected error for missing DATABASE_URL, got nil")
+		}
+		if !strings.Contains(err.Error(), "DATABASE_URL") {
+			t.Fatalf("error = %q, want DATABASE_URL", err)
+		}
+	})
+
+	t.Run("missing resend api key", func(t *testing.T) {
+		os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db")
+		os.Unsetenv("RESEND_API_KEY")
+		defer func() {
+			os.Unsetenv("DATABASE_URL")
+			os.Unsetenv("RESEND_API_KEY")
+		}()
+
+		_, err := LoadWorker()
+		if err == nil {
+			t.Fatal("expected error for missing RESEND_API_KEY, got nil")
+		}
+		if !strings.Contains(err.Error(), "RESEND_API_KEY") {
+			t.Fatalf("error = %q, want RESEND_API_KEY", err)
+		}
+	})
+}
+
 func TestLoad_TwilioAuthTokenMustBeConfiguredWithOtherTwilioSettings(t *testing.T) {
 	base := map[string]string{
 		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",

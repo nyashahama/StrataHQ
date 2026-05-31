@@ -60,6 +60,32 @@ type ConfigInts struct {
 }
 
 func Load() (*Config, error) {
+	cfg, err := load()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cfg.validate(requiredConfigForAPI(cfg)); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func LoadWorker() (*Config, error) {
+	cfg, err := load()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cfg.validate(requiredConfigForWorker(cfg)); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func load() (*Config, error) {
 	appBaseURL := strings.TrimSpace(os.Getenv("APP_BASE_URL"))
 	cfg := &Config{
 		ConfigStrings: ConfigStrings{
@@ -151,15 +177,11 @@ func Load() (*Config, error) {
 		}
 	}
 
-	if err := cfg.validate(); err != nil {
-		return nil, err
-	}
-
 	return cfg, nil
 }
 
-func (c *Config) validate() error {
-	required := map[string]string{
+func requiredConfigForAPI(c *Config) map[string]string {
+	return map[string]string{
 		"DATABASE_URL":          c.DatabaseURL,
 		"REDIS_URL":             c.RedisURL,
 		"JWT_SECRET":            c.JWTSecret,
@@ -172,7 +194,16 @@ func (c *Config) validate() error {
 		"STRIPE_WEBHOOK_SECRET": c.StripeWebhookSecret,
 		"STRIPE_PRICE_ID":       c.StripePriceID,
 	}
+}
 
+func requiredConfigForWorker(c *Config) map[string]string {
+	return map[string]string{
+		"DATABASE_URL":   c.DatabaseURL,
+		"RESEND_API_KEY": c.ResendAPIKey,
+	}
+}
+
+func (c *Config) validate(required map[string]string) error {
 	var missing []string
 	for name, val := range required {
 		if strings.TrimSpace(val) == "" {

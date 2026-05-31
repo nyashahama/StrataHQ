@@ -149,6 +149,13 @@ export async function setupAction(data: {
   const accessToken = cookieStore.get("sh_access")?.value;
   if (!accessToken) return { error: "Not authenticated" };
 
+  const raw = cookieStore.get("sh_session")?.value;
+  const session = parseSessionCookie(raw);
+  if (!session) {
+    await clearAuthCookies();
+    return { error: "Session expired — please log in again" };
+  }
+
   let res: Response;
   try {
     res = await fetchWithTimeout(`${BACKEND()}/api/v1/onboarding/setup`, {
@@ -175,34 +182,28 @@ export async function setupAction(data: {
   }>(res);
 
   // Update session cookie: wizard_complete + first scheme membership
-  const raw = cookieStore.get("sh_session")?.value;
-  const session = parseSessionCookie(raw);
-  if (session) {
-    session.wizard_complete = true;
-    session.org = {
-      id: result.org.id,
-      name: result.org.name,
-      contact_email: data.contact_email,
-      contact_phone: result.org.contact_phone ?? session.org?.contact_phone ?? null,
-    };
-    session.scheme_memberships = [
-      {
-        scheme_id: result.scheme.id,
-        scheme_name: result.scheme.name,
-        unit_id: null,
-        unit_identifier: null,
-        role: APP_ROLES.admin,
-      },
-    ];
-    cookieStore.set(
-      "sh_session",
-      encodeURIComponent(JSON.stringify(session)),
-      SESSION_OPTS,
-    );
-    return { user: session };
-  }
-
-  return { error: "Session not found — please log in again" };
+  session.wizard_complete = true;
+  session.org = {
+    id: result.org.id,
+    name: result.org.name,
+    contact_email: data.contact_email,
+    contact_phone: result.org.contact_phone ?? session.org?.contact_phone ?? null,
+  };
+  session.scheme_memberships = [
+    {
+      scheme_id: result.scheme.id,
+      scheme_name: result.scheme.name,
+      unit_id: null,
+      unit_identifier: null,
+      role: APP_ROLES.admin,
+    },
+  ];
+  cookieStore.set(
+    "sh_session",
+    encodeURIComponent(JSON.stringify(session)),
+    SESSION_OPTS,
+  );
+  return { user: session };
 }
 
 // ─── Forgot password ──────────────────────────────────────────────────────────

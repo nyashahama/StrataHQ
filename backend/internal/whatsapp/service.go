@@ -650,19 +650,6 @@ func (s *Service) CreateMaintenanceFromMessage(ctx context.Context, identity aut
 	if msg.SchemeID != access.scheme.ID {
 		return nil, ErrForbidden
 	}
-	if msg.MaintenanceRequestID.Valid {
-		intakes, intakeErr := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
-		if intakeErr != nil {
-			return nil, intakeErr
-		}
-		for _, row := range intakes {
-			if row.MessageID == mid {
-				mapped := mapMaintenanceIntake(row)
-				return &mapped, nil
-			}
-		}
-	}
-
 	intakes, intakeErr := s.db.Q.ListWhatsAppMaintenanceIntakesByScheme(ctx, access.scheme.ID)
 	if intakeErr != nil {
 		return nil, intakeErr
@@ -673,6 +660,10 @@ func (s *Service) CreateMaintenanceFromMessage(ctx context.Context, identity aut
 		}
 		if row.Status == "dismissed" {
 			return nil, ErrInvalidInput
+		}
+		if msg.MaintenanceRequestID.Valid {
+			mapped := mapMaintenanceIntake(row)
+			return &mapped, nil
 		}
 	}
 

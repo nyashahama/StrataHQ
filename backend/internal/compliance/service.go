@@ -49,11 +49,15 @@ type DashboardResponse struct {
 }
 
 type Service struct {
-	db *database.Pool
+	db                   *database.Pool
+	listSchemesByOrgFn   func(context.Context, uuid.UUID) ([]dbgen.Scheme, error)
+	dashboardForSchemeFn func(context.Context, uuid.UUID) (*DashboardResponse, error)
 }
 
 func NewService(db *database.Pool) *Service {
-	return &Service{db: db}
+	svc := &Service{db: db}
+	svc.dashboardForSchemeFn = svc.dashboardForScheme
+	return svc
 }
 
 func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeID string) (*DashboardResponse, error) {
@@ -393,7 +397,11 @@ func (s *Service) PortfolioDashboard(ctx context.Context, identity auth.Identity
 		return nil, ErrInvalidInput
 	}
 
-	rows, err := s.db.Q.ListSchemesByOrg(ctx, orgID)
+	listSchemesByOrg := s.listSchemesByOrgFn
+	if listSchemesByOrg == nil {
+		listSchemesByOrg = s.db.Q.ListSchemesByOrg
+	}
+	rows, err := listSchemesByOrg(ctx, orgID)
 	if err != nil {
 		return nil, err
 	}
@@ -404,9 +412,13 @@ func (s *Service) PortfolioDashboard(ctx context.Context, identity auth.Identity
 	var totalScore int
 
 	for _, row := range rows {
-		dashboard, dashErr := s.dashboardForScheme(ctx, row.ID)
+		dashboardForScheme := s.dashboardForSchemeFn
+		if dashboardForScheme == nil {
+			dashboardForScheme = s.dashboardForScheme
+		}
+		dashboard, dashErr := dashboardForScheme(ctx, row.ID)
 		if dashErr != nil {
-			continue
+			return nil, dashErr
 		}
 
 		info := PortfolioSchemeInfo{

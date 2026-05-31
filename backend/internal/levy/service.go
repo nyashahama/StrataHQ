@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -274,6 +275,18 @@ func (s *Service) CreatePeriod(ctx context.Context, identity auth.Identity, sche
 		return nil, ErrInvalidInput
 	}
 
+	units, err := s.db.Q.ListUnitsByScheme(ctx, scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+	periods, err := s.db.Q.ListLevyPeriodsByScheme(ctx, scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateCreatePeriodInput(input, len(units), periods); err != nil {
+		return nil, err
+	}
+
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -293,10 +306,6 @@ func (s *Service) CreatePeriod(ctx context.Context, identity auth.Identity, sche
 		return nil, err
 	}
 
-	units, err := q.ListUnitsByScheme(ctx, scheme.ID)
-	if err != nil {
-		return nil, err
-	}
 	for _, unit := range units {
 		if _, err := q.CreateLevyAccount(ctx, dbgen.CreateLevyAccountParams{
 			UnitID:      unit.ID,
@@ -329,6 +338,23 @@ func (s *Service) CreatePeriod(ctx context.Context, identity auth.Identity, sche
 	}
 
 	return &created, nil
+}
+
+func validateCreatePeriodInput(input CreatePeriodInput, unitCount int, existing []dbgen.LevyPeriod) error {
+	if strings.TrimSpace(input.Label) == "" || input.AmountCents <= 0 || input.DueDate.IsZero() {
+		return ErrInvalidInput
+	}
+	if unitCount <= 0 {
+		return ErrInvalidInput
+	}
+
+	label := strings.TrimSpace(input.Label)
+	for _, period := range existing {
+		if strings.EqualFold(strings.TrimSpace(period.Label), label) {
+			return ErrInvalidInput
+		}
+	}
+	return nil
 }
 
 func (s *Service) Reconcile(ctx context.Context, identity auth.Identity, schemeID string, payments []ReconcilePaymentInput) (*ReconcileResult, error) {

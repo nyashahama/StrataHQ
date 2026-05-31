@@ -1,6 +1,14 @@
 package levy
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	dbgen "github.com/stratahq/backend/db/gen"
+)
 
 func TestLevyPeriodCreatedAuditEvent(t *testing.T) {
 	event := levyPeriodCreatedAuditEvent(levyPeriodAuditInput{
@@ -47,5 +55,45 @@ func TestLevyReconciledAuditEvent(t *testing.T) {
 	}
 	if metadata["skipped_count"] != 1 {
 		t.Fatalf("skipped count = %v, want 1", metadata["skipped_count"])
+	}
+}
+
+func TestValidateCreatePeriodGuardsEmptyUnitRegister(t *testing.T) {
+	err := validateCreatePeriodInput(CreatePeriodInput{
+		Label:       "May 2026",
+		AmountCents: 250000,
+		DueDate:     time.Now(),
+	}, 0, nil)
+
+	if err != ErrInvalidInput {
+		t.Fatalf("validateCreatePeriodInput() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestValidateCreatePeriodGuardsDuplicatePeriodLabel(t *testing.T) {
+	err := validateCreatePeriodInput(CreatePeriodInput{
+		Label:       "May 2026",
+		AmountCents: 250000,
+		DueDate:     time.Now(),
+	}, 1, []dbgen.LevyPeriod{
+		{ID: uuid.New(), Label: "May 2026", DueDate: pgtype.Date{Time: time.Now(), Valid: true}},
+	})
+
+	if err != ErrInvalidInput {
+		t.Fatalf("validateCreatePeriodInput() error = %v, want ErrInvalidInput", err)
+	}
+}
+
+func TestValidateCreatePeriodAllowsDistinctPeriodWithUnits(t *testing.T) {
+	err := validateCreatePeriodInput(CreatePeriodInput{
+		Label:       "June 2026",
+		AmountCents: 250000,
+		DueDate:     time.Now(),
+	}, 1, []dbgen.LevyPeriod{
+		{ID: uuid.New(), Label: "May 2026", DueDate: pgtype.Date{Time: time.Now(), Valid: true}},
+	})
+
+	if err != nil {
+		t.Fatalf("validateCreatePeriodInput() error = %v, want nil", err)
 	}
 }

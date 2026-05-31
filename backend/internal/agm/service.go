@@ -152,14 +152,11 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 	if !auth.IsAdminRole(access.role) {
 		return nil, ErrForbidden
 	}
-	if input.MeetingDate.IsZero() || input.QuorumRequired <= 0 {
-		return nil, ErrInvalidInput
-	}
 	totalEligible, err := s.totalEligibleVoters(ctx, access.scheme.ID)
 	if err != nil {
 		return nil, err
 	}
-	if totalEligible <= 0 || input.QuorumRequired > totalEligible {
+	if err := validateScheduleMeetingInput(input, totalEligible); err != nil {
 		return nil, ErrInvalidInput
 	}
 
@@ -180,9 +177,6 @@ func (s *Service) ScheduleMeeting(ctx context.Context, identity auth.Identity, s
 	}
 
 	for _, resolution := range input.Resolutions {
-		if strings.TrimSpace(resolution.Title) == "" || strings.TrimSpace(resolution.Description) == "" {
-			return nil, ErrInvalidInput
-		}
 		if _, createErr := q.CreateAgmResolution(ctx, dbgen.CreateAgmResolutionParams{
 			MeetingID:     meeting.ID,
 			Title:         strings.TrimSpace(resolution.Title),
@@ -509,7 +503,35 @@ func (s *Service) totalEligibleVoters(ctx context.Context, schemeID uuid.UUID) (
 	if err != nil {
 		return 0, err
 	}
-	return int32(len(members)), nil
+	return eligibleVoterCount(members), nil
+}
+
+func eligibleVoterCount(members []dbgen.ListSchemeMembersBySchemeRow) int32 {
+	var total int32
+	for _, member := range members {
+		if member.Role == string(auth.RoleTrustee) || member.Role == string(auth.RoleResident) {
+			total++
+		}
+	}
+	return total
+}
+
+func validateScheduleMeetingInput(input ScheduleMeetingInput, totalEligible int32) error {
+	if input.MeetingDate.IsZero() || input.QuorumRequired <= 0 {
+		return ErrInvalidInput
+	}
+	if totalEligible <= 0 || input.QuorumRequired > totalEligible {
+		return ErrInvalidInput
+	}
+	if len(input.Resolutions) == 0 {
+		return ErrInvalidInput
+	}
+	for _, resolution := range input.Resolutions {
+		if strings.TrimSpace(resolution.Title) == "" || strings.TrimSpace(resolution.Description) == "" {
+			return ErrInvalidInput
+		}
+	}
+	return nil
 }
 
 func (s *Service) resolveAccess(ctx context.Context, identity auth.Identity, schemeID string) (*accessInfo, error) {

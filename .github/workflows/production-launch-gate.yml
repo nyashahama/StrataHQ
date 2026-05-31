@@ -19,7 +19,7 @@ on:
       http_req_duration_p95_ms:
         description: "Maximum allowed k6 http_req_duration p95 in milliseconds"
         required: true
-        default: "30000"
+        default: "1000"
         type: string
 
 permissions:

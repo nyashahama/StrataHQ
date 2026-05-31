@@ -38,16 +38,12 @@ type fakeInvitationStore struct {
 }
 
 type fakeInvitationSender struct {
-	sendErr      error
-	calls        int
-	lastEmail    string
-	lastFullName string
+	sendErr error
+	calls   int
 }
 
-func (s *fakeInvitationSender) SendInvitation(_ context.Context, email, fullName, _ string) error {
+func (s *fakeInvitationSender) SendInvitation(context.Context, string, string, string) error {
 	s.calls++
-	s.lastEmail = email
-	s.lastFullName = fullName
 	return s.sendErr
 }
 
@@ -304,67 +300,6 @@ func TestServiceCreateRejectsUnitOutsideScheme(t *testing.T) {
 	}
 	if store.createdInvitation != nil {
 		t.Fatal("Create() created invitation for unit outside scheme")
-	}
-}
-
-func TestServiceCreateNormalizesInvitationEmailBeforePersistenceAndSend(t *testing.T) {
-	orgID := uuid.New()
-	schemeID := uuid.New()
-	store := &fakeInvitationStore{
-		scheme: &dbgen.Scheme{
-			ID:    schemeID,
-			OrgID: orgID,
-		},
-	}
-	sender := &fakeInvitationSender{}
-	svc := newTestService(store)
-	svc.sender = sender
-
-	resp, err := svc.Create(context.Background(), orgID.String(), CreateParams{
-		Email:    " Resident@Example.COM ",
-		FullName: " Resident User ",
-		Role:     "trustee",
-		SchemeID: schemeID.String(),
-	}, "http://localhost:3000")
-	if err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-	if resp.Email != "resident@example.com" {
-		t.Fatalf("response email = %q, want resident@example.com", resp.Email)
-	}
-	if store.createdInvitation == nil || store.createdInvitation.Email != "resident@example.com" {
-		t.Fatalf("created invitation email = %#v, want resident@example.com", store.createdInvitation)
-	}
-	if sender.lastEmail != "resident@example.com" {
-		t.Fatalf("sent email = %q, want resident@example.com", sender.lastEmail)
-	}
-	if sender.lastFullName != "Resident User" {
-		t.Fatalf("sent full name = %q, want Resident User", sender.lastFullName)
-	}
-}
-
-func TestServiceCreateRejectsInvalidInvitationEmail(t *testing.T) {
-	orgID := uuid.New()
-	schemeID := uuid.New()
-	store := &fakeInvitationStore{
-		scheme: &dbgen.Scheme{
-			ID:    schemeID,
-			OrgID: orgID,
-		},
-	}
-	svc := newTestService(store)
-
-	_, err := svc.Create(context.Background(), orgID.String(), CreateParams{
-		Email:    "Resident User <resident@example.com>",
-		FullName: "Resident User",
-		Role:     "trustee",
-		SchemeID: schemeID.String(),
-	}, "http://localhost:3000")
-	if !errors.Is(err, ErrInvalidEmail) {
-		t.Fatalf("Create() error = %v, want ErrInvalidEmail", err)
-	}
-	if store.createdInvitation != nil {
-		t.Fatal("Create() created invitation for invalid email")
 	}
 }
 

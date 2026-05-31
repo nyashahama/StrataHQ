@@ -130,65 +130,6 @@ func TestHandlerCreateReturnsConflictForDuplicatePendingInvitation(t *testing.T)
 	}
 }
 
-func TestHandlerCreateRejectsInvalidEmail(t *testing.T) {
-	called := false
-	h := NewHandler(&stubServicer{
-		createFn: func(context.Context, string, CreateParams, string) (*InvitationResponse, error) {
-			called = true
-			return nil, nil
-		},
-	}, "http://localhost:3000")
-
-	body, _ := json.Marshal(map[string]string{
-		"email":     "User Example <user@example.com>",
-		"full_name": "User Example",
-		"role":      "trustee",
-		"scheme_id": "11111111-1111-1111-1111-111111111111",
-	})
-	req := httptest.NewRequest(http.MethodPost, "/invitations", bytes.NewReader(body))
-	req = req.WithContext(auth.ContextWithIdentity(req.Context(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", string(auth.RoleAdmin)))
-	w := httptest.NewRecorder()
-
-	h.Create(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
-	}
-	if called {
-		t.Fatal("service should not be called for invalid invitation email")
-	}
-}
-
-func TestHandlerCreateNormalizesEmailAndFullName(t *testing.T) {
-	var captured CreateParams
-	h := NewHandler(&stubServicer{
-		createFn: func(_ context.Context, _ string, p CreateParams, _ string) (*InvitationResponse, error) {
-			captured = p
-			return &InvitationResponse{ID: "i1", Email: p.Email, FullName: p.FullName, Role: p.Role, SchemeID: p.SchemeID}, nil
-		},
-	}, "http://localhost:3000")
-
-	body, _ := json.Marshal(map[string]string{
-		"email":     " Trustee@Example.COM ",
-		"full_name": " Trustee User ",
-		"role":      "trustee",
-		"scheme_id": "11111111-1111-1111-1111-111111111111",
-	})
-	req := httptest.NewRequest(http.MethodPost, "/invitations", bytes.NewReader(body))
-	req = req.WithContext(auth.ContextWithIdentity(req.Context(), "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", string(auth.RoleAdmin)))
-	w := httptest.NewRecorder()
-
-	h.Create(w, req)
-	if w.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want %d", w.Code, http.StatusCreated)
-	}
-	if captured.Email != "trustee@example.com" {
-		t.Fatalf("email = %q, want trustee@example.com", captured.Email)
-	}
-	if captured.FullName != "Trustee User" {
-		t.Fatalf("fullName = %q, want Trustee User", captured.FullName)
-	}
-}
-
 func uuidMustString(raw string) string {
 	return raw
 }

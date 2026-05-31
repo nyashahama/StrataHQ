@@ -1,54 +1,23 @@
 package auth
 
 import (
-	"errors"
 	"net/mail"
 	"strings"
 )
 
-// NormalizeEmail trims and validates email syntax into a canonical lowercase address.
-func NormalizeEmail(raw string) (string, error) {
-	email := strings.TrimSpace(raw)
+func ValidateEmail(email string) bool {
 	if email == "" {
-		return "", errors.New("email is required")
+		return false
 	}
 	if len(email) > 254 {
-		return "", errors.New("email is too long")
+		return false
 	}
-
-	addr, err := mail.ParseAddress(email)
-	if err != nil {
-		return "", err
+	if _, err := mail.ParseAddress(email); err != nil {
+		return false
 	}
-	// Reject display-name forms such as "Bob <bob@example.com>".
-	if addr.Name != "" || addr.Address != email {
-		return "", errors.New("invalid email format")
+	if !strings.Contains(email, "@") {
+		return false
 	}
-
-	local := strings.SplitN(addr.Address, "@", 2)[0]
-	if local == "" || !strings.Contains(addr.Address, "@") {
-		return "", errors.New("invalid email format")
-	}
-
-	return strings.ToLower(addr.Address), nil
-}
-
-func NormalizeOptionalEmail(raw *string) (*string, error) {
-	if raw == nil {
-		return nil, nil
-	}
-	trimmed := strings.TrimSpace(*raw)
-	if trimmed == "" {
-		return nil, nil
-	}
-	normalized, err := NormalizeEmail(trimmed)
-	if err != nil {
-		return nil, err
-	}
-	return &normalized, nil
-}
-
-func ValidateEmail(email string) bool {
-	_, err := NormalizeEmail(email)
-	return err == nil
+	local := strings.SplitN(email, "@", 2)[0]
+	return local != ""
 }

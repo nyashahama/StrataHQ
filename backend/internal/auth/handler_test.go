@@ -172,7 +172,7 @@ func TestRegister_TrimsLeadingAndTrailingWhitespace(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
-		"email": "  A@B.COM  ", "password": "Pass_1234", "full_name": "  New Name  ",
+		"email": "  a@b.com  ", "password": "Pass_1234", "full_name": "  New Name  ",
 	}))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Register(w, req)
@@ -184,27 +184,6 @@ func TestRegister_TrimsLeadingAndTrailingWhitespace(t *testing.T) {
 	}
 	if capturedFullName != "New Name" {
 		t.Fatalf("capturedFullName = %q, want %q", capturedFullName, "New Name")
-	}
-}
-
-func TestRegister_RejectsDisplayNameEmail(t *testing.T) {
-	svcCalled := false
-	svc := &mockService{
-		registerFn: func(_ context.Context, _, _, _ string) (*AuthResponse, error) {
-			svcCalled = true
-			return nil, nil
-		},
-	}
-	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
-		"email": "User Example <user@example.com>", "password": "Pass_1234", "full_name": "User Example",
-	}))
-	w := httptest.NewRecorder()
-	NewHandler(svc).Register(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", w.Code)
-	}
-	if svcCalled {
-		t.Fatal("service should not be called for display-name email addresses")
 	}
 }
 
@@ -357,10 +336,8 @@ func TestLogin_BadJSON(t *testing.T) {
 }
 
 func TestLogin_ReturnsSession(t *testing.T) {
-	var capturedEmail string
 	svc := &mockService{
-		loginFn: func(_ context.Context, email, _ string) (*AuthResponse, error) {
-			capturedEmail = email
+		loginFn: func(_ context.Context, _, _ string) (*AuthResponse, error) {
 			return &AuthResponse{
 				AccessToken:  "access",
 				RefreshToken: "refresh",
@@ -376,7 +353,7 @@ func TestLogin_ReturnsSession(t *testing.T) {
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/login", body(t, map[string]string{
-		"email": " A@B.COM ", "password": "pass",
+		"email": "a@b.com", "password": "pass",
 	}))
 	w := httptest.NewRecorder()
 	NewHandler(svc).Login(w, req)
@@ -397,9 +374,6 @@ func TestLogin_ReturnsSession(t *testing.T) {
 	}
 	if resp.Data.Session.Org.ID == "" {
 		t.Error("expected session.org in login response")
-	}
-	if capturedEmail != "a@b.com" {
-		t.Fatalf("capturedEmail = %q, want %q", capturedEmail, "a@b.com")
 	}
 }
 
@@ -594,7 +568,7 @@ func TestUpdateProfile_Success(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPatch, "/profile", body(t, map[string]string{
-		"email":     " New@Example.COM ",
+		"email":     " new@example.com ",
 		"full_name": " New Name ",
 		"phone":     "082 555 0101",
 	}))
@@ -604,58 +578,6 @@ func TestUpdateProfile_Success(t *testing.T) {
 	NewHandler(svc).UpdateProfile(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", w.Code)
-	}
-}
-
-func TestUpdateOrg_RejectsInvalidContactEmail(t *testing.T) {
-	called := false
-	svc := &mockService{
-		updateOrgFn: func(context.Context, string, string, *string, *string) (*OrgInfo, error) {
-			called = true
-			return nil, nil
-		},
-	}
-	raw := "not-an-email"
-	req := httptest.NewRequest(http.MethodPatch, "/org", body(t, map[string]any{
-		"name":          "Updated Org",
-		"contact_email": raw,
-	}))
-	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
-	w := httptest.NewRecorder()
-
-	NewHandler(svc).UpdateOrg(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", w.Code)
-	}
-	if called {
-		t.Fatal("service should not be called for invalid contact_email")
-	}
-}
-
-func TestUpdateOrg_NormalizesContactEmail(t *testing.T) {
-	var capturedContactEmail *string
-	svc := &mockService{
-		updateOrgFn: func(_ context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error) {
-			if orgID != "o1" || name != "Updated Org" {
-				t.Fatalf("unexpected org update: orgID=%s name=%s", orgID, name)
-			}
-			capturedContactEmail = contactEmail
-			return &OrgInfo{ID: orgID, Name: name, ContactEmail: contactEmail, ContactPhone: contactPhone}, nil
-		},
-	}
-	req := httptest.NewRequest(http.MethodPatch, "/org", body(t, map[string]string{
-		"name":          " Updated Org ",
-		"contact_email": " Admin@Example.COM ",
-	}))
-	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
-	w := httptest.NewRecorder()
-
-	NewHandler(svc).UpdateOrg(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", w.Code)
-	}
-	if capturedContactEmail == nil || *capturedContactEmail != "admin@example.com" {
-		t.Fatalf("contactEmail = %#v, want admin@example.com", capturedContactEmail)
 	}
 }
 

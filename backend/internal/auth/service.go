@@ -154,11 +154,7 @@ func NewService(db *database.Pool, cache *redis.Client, sender notification.Send
 }
 
 func (s *Service) Register(ctx context.Context, email, password, fullName string) (*AuthResponse, error) {
-	email, err := NormalizeEmail(email)
-	if err != nil {
-		return nil, err
-	}
-	_, err = s.db.Q.GetUserByEmail(ctx, email)
+	_, err := s.db.Q.GetUserByEmail(ctx, email)
 	if err == nil {
 		return nil, ErrEmailExists
 	}
@@ -203,10 +199,6 @@ func (s *Service) Register(ctx context.Context, email, password, fullName string
 }
 
 func (s *Service) Login(ctx context.Context, email, password string) (*AuthResponse, error) {
-	email, err := NormalizeEmail(email)
-	if err != nil {
-		return nil, ErrInvalidCredentials
-	}
 	user, err := s.db.Q.GetUserByEmail(ctx, email)
 	if err != nil {
 		return nil, ErrInvalidCredentials
@@ -388,10 +380,6 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 }
 
 func (s *Service) UpdateProfile(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error) {
-	email, err := NormalizeEmail(email)
-	if err != nil {
-		return nil, ErrInvalidCredentials
-	}
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		return nil, ErrInvalidToken
@@ -414,10 +402,6 @@ func (s *Service) UpdateProfile(ctx context.Context, userID, orgID, email, fullN
 }
 
 func (s *Service) UpdateOrg(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error) {
-	contactEmail, err := NormalizeOptionalEmail(contactEmail)
-	if err != nil {
-		return nil, err
-	}
 	oid, err := uuid.Parse(orgID)
 	if err != nil {
 		return nil, ErrInvalidToken
@@ -526,11 +510,6 @@ func (s *Service) Setup(ctx context.Context, orgID, orgName, contactEmail, schem
 }
 
 func (s *Service) ForgotPassword(ctx context.Context, email string) error {
-	normalizedEmail, normalizeErr := NormalizeEmail(email)
-	if normalizeErr != nil {
-		return nil //nolint:nilerr // Preserve non-enumerating forgot-password responses for malformed input.
-	}
-	email = normalizedEmail
 	user, err := s.db.Q.GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil // silent — no enumeration
@@ -557,10 +536,6 @@ func (s *Service) ForgotPassword(ctx context.Context, email string) error {
 // IssuePasswordResetURL generates a password reset token and returns the URL
 // without sending any email. Used by earlyaccess approval flow.
 func (s *Service) IssuePasswordResetURL(ctx context.Context, email, appBaseURL string) (string, error) {
-	email, err := NormalizeEmail(email)
-	if err != nil {
-		return "", err
-	}
 	user, err := s.db.Q.GetUserByEmail(ctx, email)
 	if err != nil {
 		return "", err

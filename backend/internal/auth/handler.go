@@ -58,18 +58,18 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	email, err := NormalizeEmail(req.Email)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
-		return
-	}
+	email := strings.TrimSpace(req.Email)
 	fullName := strings.TrimSpace(req.FullName)
 	if email == "" || req.Password == "" || fullName == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email, password, and full_name are required")
 		return
 	}
-	if passwordErr := ValidatePassword(req.Password); passwordErr != nil {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, passwordErr.Error())
+	if !ValidateEmail(email) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
+		return
+	}
+	if err := ValidatePassword(req.Password); err != nil {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, err.Error())
 		return
 	}
 	res, err := h.service.Register(r.Context(), email, req.Password, fullName)
@@ -108,15 +108,15 @@ func (h *Handler) Setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	orgName := strings.TrimSpace(req.OrgName)
-	contactEmail, err := NormalizeEmail(req.ContactEmail)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid contact_email format")
-		return
-	}
+	contactEmail := strings.TrimSpace(req.ContactEmail)
 	schemeName := strings.TrimSpace(req.SchemeName)
 	schemeAddress := strings.TrimSpace(req.SchemeAddress)
 	if orgName == "" || contactEmail == "" || schemeName == "" || schemeAddress == "" || req.UnitCount <= 0 {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "org_name, contact_email, scheme_name, scheme_address, and unit_count are required")
+		return
+	}
+	if !ValidateEmail(contactEmail) {
+		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid contact_email format")
 		return
 	}
 	res, err := h.service.Setup(r.Context(), identity.OrgID, orgName, contactEmail, schemeName, schemeAddress, req.UnitCount)
@@ -137,11 +137,6 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := response.DecodeJSON(r.Body, &req); err != nil {
 		req.Email = ""
-	}
-	if req.Email != "" {
-		if normalized, err := NormalizeEmail(req.Email); err == nil {
-			req.Email = normalized
-		}
 	}
 	_ = h.service.ForgotPassword(r.Context(), req.Email)
 	response.JSON(w, http.StatusOK, map[string]string{
@@ -183,17 +178,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid request body")
 		return
 	}
-	email, err := NormalizeEmail(req.Email)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
-		return
-	}
-	if email == "" || req.Password == "" {
+	if req.Email == "" || req.Password == "" {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email and password are required")
 		return
 	}
 
-	res, err := h.service.Login(r.Context(), email, req.Password)
+	res, err := h.service.Login(r.Context(), req.Email, req.Password)
 	if err != nil {
 		if err == ErrInvalidCredentials {
 			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "invalid credentials")
@@ -283,8 +273,7 @@ func (h *Handler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "email and full_name are required")
 		return
 	}
-	email, err := NormalizeEmail(email)
-	if err != nil {
+	if !ValidateEmail(email) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid email format")
 		return
 	}
@@ -329,13 +318,8 @@ func (h *Handler) UpdateOrg(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "name is required")
 		return
 	}
-	contactEmail, err := NormalizeOptionalEmail(req.ContactEmail)
-	if err != nil {
-		response.Error(w, http.StatusBadRequest, response.CodeBadRequest, "invalid contact_email format")
-		return
-	}
 
-	res, err := h.service.UpdateOrg(r.Context(), identity.OrgID, name, contactEmail, normalizeOptionalString(req.ContactPhone))
+	res, err := h.service.UpdateOrg(r.Context(), identity.OrgID, name, normalizeOptionalString(req.ContactEmail), normalizeOptionalString(req.ContactPhone))
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to update organisation settings")
 		return

@@ -29,6 +29,8 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     }
 
     const MAX_REFRESH_RETRIES = 2;
+    const controller = new AbortController();
+    let active = true;
 
     async function tryRefreshSession(attempt = 0): Promise<SessionUser | null> {
       try {
@@ -36,6 +38,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         const refreshResponse = await fetch("/api/session/refresh", {
           method: "POST",
           headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
+          signal: controller.signal,
         });
         if (refreshResponse.status === 503 && attempt < MAX_REFRESH_RETRIES) {
           return tryRefreshSession(attempt + 1);
@@ -46,6 +49,9 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
 
         return (await refreshResponse.json()) as SessionUser | null;
       } catch {
+        if (controller.signal.aborted) {
+          return null;
+        }
         if (attempt < MAX_REFRESH_RETRIES) {
           return tryRefreshSession(attempt + 1);
         }
@@ -55,23 +61,30 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
 
     async function loadSession() {
       try {
-        const sessionResponse = await fetch("/api/session");
+        const sessionResponse = await fetch("/api/session", {
+          signal: controller.signal,
+        });
         const session = (await sessionResponse.json()) as SessionUser | null;
         if (session) {
-          setUser(session);
+          if (active) setUser(session);
           return;
         }
 
         const refreshed = await tryRefreshSession();
-        setUser(refreshed);
+        if (active) setUser(refreshed);
       } catch {
-        setUser(null);
+        if (active) setUser(null);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     void loadSession();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [initialUser]);
 
   function clearUser() {

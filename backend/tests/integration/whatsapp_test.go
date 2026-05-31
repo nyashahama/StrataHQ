@@ -482,11 +482,11 @@ func TestWhatsAppMaintenanceInboxManualCreateAndDismiss(t *testing.T) {
 
 	createReq = httptest.NewRequest(http.MethodPost, "/whatsapp/"+schemeID+"/messages/"+msgID+"/maintenance-request", bytes.NewReader(createBody))
 	createReq = withRouteParams(createReq, map[string]string{"schemeId": schemeID, "messageId": msgID})
-	createReq = createReq.WithContext(auth.ContextWithIdentity(createReq.Context(), residentUserID, orgID, string(auth.RoleResident)))
+	createReq = createReq.WithContext(auth.ContextWithIdentity(createReq.Context(), trusteeUserID, orgID, string(auth.RoleTrustee)))
 	createW = httptest.NewRecorder()
 	h.CreateMaintenanceFromMessage(createW, createReq)
-	if createW.Code != http.StatusForbidden {
-		t.Fatalf("resident create maintenance from message should be forbidden: status=%d body=%s", createW.Code, createW.Body)
+	if createW.Code != http.StatusBadRequest {
+		t.Fatalf("trustee create maintenance after dismissal should be rejected: status=%d body=%s", createW.Code, createW.Body)
 	}
 
 	dismissReq = httptest.NewRequest(http.MethodPatch, "/whatsapp/"+schemeID+"/maintenance-intakes/"+created.ID, nil)

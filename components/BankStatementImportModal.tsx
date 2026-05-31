@@ -341,7 +341,9 @@ export default function BankStatementImportModal({
           </button>
         </div>
 
-        {importData && importData.status !== 'queued' ? renderReviewStep() : renderUploadStep()}
+        {importData && importData.status !== 'queued' && importData.status !== 'processing'
+          ? renderReviewStep()
+          : renderUploadStep()}
       </div>
     </div>
   )

@@ -98,10 +98,14 @@ func (m *mockService) IssuePasswordResetURL(_ context.Context, _, _ string) (str
 
 // helpers
 
-func body(t *testing.T, m map[string]string) *bytes.Reader {
+func body(t *testing.T, m any) *bytes.Reader {
 	t.Helper()
 	b, _ := json.Marshal(m)
 	return bytes.NewReader(b)
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 func TestRegister_UnknownFields(t *testing.T) {
@@ -159,7 +163,7 @@ func TestRegister_TrimsLeadingAndTrailingWhitespace(t *testing.T) {
 			capturedEmail = email
 			capturedFullName = fullName
 			return &AuthResponse{
-				AccessToken: "access",
+				AccessToken:  "access",
 				RefreshToken: "refresh",
 				ExpiresIn:    900,
 				User:         UserInfo{ID: "u1", Email: email, FullName: fullName},
@@ -251,9 +255,9 @@ func TestSetup_TrimsRequiredFieldsAndCallsService(t *testing.T) {
 			capturedUnitCount = unitCount
 			return &SetupResponse{
 				Org: OrgInfo{
-					ID:     "o1",
-					Name:   orgName,
-					ContactEmail: ptr("admin@org.com"),
+					ID:           "o1",
+					Name:         orgName,
+					ContactEmail: strPtr("admin@org.com"),
 				},
 				Scheme: struct {
 					ID   string "json:\"id\""

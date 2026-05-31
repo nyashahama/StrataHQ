@@ -23,7 +23,6 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-hooks/set-state-in-effect": "off",
-      "react-hooks/set-state-in-render": "off",
     },
   },
 );

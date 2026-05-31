@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
@@ -89,7 +89,7 @@ export default function AgmVotingPage() {
     [members, upcomingMeeting?.user_proxy_grantee_id],
   )
 
-  useMemo(() => {
+  useEffect(() => {
     setProxyUserId(upcomingMeeting?.user_proxy_grantee_id ?? '')
   }, [upcomingMeeting?.user_proxy_grantee_id])
 

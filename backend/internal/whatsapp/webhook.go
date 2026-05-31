@@ -283,9 +283,19 @@ func findBestThread(threads []dbgen.WhatsappThread) *dbgen.WhatsappThread {
 	if len(threads) == 0 {
 		return nil
 	}
-	best := &threads[0]
+	var best *dbgen.WhatsappThread
 	for i := range threads {
-		if threads[i].LastActiveAt.After(best.LastActiveAt) {
+		thread := &threads[i]
+		if best == nil {
+			best = thread
+			continue
+		}
+		bestHasResident := best.ResidentUserID.Valid
+		threadHasResident := thread.ResidentUserID.Valid
+		switch {
+		case threadHasResident && !bestHasResident:
+			best = thread
+		case threadHasResident == bestHasResident && thread.LastActiveAt.After(best.LastActiveAt):
 			best = &threads[i]
 		}
 	}

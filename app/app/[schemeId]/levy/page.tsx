@@ -393,6 +393,7 @@ export default function LevyPaymentsPage() {
           periodLabel={currentPeriod.label}
           onConfirm={handleReconcileConfirm}
           onClose={() => !reconciling && setReconcileOpen(false)}
+          allowSampleStatement={process.env.NODE_ENV !== 'production'}
         />
       )}
 

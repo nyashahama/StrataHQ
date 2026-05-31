@@ -159,7 +159,9 @@ func messagePage(title, body string) string {
 func (h *Handler) ApproveWithTokenPage(w http.ResponseWriter, r *http.Request) {
 	sig := r.URL.Query().Get("sig")
 	expStr := r.URL.Query().Get("exp")
-	if _, err := strconv.ParseInt(expStr, 10, 64); err != nil || sig == "" {
+	id := chi.URLParam(r, "id")
+	exp, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil || sig == "" || h.service.ValidateActionToken(id, "approve", sig, exp) != nil {
 		writeHTML(w, http.StatusBadRequest, messagePage("Invalid link", "This link is malformed."))
 		return
 	}
@@ -196,7 +198,9 @@ func (h *Handler) ApproveWithToken(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) RejectWithTokenPage(w http.ResponseWriter, r *http.Request) {
 	sig := r.URL.Query().Get("sig")
 	expStr := r.URL.Query().Get("exp")
-	if _, err := strconv.ParseInt(expStr, 10, 64); err != nil || sig == "" {
+	id := chi.URLParam(r, "id")
+	exp, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil || sig == "" || h.service.ValidateActionToken(id, "reject", sig, exp) != nil {
 		writeHTML(w, http.StatusBadRequest, messagePage("Invalid link", "This link is malformed."))
 		return
 	}

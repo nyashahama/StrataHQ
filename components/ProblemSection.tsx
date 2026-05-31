@@ -35,7 +35,7 @@ const timeline = [
 
 export default function ProblemSection() {
   return (
-    <section id="features" className="padding-section">
+    <section id="problem" className="padding-section">
       <div className="max-w-[1080px] mx-auto px-container">
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-[clamp(40px,6vw,80px)] items-start">
 

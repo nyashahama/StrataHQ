@@ -110,4 +110,35 @@ describe("FinancialsPage predictive levy analytics", () => {
     });
     expect(mockAddToast).toHaveBeenCalledWith("Budget line saved", "success");
   });
+
+  it("requires budget and actual amounts when saving a budget line", async () => {
+    mockUseAuth.mockReturnValue({ user: { role: "admin" } });
+    mockUpsertBudgetLine.mockResolvedValueOnce(undefined);
+    const { default: FinancialsPage } = await import("@/app/app/[schemeId]/financials/page");
+
+    render(<FinancialsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Budget line" }));
+    const textboxes = screen.getAllByRole("textbox");
+    const categoryInput = textboxes.at(0);
+    const periodInput = textboxes.at(1);
+    if (!categoryInput || !periodInput) throw new Error("missing budget text inputs");
+    fireEvent.change(categoryInput, { target: { value: "Maintenance" } });
+    fireEvent.change(periodInput, { target: { value: "2027" } });
+    const amountInputs = screen.getAllByRole("spinbutton");
+    const budgetAmountInput = amountInputs.at(0);
+    const actualAmountInput = amountInputs.at(1);
+    if (!budgetAmountInput || !actualAmountInput) throw new Error("missing budget amount inputs");
+    fireEvent.change(budgetAmountInput, { target: { value: "" } });
+    fireEvent.change(actualAmountInput, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(mockAddToast).toHaveBeenCalledWith(
+        "Enter a category, period, budget amount, and actual amount",
+        "error",
+      );
+    });
+    expect(mockUpsertBudgetLine).not.toHaveBeenCalled();
+  });
 });

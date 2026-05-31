@@ -9,7 +9,7 @@ export async function getSchemeAuditEvents(
   limit = 50,
 ): Promise<AuditEventsResponse> {
   const response = await apiFetch(
-    `/audit/schemes/${schemeId}/events?limit=${limit}`,
+    `/api/v1/audit/schemes/${schemeId}/events?limit=${limit}`,
   );
   if (!response.ok) {
     throw await buildApiHttpError(response, "Failed to load audit events");

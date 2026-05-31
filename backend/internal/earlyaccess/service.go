@@ -51,6 +51,7 @@ type Servicer interface {
 	Reject(ctx context.Context, id string) (*RequestResponse, error)
 	ApproveByToken(ctx context.Context, id, sig string, exp int64) (*RequestResponse, error)
 	RejectByToken(ctx context.Context, id, sig string, exp int64) (*RequestResponse, error)
+	ValidateActionToken(id, action, sig string, exp int64) error
 }
 
 type Service struct {
@@ -167,6 +168,13 @@ func (s *Service) RejectByToken(ctx context.Context, id, sig string, exp int64) 
 		return nil, ErrInvalidToken
 	}
 	return s.rejectWithoutContextAuth(ctx, id)
+}
+
+func (s *Service) ValidateActionToken(id, action, sig string, exp int64) error {
+	if !validateActionToken(s.adminSecret, id, action, sig, exp) {
+		return ErrInvalidToken
+	}
+	return nil
 }
 
 func (s *Service) authorizeProtectedAdmin(ctx context.Context) error {

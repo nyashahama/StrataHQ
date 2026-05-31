@@ -21,8 +21,9 @@ import (
 )
 
 var (
-	ErrNotFound  = errors.New("early access request not found")
-	ErrForbidden = errors.New("forbidden")
+	ErrNotFound        = errors.New("early access request not found")
+	ErrForbidden       = errors.New("forbidden")
+	ErrAlreadyReviewed = errors.New("early access request already reviewed")
 )
 
 type SubmitParams struct {
@@ -128,49 +129,15 @@ func (s *Service) Approve(ctx context.Context, id string) (*RequestResponse, err
 		return nil, err
 	}
 
-	uid, err := uuid.Parse(id)
-	if err != nil {
-		return nil, ErrNotFound
-	}
-
-	req, err := s.db.GetEarlyAccessRequest(ctx, uid)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if req.Status != dbgen.EarlyAccessStatusPending {
-		return nil, ErrInvalidToken
-	}
-
-	// Create account with random temp password (user will reset it)
-	tempPass := make([]byte, 16)
-	if _, readErr := rand.Read(tempPass); readErr != nil {
-		return nil, readErr
-	}
-	_, regErr := s.authService.Register(ctx, req.Email, hex.EncodeToString(tempPass), req.FullName)
-	if regErr != nil && !errors.Is(regErr, auth.ErrEmailExists) {
-		return nil, regErr
-	}
-
-	// Generate password reset URL without sending reset email
-	setPasswordURL, err := s.authService.IssuePasswordResetURL(ctx, req.Email, s.appBaseURL)
+	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusApproved)
 	if err != nil {
 		return nil, err
 	}
 
-	// Send approval email with the set-password link
-	_ = s.notifier.SendEarlyAccessApproval(ctx, req.Email, req.FullName, setPasswordURL)
-
-	// Mark approved
-	updated, err := s.db.UpdateEarlyAccessStatus(ctx, dbgen.UpdateEarlyAccessStatusParams{
-		ID:     uid,
-		Status: dbgen.EarlyAccessStatusApproved,
-	})
-	if err != nil {
+	if err := s.sendApproval(ctx, updated); err != nil {
 		return nil, err
 	}
+
 	return toResponse(updated), nil
 }
 
@@ -179,29 +146,8 @@ func (s *Service) Reject(ctx context.Context, id string) (*RequestResponse, erro
 		return nil, err
 	}
 
-	uid, err := uuid.Parse(id)
+	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusRejected)
 	if err != nil {
-		return nil, ErrNotFound
-	}
-	req, err := s.db.GetEarlyAccessRequest(ctx, uid)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if req.Status != dbgen.EarlyAccessStatusPending {
-		return nil, ErrInvalidToken
-	}
-
-	updated, err := s.db.UpdateEarlyAccessStatus(ctx, dbgen.UpdateEarlyAccessStatusParams{
-		ID:     uid,
-		Status: dbgen.EarlyAccessStatusRejected,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
 		return nil, err
 	}
 	return toResponse(updated), nil
@@ -251,73 +197,71 @@ func (s *Service) authorizeProtectedAdmin(ctx context.Context) error {
 }
 
 func (s *Service) approveWithoutContextAuth(ctx context.Context, id string) (*RequestResponse, error) {
-	uid, err := uuid.Parse(id)
-	if err != nil {
-		return nil, ErrNotFound
-	}
-
-	req, err := s.db.GetEarlyAccessRequest(ctx, uid)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if req.Status != dbgen.EarlyAccessStatusPending {
-		return nil, ErrInvalidToken
-	}
-
-	tempPass := make([]byte, 16)
-	if _, readErr := rand.Read(tempPass); readErr != nil {
-		return nil, readErr
-	}
-	_, regErr := s.authService.Register(ctx, req.Email, hex.EncodeToString(tempPass), req.FullName)
-	if regErr != nil && !errors.Is(regErr, auth.ErrEmailExists) {
-		return nil, regErr
-	}
-
-	setPasswordURL, err := s.authService.IssuePasswordResetURL(ctx, req.Email, s.appBaseURL)
+	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusApproved)
 	if err != nil {
 		return nil, err
 	}
 
-	_ = s.notifier.SendEarlyAccessApproval(ctx, req.Email, req.FullName, setPasswordURL)
+	if err := s.sendApproval(ctx, updated); err != nil {
+		return nil, err
+	}
 
-	updated, err := s.db.UpdateEarlyAccessStatus(ctx, dbgen.UpdateEarlyAccessStatusParams{
-		ID:     uid,
-		Status: dbgen.EarlyAccessStatusApproved,
-	})
+	return toResponse(updated), nil
+}
+
+func (s *Service) rejectWithoutContextAuth(ctx context.Context, id string) (*RequestResponse, error) {
+	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusRejected)
 	if err != nil {
 		return nil, err
 	}
 	return toResponse(updated), nil
 }
 
-func (s *Service) rejectWithoutContextAuth(ctx context.Context, id string) (*RequestResponse, error) {
+func (s *Service) transitionPendingReview(ctx context.Context, id string, status dbgen.EarlyAccessStatus) (dbgen.EarlyAccessRequest, error) {
 	uid, err := uuid.Parse(id)
 	if err != nil {
-		return nil, ErrNotFound
-	}
-
-	req, err := s.db.GetEarlyAccessRequest(ctx, uid)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if req.Status != dbgen.EarlyAccessStatusPending {
-		return nil, ErrInvalidToken
+		return dbgen.EarlyAccessRequest{}, ErrNotFound
 	}
 
 	updated, err := s.db.UpdateEarlyAccessStatus(ctx, dbgen.UpdateEarlyAccessStatusParams{
 		ID:     uid,
-		Status: dbgen.EarlyAccessStatusRejected,
+		Status: status,
 	})
-	if err != nil {
-		return nil, err
+	if err == nil {
+		return updated, nil
 	}
-	return toResponse(updated), nil
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return dbgen.EarlyAccessRequest{}, err
+	}
+
+	if _, getErr := s.db.GetEarlyAccessRequest(ctx, uid); getErr != nil {
+		if errors.Is(getErr, pgx.ErrNoRows) {
+			return dbgen.EarlyAccessRequest{}, ErrNotFound
+		}
+		return dbgen.EarlyAccessRequest{}, getErr
+	}
+
+	return dbgen.EarlyAccessRequest{}, ErrAlreadyReviewed
+}
+
+func (s *Service) sendApproval(ctx context.Context, req dbgen.EarlyAccessRequest) error {
+	tempPass := make([]byte, 16)
+	if _, readErr := rand.Read(tempPass); readErr != nil {
+		return readErr
+	}
+
+	_, regErr := s.authService.Register(ctx, req.Email, hex.EncodeToString(tempPass), req.FullName)
+	if regErr != nil && !errors.Is(regErr, auth.ErrEmailExists) {
+		return regErr
+	}
+
+	setPasswordURL, err := s.authService.IssuePasswordResetURL(ctx, req.Email, s.appBaseURL)
+	if err != nil {
+		return err
+	}
+
+	_ = s.notifier.SendEarlyAccessApproval(ctx, req.Email, req.FullName, setPasswordURL)
+	return nil
 }
 
 func toResponse(r dbgen.EarlyAccessRequest) *RequestResponse {

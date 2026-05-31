@@ -5,15 +5,21 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/stratahq/backend/internal/auth"
 )
 
 type stubService struct {
-	submitFn         func(params SubmitParams)
-	submitCalls      int
+	submitFn            func(params SubmitParams)
+	approveFn           func(id string) (*RequestResponse, error)
+	rejectFn            func(id string) (*RequestResponse, error)
+	submitCalls         int
 	approveByTokenFn    func(id, sig string, exp int64) (*RequestResponse, error)
 	rejectByTokenFn     func(id, sig string, exp int64) (*RequestResponse, error)
 	approveByTokenCalls int
@@ -32,12 +38,18 @@ func (s *stubService) List(_ context.Context) ([]RequestResponse, error) {
 	return nil, nil
 }
 
-func (s *stubService) Approve(_ context.Context, _ string) (*RequestResponse, error) {
-	return nil, nil
+func (s *stubService) Approve(_ context.Context, id string) (*RequestResponse, error) {
+	if s.approveFn != nil {
+		return s.approveFn(id)
+	}
+	return &RequestResponse{ID: id, Status: "approved"}, nil
 }
 
-func (s *stubService) Reject(_ context.Context, _ string) (*RequestResponse, error) {
-	return nil, nil
+func (s *stubService) Reject(_ context.Context, id string) (*RequestResponse, error) {
+	if s.rejectFn != nil {
+		return s.rejectFn(id)
+	}
+	return &RequestResponse{ID: id, Status: "rejected"}, nil
 }
 
 func (s *stubService) ApproveByToken(_ context.Context, id, sig string, exp int64) (*RequestResponse, error) {
@@ -105,6 +117,69 @@ func TestPublicRoutes_ApprovePageHasNoInlineStyles(t *testing.T) {
 	if strings.Contains(w.Body.String(), "style=") {
 		t.Fatalf("approve page should not render inline styles: %s", w.Body.String())
 	}
+}
+
+func TestProtectedReviewRoutesReturnConflictForAlreadyReviewedRequests(t *testing.T) {
+	tests := []struct {
+		name    string
+		handler func(*Handler, http.ResponseWriter, *http.Request)
+		service *stubService
+	}{
+		{
+			name: "approve",
+			handler: func(h *Handler, w http.ResponseWriter, r *http.Request) {
+				h.Approve(w, r)
+			},
+			service: &stubService{
+				approveFn: func(id string) (*RequestResponse, error) {
+					if id != "request-123" {
+						t.Fatalf("approve id = %q, want request-123", id)
+					}
+					return nil, ErrAlreadyReviewed
+				},
+			},
+		},
+		{
+			name: "reject",
+			handler: func(h *Handler, w http.ResponseWriter, r *http.Request) {
+				h.Reject(w, r)
+			},
+			service: &stubService{
+				rejectFn: func(id string) (*RequestResponse, error) {
+					if id != "request-123" {
+						t.Fatalf("reject id = %q, want request-123", id)
+					}
+					return nil, ErrAlreadyReviewed
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewHandler(tt.service)
+			req := protectedReviewRequest("request-123")
+			w := httptest.NewRecorder()
+
+			tt.handler(h, w, req)
+
+			if w.Code != http.StatusConflict {
+				t.Fatalf("status=%d body=%s, want 409", w.Code, w.Body.String())
+			}
+			if !strings.Contains(w.Body.String(), "already reviewed") {
+				t.Fatalf("body should explain already-reviewed state: %s", w.Body.String())
+			}
+		})
+	}
+}
+
+func protectedReviewRequest(id string) *http.Request {
+	req := httptest.NewRequest(http.MethodPost, "/"+id, nil)
+	ctx := auth.ContextWithIdentity(req.Context(), "user-1", "org-1", string(auth.RoleAdmin))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", id)
+	ctx = context.WithValue(ctx, chi.RouteCtxKey, rctx)
+	return req.WithContext(ctx)
 }
 
 func TestPublicRoutes_RejectsInvalidEarlyAccessSubmission(t *testing.T) {

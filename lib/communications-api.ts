@@ -35,6 +35,6 @@ export async function createNotice(
       method: "POST",
       body: JSON.stringify(input),
     }),
-    "Failed to send notice",
+    "Failed to save notice",
   );
 }

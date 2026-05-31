@@ -63,10 +63,10 @@ export default function CommunicationsPage() {
       await queryClient.invalidateQueries({ queryKey: schemeKeys.communicationsBase(schemeId) })
       setShowModal(false)
       setForm({ title: '', body: '', type: 'general' })
-      addToast('Notice sent to scheme members', 'success')
+      addToast('Notice saved to scheme communications', 'success')
     } catch (error) {
       addToast(
-        error instanceof Error ? error.message : 'Failed to send notice',
+        error instanceof Error ? error.message : 'Failed to save notice',
         'error',
       )
     } finally {
@@ -205,7 +205,7 @@ export default function CommunicationsPage() {
               disabled={!form.title.trim() || !form.body.trim() || sending}
               className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {sending ? 'Sending…' : 'Send to scheme'}
+              {sending ? 'Saving…' : 'Publish to scheme'}
             </button>
             <button
               onClick={() => setShowModal(false)}

@@ -233,10 +233,18 @@ func (q *Queries) MarkBackgroundJobSucceeded(ctx context.Context, id uuid.UUID) 
 
 const recoverStaleBackgroundJobs = `-- name: RecoverStaleBackgroundJobs :many
 UPDATE background_jobs
-SET status = 'queued',
+SET status = CASE
+        WHEN attempts + 1 >= max_attempts THEN 'failed'
+        ELSE 'queued'
+    END,
+    attempts = attempts + 1,
     locked_at = NULL,
     locked_by = NULL,
     last_error = $2,
+    failed_at = CASE
+        WHEN attempts + 1 >= max_attempts THEN now()
+        ELSE NULL
+    END,
     updated_at = now()
 WHERE status = 'running'
   AND locked_at < $1

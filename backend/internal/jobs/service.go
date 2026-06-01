@@ -181,7 +181,10 @@ func shouldFailPermanently(job dbgen.BackgroundJob) bool {
 }
 
 func isNonRetryable(err error) bool {
-	return errors.Is(err, ErrNonRetryable)
+	if errors.Is(err, ErrNonRetryable) {
+		return true
+	}
+	return errors.Is(err, ErrBadPayload)
 }
 
 func decodePayload(raw json.RawMessage, dest any) error {

@@ -37,6 +37,78 @@ func TestParseFNBStatementCSV(t *testing.T) {
 	}
 }
 
+func TestParseCurrencyToCentsHandlesFloatingPointEdgeCases(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int64
+	}{
+		{"128.14", 12814},
+		{"128.17", 12817},
+		{"128.20", 12820},
+		{"128.23", 12823},
+		{"128.39", 12839},
+		{"0.29", 29},
+		{"0.05", 5},
+		{"2450.00", 245000},
+		{"1", 100},
+		{"-128.20", -12820},
+		{"+128.20", 12820},
+		{"0.5", 50},
+		{"0", 0},
+		{"0.00", 0},
+	}
+	for _, c := range cases {
+		got, err := parseCurrencyToCents(c.in)
+		if err != nil {
+			t.Errorf("parseCurrencyToCents(%q) error: %v", c.in, err)
+			continue
+		}
+		if got != c.want {
+			t.Errorf("parseCurrencyToCents(%q) = %d, want %d", c.in, got, c.want)
+		}
+	}
+}
+
+func TestParseCurrencyToCentsRejectsInvalid(t *testing.T) {
+	cases := []string{
+		"",
+		"   ",
+		"abc",
+		"1.234",
+		"1.2.3",
+		".",
+		"1,2,3.45",
+		"1.0e2",
+		"-",
+	}
+	for _, in := range cases {
+		if _, err := parseCurrencyToCents(in); err == nil {
+			t.Errorf("parseCurrencyToCents(%q) expected error, got nil", in)
+		}
+	}
+}
+
+func TestParseFNBStatementCSVRoundsTwoDecimalCents(t *testing.T) {
+	csvData := []byte(`Date,Description,Reference,Amount
+2026-04-01,EFT UNIT 12A,12A,128.20
+2026-04-02,EFT UNIT 12B,12B,0.29
+2026-04-03,EFT UNIT 12C,12C,128.17
+`)
+	rows, err := parseFNBStatementCSV(csvData)
+	if err != nil {
+		t.Fatalf("parse csv: %v", err)
+	}
+	want := []int64{12820, 29, 12817}
+	if len(rows) != len(want) {
+		t.Fatalf("rows = %d, want %d", len(rows), len(want))
+	}
+	for i, w := range want {
+		if rows[i].AmountCents != w {
+			t.Errorf("row %d amount = %d, want %d", i, rows[i].AmountCents, w)
+		}
+	}
+}
+
 func TestParseFNBStatementCSVSkipsNonPositiveRows(t *testing.T) {
 	csvData := []byte(`Date,Description,Reference,Amount
 2026-04-01,EFT UNIT 12A,12A,2450.00
@@ -53,6 +125,60 @@ func TestParseFNBStatementCSVSkipsNonPositiveRows(t *testing.T) {
 	}
 	if rows[0].RowNumber != 2 || rows[1].RowNumber != 5 {
 		t.Fatalf("row numbers = %d,%d, want 2,5", rows[0].RowNumber, rows[1].RowNumber)
+	}
+}
+
+func TestValidateManualBankMatches(t *testing.T) {
+	rowID := func(s string) string { return s }
+	accountID := func(s string) string { return s }
+
+	tests := []struct {
+		name    string
+		matches []BankStatementManualMatchInput
+		wantErr bool
+	}{
+		{
+			name:    "empty",
+			matches: nil,
+			wantErr: true,
+		},
+		{
+			name: "valid",
+			matches: []BankStatementManualMatchInput{
+				{RowID: rowID("r1"), AccountID: accountID("a1")},
+				{RowID: rowID("r2"), AccountID: accountID("a2")},
+			},
+		},
+		{
+			name: "duplicate row_id",
+			matches: []BankStatementManualMatchInput{
+				{RowID: rowID("r1"), AccountID: accountID("a1")},
+				{RowID: rowID("r1"), AccountID: accountID("a2")},
+			},
+			wantErr: true,
+		},
+		{
+			name: "blank row id",
+			matches: []BankStatementManualMatchInput{
+				{RowID: "", AccountID: accountID("a1")},
+			},
+			wantErr: true,
+		},
+		{
+			name: "blank account id",
+			matches: []BankStatementManualMatchInput{
+				{RowID: rowID("r1"), AccountID: ""},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateManualBankMatches(tt.matches)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr = %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 

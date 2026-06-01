@@ -7,7 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
+
+const emailRequestTimeout = 15 * time.Second
 
 // Sender is the interface all notification implementations must satisfy.
 type Sender interface {
@@ -25,7 +28,7 @@ type EmailClient struct {
 
 func NewEmailClient(apiKey, fromAddr string) *EmailClient {
 	return &EmailClient{
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: emailRequestTimeout},
 		apiKey:     apiKey,
 		fromAddr:   fromAddr,
 	}

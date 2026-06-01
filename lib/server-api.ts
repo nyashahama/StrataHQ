@@ -5,21 +5,35 @@ import { clearAuthCookies, refreshAuthSession } from "@/lib/server-auth";
 
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
 
+const SERVER_FETCH_TIMEOUT_MS = 10_000;
+
 async function forwardGet(path: string, accessToken?: string): Promise<Response> {
-  return fetch(`${BACKEND()}${path}`, {
-    method: "GET",
-    headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    cache: "no-store",
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SERVER_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(`${BACKEND()}${path}`, {
+      method: "GET",
+      headers: {
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function fetchBackendJson<T>(path: string): Promise<T> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("sh_access")?.value;
 
-  let response = await forwardGet(path, accessToken);
+  let response: Response;
+  try {
+    response = await forwardGet(path, accessToken);
+  } catch {
+    throw new Error("Temporary service issue. Please retry.");
+  }
   if (response.status === 401) {
     const refreshed = await refreshAuthSession();
     if (refreshed.kind === "invalid") {
@@ -32,7 +46,11 @@ export async function fetchBackendJson<T>(path: string): Promise<T> {
     }
 
     const updatedToken = cookieStore.get("sh_access")?.value;
-    response = await forwardGet(path, updatedToken);
+    try {
+      response = await forwardGet(path, updatedToken);
+    } catch {
+      throw new Error("Temporary service issue. Please retry.");
+    }
   }
 
   if (!response.ok) {

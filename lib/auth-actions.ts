@@ -119,15 +119,17 @@ export async function logoutAction(): Promise<void> {
   const cookieStore = await cookies();
   const refreshToken = cookieStore.get("sh_refresh")?.value;
 
-  if (refreshToken) {
-    await fetch(`${BACKEND()}/api/v1/auth/logout`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    }).catch(() => {});
+  try {
+    if (refreshToken) {
+      await fetchWithTimeout(`${BACKEND()}/api/v1/auth/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }).catch(() => {});
+    }
+  } finally {
+    await clearAuthCookies();
   }
-
-  await clearAuthCookies();
 }
 
 // ─── Clear auth ───────────────────────────────────────────────────────────────

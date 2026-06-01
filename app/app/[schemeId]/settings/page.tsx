@@ -41,7 +41,7 @@ function toUnitForm(unit?: UnitInfo | null): UnitFormState {
 }
 
 export default function SchemeSettingsPage() {
-  const { user } = useAuth()
+  const { user, setUser } = useAuth()
   const { addToast } = useToast()
   const params = useParams()
   const schemeId = params.schemeId as string
@@ -191,10 +191,11 @@ export default function SchemeSettingsPage() {
 
     setSavingPassword(true)
     try {
-      await changePassword({
+      const updated = await changePassword({
         current_password: pwForm.current,
         new_password: pwForm.next,
       })
+      setUser(updated)
       setShowPasswordModal(false)
       setPwForm({ current: '', next: '', confirm: '' })
       addToast('Password updated', 'success')

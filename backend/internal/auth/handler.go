@@ -365,7 +365,8 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.ChangePassword(r.Context(), identity.UserID, req.CurrentPassword, req.NewPassword); err != nil {
+	res, err := h.service.ChangePassword(r.Context(), identity.UserID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
 		switch err {
 		case ErrWrongPassword:
 			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "current password is incorrect")
@@ -374,8 +375,7 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	response.NoContent(w)
+	response.JSON(w, http.StatusOK, res)
 }
 
 func normalizeOptionalString(value *string) *string {

@@ -3,6 +3,7 @@
 import { apiFetch } from "@/lib/api";
 import { readApiData, buildApiHttpError } from "@/lib/api-contract";
 import { readBrowserCSRFToken } from "@/lib/csrf";
+import { changePasswordAction } from "@/lib/auth-actions";
 import type { SessionOrg, SessionUser } from "@/lib/session";
 
 async function refreshSession(): Promise<SessionUser> {
@@ -77,13 +78,13 @@ export async function updateOrgSettings(input: {
 export async function changePassword(input: {
   current_password: string;
   new_password: string;
-}): Promise<void> {
-  const res = await apiFetch("/api/v1/auth/change-password", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
-
-  if (!res.ok) {
-    throw await buildApiHttpError(res, "Failed to update password");
+}): Promise<SessionUser> {
+  const result = await changePasswordAction(
+    input.current_password,
+    input.new_password,
+  );
+  if ("error" in result) {
+    throw new Error(result.error);
   }
+  return result.user;
 }

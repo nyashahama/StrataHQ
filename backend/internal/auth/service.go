@@ -122,7 +122,7 @@ type Servicer interface {
 	IssuePasswordResetURL(ctx context.Context, email, appBaseURL string) (string, error)
 	UpdateProfile(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error)
 	UpdateOrg(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error)
-	ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error
+	ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error)
 }
 
 // Service implements Servicer.
@@ -233,6 +233,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 
 	var user dbgen.User
 	var membership dbgen.ListOrgMembershipsByUserRow
+	var accessToken string
+	var session *MeResponse
 
 	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
 		rt, txErr := q.ConsumeRefreshToken(ctx, HashRefreshToken(refreshToken))
@@ -260,6 +262,16 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 		}
 		membership = memberships[0]
 
+		accessToken, txErr = GenerateAccessToken(user.ID.String(), membership.OrgID.String(), membership.Role, s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry)
+		if txErr != nil {
+			return txErr
+		}
+
+		session, txErr = s.meWithQueries(ctx, q, user.ID.String(), membership.OrgID.String())
+		if txErr != nil {
+			return txErr
+		}
+
 		_, txErr = q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
 			Token:     HashRefreshToken(newRefreshToken),
 			UserID:    user.ID,
@@ -267,16 +279,6 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 		})
 		return txErr
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	accessToken, err := GenerateAccessToken(user.ID.String(), membership.OrgID.String(), membership.Role, s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry)
-	if err != nil {
-		return nil, err
-	}
-
-	session, err := s.Me(ctx, user.ID.String(), membership.OrgID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -301,6 +303,10 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 }
 
 func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, error) {
+	return s.meWithQueries(ctx, s.db.Q, userID, orgID)
+}
+
+func (s *Service) meWithQueries(ctx context.Context, q *dbgen.Queries, userID, orgID string) (*MeResponse, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
 		return nil, ErrInvalidToken
@@ -310,15 +316,15 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 		return nil, ErrInvalidToken
 	}
 
-	user, err := s.db.Q.GetUserByID(ctx, uid)
+	user, err := q.GetUserByID(ctx, uid)
 	if err != nil {
 		return nil, err
 	}
-	org, err := s.db.Q.GetOrg(ctx, oid)
+	org, err := q.GetOrg(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
-	membership, err := s.db.Q.GetOrgMembershipByUser(ctx, dbgen.GetOrgMembershipByUserParams{
+	membership, err := q.GetOrgMembershipByUser(ctx, dbgen.GetOrgMembershipByUserParams{
 		UserID: uid,
 		OrgID:  oid,
 	})
@@ -341,7 +347,7 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 	}
 
 	if membership.Role == "admin" {
-		schemes, err := s.db.Q.ListSchemesByOrg(ctx, oid)
+		schemes, err := q.ListSchemesByOrg(ctx, oid)
 		if err != nil {
 			return nil, err
 		}
@@ -357,7 +363,7 @@ func (s *Service) Me(ctx context.Context, userID, orgID string) (*MeResponse, er
 		}
 	} else {
 		resp.WizardComplete = true
-		schemeMemberships, err := s.db.Q.ListSchemeMembershipsByUser(ctx, uid)
+		schemeMemberships, err := q.ListSchemeMembershipsByUser(ctx, uid)
 		if err != nil {
 			return nil, err
 		}
@@ -441,35 +447,81 @@ func (s *Service) UpdateOrg(ctx context.Context, orgID, name string, contactEmai
 	}, nil
 }
 
-func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error {
+func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error) {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return ErrInvalidToken
+		return nil, ErrInvalidToken
 	}
 
 	user, err := s.db.Q.GetUserByID(ctx, uid)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); compareErr != nil {
-		return ErrWrongPassword
+		return nil, ErrWrongPassword
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(nextPassword), 12)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
-		if txErr := q.UpdateUserPassword(ctx, dbgen.UpdateUserPasswordParams{
+	memberships, err := s.db.Q.ListOrgMembershipsByUser(ctx, uid)
+	if err != nil {
+		return nil, err
+	}
+	if len(memberships) == 0 {
+		return nil, ErrInvalidToken
+	}
+	membership := memberships[0]
+
+	newRefreshToken, err := GenerateRefreshToken()
+	if err != nil {
+		return nil, err
+	}
+
+	var accessToken string
+	var session *MeResponse
+
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		var txErr error
+		if txErr = q.UpdateUserPassword(ctx, dbgen.UpdateUserPasswordParams{
 			ID:           uid,
 			PasswordHash: string(hash),
 		}); txErr != nil {
 			return txErr
 		}
-		return q.RevokeAllUserRefreshTokens(ctx, uid)
+		if txErr = q.RevokeAllUserRefreshTokens(ctx, uid); txErr != nil {
+			return txErr
+		}
+		accessToken, txErr = GenerateAccessToken(uid.String(), membership.OrgID.String(), membership.Role, s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry)
+		if txErr != nil {
+			return txErr
+		}
+		session, txErr = s.meWithQueries(ctx, q, uid.String(), membership.OrgID.String())
+		if txErr != nil {
+			return txErr
+		}
+		if _, txErr = q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
+			Token:     HashRefreshToken(newRefreshToken),
+			UserID:    uid,
+			ExpiresAt: time.Now().Add(s.refreshExpiry),
+		}); txErr != nil {
+			return txErr
+		}
+		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &RefreshResponse{
+		AccessToken:  accessToken,
+		RefreshToken: newRefreshToken,
+		ExpiresIn:    int(s.jwtExpiry.Seconds()),
+		Session:      *session,
+	}, nil
 }
 
 func (s *Service) Setup(ctx context.Context, orgID, orgName, contactEmail, schemeName, schemeAddress string, unitCount int32) (*SetupResponse, error) {

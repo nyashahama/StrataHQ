@@ -22,7 +22,7 @@ type mockService struct {
 	resetFn          func(ctx context.Context, token, password string) error
 	updateProfileFn  func(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error)
 	updateOrgFn      func(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error)
-	changePasswordFn func(ctx context.Context, userID, currentPassword, nextPassword string) error
+	changePasswordFn func(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error)
 }
 
 func (m *mockService) Register(ctx context.Context, email, password, fullName string) (*AuthResponse, error) {
@@ -85,9 +85,9 @@ func (m *mockService) UpdateOrg(ctx context.Context, orgID, name string, contact
 	}
 	return m.updateOrgFn(ctx, orgID, name, contactEmail, contactPhone)
 }
-func (m *mockService) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error {
+func (m *mockService) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error) {
 	if m.changePasswordFn == nil {
-		return nil
+		return nil, nil
 	}
 	return m.changePasswordFn(ctx, userID, currentPassword, nextPassword)
 }
@@ -674,8 +674,8 @@ func TestUpdateOrg_ForbiddenForNonAdmin(t *testing.T) {
 
 func TestChangePassword_WrongPassword(t *testing.T) {
 	svc := &mockService{
-		changePasswordFn: func(_ context.Context, _, _, _ string) error {
-			return ErrWrongPassword
+		changePasswordFn: func(_ context.Context, _, _, _ string) (*RefreshResponse, error) {
+			return nil, ErrWrongPassword
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/change-password", body(t, map[string]string{

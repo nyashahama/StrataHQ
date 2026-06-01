@@ -107,13 +107,23 @@ export function proxy(request: NextRequest) {
   if (!isPublicPath(pathname)) {
     const sessionCookie = request.cookies.get("sh_session");
     const accessToken = request.cookies.get("sh_access")?.value;
+    const refreshToken = request.cookies.get("sh_refresh")?.value;
     const session = parseSessionCookie(sessionCookie?.value);
 
-    if (!sessionCookie || !session || !accessToken || !isValidAccessToken(accessToken, session.id)) {
+    if (!sessionCookie || !session) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("redirect", pathname);
-
       return clearStaleSessionCookies(NextResponse.redirect(loginUrl));
+    }
+
+    if (!accessToken || !isValidAccessToken(accessToken, session.id)) {
+      if (!refreshToken) {
+        const loginUrl = new URL("/auth/login", request.url);
+        loginUrl.searchParams.set("redirect", pathname);
+        return clearStaleSessionCookies(NextResponse.redirect(loginUrl));
+      }
+      // Access token expired but refresh token exists. Allow the request to
+      // proceed; the API client will refresh the session on the first 401.
     }
   }
 

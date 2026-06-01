@@ -2,9 +2,26 @@ import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 
 import { readApiData, readApiError } from '@/lib/api-contract'
+import { clearAuthCookies, refreshAuthSession } from '@/lib/server-auth'
 
 const BACKEND = () => process.env.BACKEND_URL ?? 'http://localhost:8080'
 const COPILOT_TIMEOUT_MS = 15_000;
+
+async function callCopilot(
+  accessToken: string,
+  body: unknown,
+  signal: AbortSignal,
+): Promise<Response> {
+  return fetch(`${BACKEND()}/api/v1/ai/copilot`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+}
 
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
@@ -36,15 +53,7 @@ export async function POST(request: NextRequest) {
   const timeout = setTimeout(() => controller.abort(), COPILOT_TIMEOUT_MS);
   let response: Response;
   try {
-    response = await fetch(`${BACKEND()}/api/v1/ai/copilot`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
+    response = await callCopilot(accessToken, body, controller.signal);
   } catch (error) {
     clearTimeout(timeout);
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -56,6 +65,43 @@ export async function POST(request: NextRequest) {
     throw error;
   }
   clearTimeout(timeout);
+
+  if (response.status === 401) {
+    const refreshed = await refreshAuthSession();
+    if (refreshed.kind === "invalid") {
+      await clearAuthCookies();
+      return new Response('Unauthorized', { status: 401, headers: { 'Content-Type': 'text/plain' } });
+    }
+    if (refreshed.kind === "unavailable") {
+      return new Response("Copilot temporarily unavailable. Please retry.", {
+        status: 503,
+        headers: { "Content-Type": "text/plain" },
+      });
+    }
+    const updatedAccessToken = cookieStore.get("sh_access")?.value;
+    if (!updatedAccessToken) {
+      await clearAuthCookies();
+      return new Response('Unauthorized', { status: 401, headers: { 'Content-Type': 'text/plain' } });
+    }
+    const retryController = new AbortController();
+    const retryTimeout = setTimeout(() => retryController.abort(), COPILOT_TIMEOUT_MS);
+    try {
+      response = await callCopilot(updatedAccessToken, body, retryController.signal);
+    } catch (error) {
+      clearTimeout(retryTimeout);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return new Response("Copilot temporarily unavailable. Please retry.", {
+          status: 503,
+          headers: { "Content-Type": "text/plain" },
+        });
+      }
+      throw error;
+    }
+    clearTimeout(retryTimeout);
+    if (response.status === 401) {
+      await clearAuthCookies();
+    }
+  }
 
   if (!response.ok) {
     return new Response(

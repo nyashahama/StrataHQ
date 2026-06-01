@@ -16,6 +16,8 @@ export function CollectionActionPanel({
 }) {
   const { addToast } = useToast();
   const [events, setEvents] = useState<CollectionEvent[]>([]);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [note, setNote] = useState("");
   const [promiseAmount, setPromiseAmount] = useState("");
@@ -23,10 +25,15 @@ export function CollectionActionPanel({
   const [saving, setSaving] = useState(false);
 
   const loadEvents = useCallback(async () => {
+    setEventsLoading(true);
     try {
-      setEvents(await listCollectionEvents(item.scheme_id, item.levy_account_id));
-    } catch {
-      setEvents([]);
+      const fetched = await listCollectionEvents(item.scheme_id, item.levy_account_id);
+      setEvents(fetched);
+      setEventsError(null);
+    } catch (error) {
+      setEventsError(error instanceof Error ? error.message : "Failed to load collection activity");
+    } finally {
+      setEventsLoading(false);
     }
   }, [item.levy_account_id, item.scheme_id]);
 
@@ -114,7 +121,12 @@ export function CollectionActionPanel({
           </button>
         </div>
       </div>
-      <CollectionActivityLog events={events} />
+      <CollectionActivityLog
+        events={events}
+        error={eventsError}
+        loading={eventsLoading}
+        onRetry={eventsError ? loadEvents : undefined}
+      />
       <CollectionExecutionModal
         open={modalOpen}
         schemeId={item.scheme_id}

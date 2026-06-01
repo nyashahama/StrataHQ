@@ -117,6 +117,8 @@ type resourceAuditor interface {
 type Service struct {
 	db      *database.Pool
 	auditor resourceAuditor
+	// healthFactorFns are injectable for testing; each factor function returns (score, error).
+	healthFactorFns []func(context.Context, uuid.UUID) (int, error)
 }
 
 func NewService(db *database.Pool) *Service {
@@ -156,7 +158,10 @@ func (s *Service) List(ctx context.Context, identity auth.Identity) ([]SchemeSum
 
 			openMaintenanceCount := row.OpenMaintenanceCount
 			levyCollectionPct := int(row.LevyCollectionPct)
-			score, breakdown := s.computeHealthScore(ctx, row.ID)
+			score, breakdown, err := s.computeHealthScore(ctx, row.ID)
+			if err != nil {
+				return nil, err
+			}
 			summaries = append(summaries, SchemeSummary{
 				ID:                   row.ID.String(),
 				Name:                 row.Name,
@@ -733,7 +738,10 @@ func (s *Service) buildSummary(ctx context.Context, scheme dbgen.Scheme, role st
 	}
 
 	nextAgmDate, daysToAgm := nextAgm(meetings)
-	healthScore, healthBreakdown := s.computeHealthScore(ctx, scheme.ID)
+	healthScore, healthBreakdown, err := s.computeHealthScore(ctx, scheme.ID)
+	if err != nil {
+		return SchemeSummary{}, err
+	}
 	health := healthFor(healthScore)
 
 	summary := SchemeSummary{
@@ -875,42 +883,77 @@ type healthFactors struct {
 	agmRecency     int
 }
 
-func (s *Service) computeHealthScore(ctx context.Context, schemeID uuid.UUID) (int, map[string]int) {
-	factors := healthFactors{
-		levyCollection: s.computeLevyFactor(ctx, schemeID),
-		maintenanceSLA: s.computeMaintenanceFactor(ctx, schemeID),
-		compliance:     s.complianceFactor(ctx, schemeID),
-		reserveFund:    s.reserveFundFactor(ctx, schemeID),
-		agmRecency:     s.agmRecencyFactor(ctx, schemeID),
+func (s *Service) computeHealthScore(ctx context.Context, schemeID uuid.UUID) (int, map[string]int, error) {
+	factors := s.healthFactorFns
+	if factors == nil {
+		factors = []func(context.Context, uuid.UUID) (int, error){
+			s.computeLevyFactor,
+			s.computeMaintenanceFactor,
+			s.complianceFactor,
+			s.reserveFundFactor,
+			s.agmRecencyFactor,
+		}
+	}
+
+	levyCollection, err := factors[0](ctx, schemeID)
+	if err != nil {
+		return 0, nil, err
+	}
+	maintenanceSLA, err := factors[1](ctx, schemeID)
+	if err != nil {
+		return 0, nil, err
+	}
+	compliance, err := factors[2](ctx, schemeID)
+	if err != nil {
+		return 0, nil, err
+	}
+	reserveFund, err := factors[3](ctx, schemeID)
+	if err != nil {
+		return 0, nil, err
+	}
+	agmRecency, err := factors[4](ctx, schemeID)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	hf := healthFactors{
+		levyCollection: levyCollection,
+		maintenanceSLA: maintenanceSLA,
+		compliance:     compliance,
+		reserveFund:    reserveFund,
+		agmRecency:     agmRecency,
 	}
 
 	score := int(math.Round(
-		float64(factors.levyCollection)*0.35 +
-			float64(factors.maintenanceSLA)*0.25 +
-			float64(factors.compliance)*0.20 +
-			float64(factors.reserveFund)*0.15 +
-			float64(factors.agmRecency)*0.05,
+			float64(hf.levyCollection)*0.35 +
+			float64(hf.maintenanceSLA)*0.25 +
+			float64(hf.compliance)*0.20 +
+			float64(hf.reserveFund)*0.15 +
+			float64(hf.agmRecency)*0.05,
 	))
 
 	breakdown := map[string]int{
-		"levy_collection": factors.levyCollection,
-		"maintenance_sla": factors.maintenanceSLA,
-		"compliance":      factors.compliance,
-		"reserve_fund":    factors.reserveFund,
-		"agm_recency":     factors.agmRecency,
+		"levy_collection": hf.levyCollection,
+		"maintenance_sla": hf.maintenanceSLA,
+		"compliance":      hf.compliance,
+		"reserve_fund":    hf.reserveFund,
+		"agm_recency":     hf.agmRecency,
 	}
 
-	return score, breakdown
+	return score, breakdown, nil
 }
 
-func (s *Service) computeLevyFactor(ctx context.Context, schemeID uuid.UUID) int {
+func (s *Service) computeLevyFactor(ctx context.Context, schemeID uuid.UUID) (int, error) {
 	periods, err := s.db.Q.ListLevyPeriodsByScheme(ctx, schemeID)
-	if err != nil || len(periods) == 0 {
-		return 0
+	if err != nil {
+		return 0, err
+	}
+	if len(periods) == 0 {
+		return 0, nil
 	}
 	accounts, err := s.db.Q.ListLevyAccountsByPeriod(ctx, periods[0].ID)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	var totalDue, totalPaid int64
 	for _, a := range accounts {
@@ -918,32 +961,38 @@ func (s *Service) computeLevyFactor(ctx context.Context, schemeID uuid.UUID) int
 		totalPaid += minInt64(a.PaidCents, a.AmountCents)
 	}
 	if totalDue == 0 {
-		return 100
+		return 100, nil
 	}
-	return int(math.Round(float64(totalPaid) * 100 / float64(totalDue)))
+	return int(math.Round(float64(totalPaid) * 100 / float64(totalDue))), nil
 }
 
-func (s *Service) computeMaintenanceFactor(ctx context.Context, schemeID uuid.UUID) int {
+func (s *Service) computeMaintenanceFactor(ctx context.Context, schemeID uuid.UUID) (int, error) {
 	openCount, err := s.db.Q.CountOpenMaintenanceByScheme(ctx, schemeID)
-	if err != nil || openCount == 0 {
-		return 100
+	if err != nil {
+		return 0, err
+	}
+	if openCount == 0 {
+		return 100, nil
 	}
 	slaBreached, err := s.db.Q.CountSlaBreachedMaintenanceByScheme(ctx, schemeID)
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	breachRate := float64(slaBreached) / float64(openCount)
 	score := int(math.Round((1 - breachRate) * 100))
 	if score < 0 {
 		score = 0
 	}
-	return score
+	return score, nil
 }
 
-func (s *Service) complianceFactor(ctx context.Context, schemeID uuid.UUID) int {
+func (s *Service) complianceFactor(ctx context.Context, schemeID uuid.UUID) (int, error) {
 	items, err := s.db.Q.ListComplianceItemsByScheme(ctx, schemeID)
-	if err != nil || len(items) == 0 {
-		return 100
+	if err != nil {
+		return 0, err
+	}
+	if len(items) == 0 {
+		return 100, nil
 	}
 	var totalPoints, earnedPoints int
 	for _, item := range items {
@@ -956,27 +1005,36 @@ func (s *Service) complianceFactor(ctx context.Context, schemeID uuid.UUID) int 
 		}
 	}
 	if totalPoints == 0 {
-		return 100
+		return 100, nil
 	}
-	return (earnedPoints * 100) / totalPoints
+	return (earnedPoints * 100) / totalPoints, nil
 }
 
-func (s *Service) reserveFundFactor(ctx context.Context, schemeID uuid.UUID) int {
+func (s *Service) reserveFundFactor(ctx context.Context, schemeID uuid.UUID) (int, error) {
 	fund, err := s.db.Q.GetReserveFund(ctx, schemeID)
-	if err != nil || fund.TargetCents == 0 {
-		return 100
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 100, nil
+		}
+		return 0, err
+	}
+	if fund.TargetCents == 0 {
+		return 100, nil
 	}
 	pct := int(math.Round(float64(fund.BalanceCents) * 100 / float64(fund.TargetCents)))
 	if pct > 100 {
 		pct = 100
 	}
-	return pct
+	return pct, nil
 }
 
-func (s *Service) agmRecencyFactor(ctx context.Context, schemeID uuid.UUID) int {
+func (s *Service) agmRecencyFactor(ctx context.Context, schemeID uuid.UUID) (int, error) {
 	meetings, err := s.db.Q.ListAgmMeetingsByScheme(ctx, schemeID)
-	if err != nil || len(meetings) == 0 {
-		return 0
+	if err != nil {
+		return 0, err
+	}
+	if len(meetings) == 0 {
+		return 0, nil
 	}
 	var latestDate time.Time
 	for _, m := range meetings {
@@ -985,17 +1043,17 @@ func (s *Service) agmRecencyFactor(ctx context.Context, schemeID uuid.UUID) int 
 		}
 	}
 	if latestDate.IsZero() {
-		return 0
+		return 0, nil
 	}
 	monthsSince := int(time.Since(latestDate).Hours() / (24 * 30))
 	if monthsSince <= 12 {
-		return 100
+		return 100, nil
 	}
 	score := 100 - (monthsSince-12)*5
 	if score < 0 {
 		score = 0
 	}
-	return score
+	return score, nil
 }
 
 func minInt64(a, b int64) int64 {

@@ -466,9 +466,14 @@ func (s *Service) buildMeeting(ctx context.Context, access *accessInfo, meeting 
 				MeetingID:     meeting.ID,
 				GrantorUserID: userID,
 			})
-			if proxyErr == nil {
+			switch {
+			case proxyErr == nil:
 				value := proxy.GranteeUserID.String()
 				proxyGranteeID = &value
+			case errors.Is(proxyErr, pgx.ErrNoRows):
+				// No proxy assignment recorded for this voter — leave as nil.
+			default:
+				return nil, proxyErr
 			}
 		}
 	}
@@ -483,9 +488,14 @@ func (s *Service) buildMeeting(ctx context.Context, access *accessInfo, meeting 
 					ResolutionID: resolution.ID,
 					VoterUserID:  userID,
 				})
-				if voteErr == nil {
+				switch {
+				case voteErr == nil:
 					choice := string(vote.Vote)
 					item.UserVote = &choice
+				case errors.Is(voteErr, pgx.ErrNoRows):
+					// No vote recorded yet — leave as nil.
+				default:
+					return nil, voteErr
 				}
 			}
 		}

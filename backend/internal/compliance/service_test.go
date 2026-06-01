@@ -114,3 +114,51 @@ func TestAssessReturnsErrorWhenAssessmentSnapshotPersistenceFails(t *testing.T) 
 		t.Fatal("expected assessment snapshot persistence to be attempted")
 	}
 }
+
+func TestDashboardForSchemePropagatesCountUpcomingDeadlinesError(t *testing.T) {
+	t.Helper()
+
+	schemeID := uuid.New()
+	deadlineErr := errors.New("count upcoming deadlines failed")
+
+	svc := &Service{
+		listComplianceItemsByScheme: func(_ context.Context, _ uuid.UUID) ([]dbgen.ComplianceItem, error) {
+			return nil, nil
+		},
+		countUpcomingDeadlines: func(_ context.Context, _ uuid.UUID) (int64, error) {
+			return 0, deadlineErr
+		},
+	}
+
+	got, err := svc.dashboardForScheme(context.Background(), schemeID)
+	if !errors.Is(err, deadlineErr) {
+		t.Fatalf("expected deadline count error, got result=%+v err=%v", got, err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil dashboard when deadline count fails, got %+v", got)
+	}
+}
+
+func TestDashboardForSchemePropagatesListItemsError(t *testing.T) {
+	t.Helper()
+
+	schemeID := uuid.New()
+	listErr := errors.New("list items failed")
+
+	svc := &Service{
+		listComplianceItemsByScheme: func(_ context.Context, _ uuid.UUID) ([]dbgen.ComplianceItem, error) {
+			return nil, listErr
+		},
+		countUpcomingDeadlines: func(_ context.Context, _ uuid.UUID) (int64, error) {
+			return 0, nil
+		},
+	}
+
+	got, err := svc.dashboardForScheme(context.Background(), schemeID)
+	if !errors.Is(err, listErr) {
+		t.Fatalf("expected list items error, got result=%+v err=%v", got, err)
+	}
+	if got != nil {
+		t.Fatalf("expected nil dashboard when list items fails, got %+v", got)
+	}
+}

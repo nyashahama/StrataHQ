@@ -290,8 +290,6 @@ and proxies allowed `/api/v1/*` calls through `app/api/proxy/[...path]`.
 - [docs/production-reliability-runbook.md](docs/production-reliability-runbook.md)
   - production reliability and load-test guidance
 - [docs/roadmap/](docs/roadmap/) - roadmap specs and implementation plans
-- [APP_TESTING.md](APP_TESTING.md), [DEMO_TESTING.md](DEMO_TESTING.md), and
-  [SECURITY_AUDIT.md](SECURITY_AUDIT.md) - additional testing and audit notes
 
 ## Deployment Notes
 

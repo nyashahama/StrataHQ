@@ -78,6 +78,10 @@ func (f *fakeEarlyAccessAuthService) ChangePassword(context.Context, string, str
 	return nil, errors.New("unexpected ChangePassword call")
 }
 
+func (f *fakeEarlyAccessAuthService) ReissueSession(context.Context, string) (*auth.RefreshResponse, error) {
+	return nil, errors.New("unexpected ReissueSession call")
+}
+
 func newEarlyAccessHandler(t *testing.T, adminEmail, adminSecret string) *earlyaccess.Handler {
 	t.Helper()
 

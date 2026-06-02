@@ -503,8 +503,12 @@ func TestAuth_ProfileOrgAndPasswordManagement(t *testing.T) {
 	req = withAuthContext(req, accessToken, testJWTSigningKey)
 	w = httptest.NewRecorder()
 	h.ChangePassword(w, req)
-	if w.Code != http.StatusNoContent {
+	if w.Code != http.StatusOK {
 		t.Fatalf("change password: status=%d body=%s", w.Code, w.Body)
+	}
+	reissue := decodeSuccess[auth.AuthResponse](t, w)
+	if reissue.AccessToken == "" || reissue.RefreshToken == "" {
+		t.Fatalf("change password did not reissue tokens: %+v", reissue)
 	}
 
 	loginBody, _ := json.Marshal(map[string]string{

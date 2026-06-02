@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { readApiData, readApiError } from "./api-contract";
-import { writeAuthCookies, clearAuthCookies, refreshAuthSession } from "./server-auth";
+import { writeAuthCookies, clearAuthCookies, withAuthRetry } from "./server-auth";
 import type { SessionUser } from "./session";
 import { APP_ROLES, parseSessionCookie } from "./session";
 
@@ -148,9 +148,6 @@ export async function setupAction(data: {
   unit_count: number;
 }): Promise<{ user: SessionUser } | { error: string }> {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sh_access")?.value;
-  if (!accessToken) return { error: "Not authenticated" };
-
   const raw = cookieStore.get("sh_session")?.value;
   const session = parseSessionCookie(raw);
   if (!session) {
@@ -158,59 +155,37 @@ export async function setupAction(data: {
     return { error: "Session expired — please log in again" };
   }
 
-  let res: Response;
+  let result: Awaited<ReturnType<typeof withAuthRetry>>;
   try {
-    res = await fetchWithTimeout(`${BACKEND()}/api/v1/onboarding/setup`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(data),
-    });
+    result = await withAuthRetry((token) =>
+      fetchWithTimeout(`${BACKEND()}/api/v1/onboarding/setup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      }),
+    );
   } catch {
     return { error: TEMP_UNAVAILABLE };
   }
 
-  if (res.status === 401) {
-    const refreshed = await refreshAuthSession();
-    if (refreshed.kind === "invalid") {
-      await clearAuthCookies();
-      return { error: "Session expired — please log in again" };
-    }
-    if (refreshed.kind === "unavailable") {
-      return { error: TEMP_UNAVAILABLE };
-    }
-    const refreshedAccessToken = cookieStore.get("sh_access")?.value;
-    if (!refreshedAccessToken) {
-      await clearAuthCookies();
-      return { error: "Session expired — please log in again" };
-    }
-    try {
-      res = await fetchWithTimeout(`${BACKEND()}/api/v1/onboarding/setup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${refreshedAccessToken}`,
-        },
-        body: JSON.stringify(data),
-      });
-    } catch {
-      return { error: TEMP_UNAVAILABLE };
-    }
-    if (res.status === 401) {
-      await clearAuthCookies();
-      return { error: "Session expired — please log in again" };
-    }
+  if (result.kind === "unauthorized") {
+    return { error: "Session expired — please log in again" };
+  }
+  if (result.kind === "unavailable") {
+    return { error: TEMP_UNAVAILABLE };
   }
 
+  const res = result.response;
   if (!res.ok) {
     return {
       error: await readApiError(res, "Setup failed — please try again"),
     };
   }
 
-  const result = await readApiData<{
+  const setupResult = await readApiData<{
     org: { id: string; name: string; contact_email?: string | null; contact_phone?: string | null };
     scheme: { id: string; name: string };
   }>(res);
@@ -218,15 +193,15 @@ export async function setupAction(data: {
   // Update session cookie: wizard_complete + first scheme membership
   session.wizard_complete = true;
   session.org = {
-    id: result.org.id,
-    name: result.org.name,
+    id: setupResult.org.id,
+    name: setupResult.org.name,
     contact_email: data.contact_email,
-    contact_phone: result.org.contact_phone ?? session.org?.contact_phone ?? null,
+    contact_phone: setupResult.org.contact_phone ?? session.org?.contact_phone ?? null,
   };
   session.scheme_memberships = [
     {
-      scheme_id: result.scheme.id,
-      scheme_name: result.scheme.name,
+      scheme_id: setupResult.scheme.id,
+      scheme_name: setupResult.scheme.name,
       unit_id: null,
       unit_identifier: null,
       role: APP_ROLES.admin,
@@ -247,69 +222,40 @@ export async function changePasswordAction(
   newPassword: string,
 ): Promise<{ user: SessionUser } | { error: string }> {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sh_access")?.value;
-  if (!accessToken) return { error: "Not authenticated" };
-
   const csrfCookie = cookieStore.get("sh_csrf")?.value;
   if (!csrfCookie) {
     await clearAuthCookies();
     return { error: "Session expired — please log in again" };
   }
 
-  let res: Response;
+  let result: Awaited<ReturnType<typeof withAuthRetry>>;
   try {
-    res = await fetchWithTimeout(`${BACKEND()}/api/v1/auth/change-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-        "x-csrf-token": csrfCookie,
-      },
-      body: JSON.stringify({
-        current_password: currentPassword,
-        new_password: newPassword,
-      }),
-    });
-  } catch {
-    return { error: TEMP_UNAVAILABLE };
-  }
-
-  if (res.status === 401) {
-    const refreshed = await refreshAuthSession();
-    if (refreshed.kind === "invalid") {
-      await clearAuthCookies();
-      return { error: "Session expired — please log in again" };
-    }
-    if (refreshed.kind === "unavailable") {
-      return { error: TEMP_UNAVAILABLE };
-    }
-    const refreshedAccessToken = cookieStore.get("sh_access")?.value;
-    if (!refreshedAccessToken) {
-      await clearAuthCookies();
-      return { error: "Session expired — please log in again" };
-    }
-    try {
-      res = await fetchWithTimeout(`${BACKEND()}/api/v1/auth/change-password`, {
+    result = await withAuthRetry((token) =>
+      fetchWithTimeout(`${BACKEND()}/api/v1/auth/change-password`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${refreshedAccessToken}`,
+          Authorization: `Bearer ${token}`,
           "x-csrf-token": csrfCookie,
         },
         body: JSON.stringify({
           current_password: currentPassword,
           new_password: newPassword,
         }),
-      });
-    } catch {
-      return { error: TEMP_UNAVAILABLE };
-    }
-    if (res.status === 401) {
-      await clearAuthCookies();
-      return { error: "Session expired — please log in again" };
-    }
+      }),
+    );
+  } catch {
+    return { error: TEMP_UNAVAILABLE };
   }
 
+  if (result.kind === "unauthorized") {
+    return { error: "Session expired — please log in again" };
+  }
+  if (result.kind === "unavailable") {
+    return { error: TEMP_UNAVAILABLE };
+  }
+
+  const res = result.response;
   if (!res.ok) {
     if (res.status === 401) {
       return { error: "Current password is incorrect" };

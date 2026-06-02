@@ -17,6 +17,11 @@ export type RefreshAuthSessionResult =
   | { kind: "invalid" }
   | { kind: "unavailable" }
 
+export type WithAuthRetryResult =
+  | { kind: "ok"; response: Response; retried: boolean }
+  | { kind: "unauthorized" }
+  | { kind: "unavailable" }
+
 const AUTH_REFRESH_TIMEOUT_MS = 10_000;
 
 const SESSION_OPTS = {
@@ -98,6 +103,46 @@ export async function refreshAuthSession(): Promise<RefreshAuthSessionResult> {
   }
 
   return { kind: "success", session: await writeAuthCookies(payload) };
+}
+
+// withAuthRetry centralises the "call the backend, on 401 refresh the
+// session, retry once" pattern that the proxy, copilot, setup wizard, and
+// change-password action all need. Callers supply the request factory and
+// decide how to translate the three result kinds into HTTP responses.
+export async function withAuthRetry(
+  call: (accessToken: string) => Promise<Response>,
+): Promise<WithAuthRetryResult> {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("sh_access")?.value;
+  if (!accessToken) {
+    return { kind: "unauthorized" };
+  }
+
+  const initial = await call(accessToken);
+  if (initial.status !== 401) {
+    return { kind: "ok", response: initial, retried: false };
+  }
+
+  const refreshed = await refreshAuthSession();
+  if (refreshed.kind === "invalid") {
+    await clearAuthCookies();
+    return { kind: "unauthorized" };
+  }
+  if (refreshed.kind === "unavailable") {
+    return { kind: "unavailable" };
+  }
+
+  const newAccessToken = cookieStore.get("sh_access")?.value;
+  if (!newAccessToken) {
+    await clearAuthCookies();
+    return { kind: "unauthorized" };
+  }
+
+  const retried = await call(newAccessToken);
+  if (retried.status === 401) {
+    await clearAuthCookies();
+  }
+  return { kind: "ok", response: retried, retried: true };
 }
 
 export async function clearAuthCookies(): Promise<void> {

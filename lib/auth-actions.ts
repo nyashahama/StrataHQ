@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { readApiData, readApiError } from "./api-contract";
-import { writeAuthCookies, clearAuthCookies } from "./server-auth";
+import { writeAuthCookies, clearAuthCookies, refreshAuthSession } from "./server-auth";
 import type { SessionUser } from "./session";
 import { APP_ROLES, parseSessionCookie } from "./session";
 
@@ -170,6 +170,38 @@ export async function setupAction(data: {
     return { error: TEMP_UNAVAILABLE };
   }
 
+  if (res.status === 401) {
+    const refreshed = await refreshAuthSession();
+    if (refreshed.kind === "invalid") {
+      await clearAuthCookies();
+      return { error: "Session expired — please log in again" };
+    }
+    if (refreshed.kind === "unavailable") {
+      return { error: TEMP_UNAVAILABLE };
+    }
+    const refreshedAccessToken = cookieStore.get("sh_access")?.value;
+    if (!refreshedAccessToken) {
+      await clearAuthCookies();
+      return { error: "Session expired — please log in again" };
+    }
+    try {
+      res = await fetchWithTimeout(`${BACKEND()}/api/v1/onboarding/setup`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${refreshedAccessToken}`,
+        },
+        body: JSON.stringify(data),
+      });
+    } catch {
+      return { error: TEMP_UNAVAILABLE };
+    }
+    if (res.status === 401) {
+      await clearAuthCookies();
+      return { error: "Session expired — please log in again" };
+    }
+  }
+
   if (!res.ok) {
     return {
       error: await readApiError(res, "Setup failed — please try again"),
@@ -203,6 +235,93 @@ export async function setupAction(data: {
     encodeURIComponent(JSON.stringify(session)),
     SESSION_OPTS,
   );
+  return { user: session };
+}
+
+// ─── Change password ──────────────────────────────────────────────────────────
+
+export async function changePasswordAction(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ user: SessionUser } | { error: string }> {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get("sh_access")?.value;
+  if (!accessToken) return { error: "Not authenticated" };
+
+  const csrfCookie = cookieStore.get("sh_csrf")?.value;
+  if (!csrfCookie) {
+    await clearAuthCookies();
+    return { error: "Session expired — please log in again" };
+  }
+
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(`${BACKEND()}/api/v1/auth/change-password`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+        "x-csrf-token": csrfCookie,
+      },
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    });
+  } catch {
+    return { error: TEMP_UNAVAILABLE };
+  }
+
+  if (res.status === 401) {
+    const refreshed = await refreshAuthSession();
+    if (refreshed.kind === "invalid") {
+      await clearAuthCookies();
+      return { error: "Session expired — please log in again" };
+    }
+    if (refreshed.kind === "unavailable") {
+      return { error: TEMP_UNAVAILABLE };
+    }
+    const refreshedAccessToken = cookieStore.get("sh_access")?.value;
+    if (!refreshedAccessToken) {
+      await clearAuthCookies();
+      return { error: "Session expired — please log in again" };
+    }
+    try {
+      res = await fetchWithTimeout(`${BACKEND()}/api/v1/auth/change-password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${refreshedAccessToken}`,
+          "x-csrf-token": csrfCookie,
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      });
+    } catch {
+      return { error: TEMP_UNAVAILABLE };
+    }
+    if (res.status === 401) {
+      await clearAuthCookies();
+      return { error: "Session expired — please log in again" };
+    }
+  }
+
+  if (!res.ok) {
+    if (res.status === 401) {
+      return { error: "Current password is incorrect" };
+    }
+    return { error: await readApiError(res, "Failed to update password") };
+  }
+
+  const { access_token, refresh_token, session } = await readApiData<{
+    access_token: string;
+    refresh_token: string;
+    session: SessionUser;
+  }>(res);
+
+  await writeAuthCookies({ access_token, refresh_token, session });
   return { user: session };
 }
 

@@ -82,10 +82,11 @@ export default function AgentSettingsPage() {
 
     setSavingPassword(true)
     try {
-      await changePassword({
+      const updated = await changePassword({
         current_password: pwForm.current,
         new_password: pwForm.next,
       })
+      setUser(updated)
       setShowPasswordModal(false)
       setPwForm({ current: '', next: '', confirm: '' })
       addToast('Password updated', 'success')

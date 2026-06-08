@@ -116,7 +116,25 @@ describe("proxy", () => {
     expect(setCookie).toContain("sh_session=;");
   });
 
-  it("clears auth cookies when access token is expired", () => {
+  it("allows page request when access token is expired but refresh token is valid", () => {
+    const expiredAccess = mintJwt("user-1", Math.floor(Date.now() / 1000) - 60);
+    const request = new NextRequest("http://localhost/agent", {
+      headers: {
+        origin: "http://localhost",
+        cookie:
+          `${validSessionCookie}; sh_access=${expiredAccess}; sh_csrf=token; sh_refresh=valid-refresh`,
+      },
+      method: "GET",
+    });
+
+    const response = proxy(request);
+
+    expect(response.status).toBe(200);
+    const setCookie = getSetCookieValue(response.headers);
+    expect(setCookie ?? "").not.toContain("sh_session=;");
+  });
+
+  it("redirects when access token is expired and no refresh token", () => {
     const expiredAccess = mintJwt("user-1", Math.floor(Date.now() / 1000) - 60);
     const request = new NextRequest("http://localhost/agent", {
       headers: {
@@ -132,7 +150,6 @@ describe("proxy", () => {
     expect(response.status).toBe(307);
     const setCookie = getSetCookieValue(response.headers);
     expect(setCookie).toContain("sh_session=;");
-    expect(setCookie).toContain("sh_access=");
   });
 
   it("allows protected pages when session cookie exists (API handles token refresh)", () => {

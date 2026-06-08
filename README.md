@@ -125,7 +125,7 @@ stratahq-app/
 | --- | --- |
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS |
 | Frontend data | Server actions, server components, React Query |
-| Backend | Go 1.25.0+, Chi, pgx/v5, sqlc, goose |
+| Backend | Go 1.26.4+, Chi, pgx/v5, sqlc, goose |
 | Data stores | PostgreSQL 17, Redis 7 |
 | Auth | Backend-issued JWT access and refresh tokens |
 | Payments | Stripe |
@@ -180,7 +180,7 @@ Integration tests require local PostgreSQL and Redis services. Start them with
 
 - Node.js 22 or newer
 - npm
-- Go 1.25.0 or newer
+- Go 1.26.4 or newer
 - Docker and Docker Compose
 - sqlc
 - goose

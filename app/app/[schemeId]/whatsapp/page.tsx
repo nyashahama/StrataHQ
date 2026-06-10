@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
+import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
 import { getCached, invalidateCache, setCached } from '@/lib/data-cache'
 import { useToast } from '@/lib/toast'
@@ -505,11 +506,17 @@ function OperatorView({
 export default function WhatsAppPage() {
   const { user } = useAuth()
   const { addToast } = useToast()
+  const addToastRef = useRef(addToast)
   const params = useParams()
   const schemeId = params.schemeId as string
 
   const [dashboard, setDashboard] = useState<WhatsAppDashboard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => {
+    addToastRef.current = addToast
+  }, [addToast])
 
   const loadDashboard = useCallback(async (invalidate = false) => {
     const userId = user?.id
@@ -527,24 +534,34 @@ export default function WhatsAppPage() {
     }
     try {
       setLoading(true)
+      setLoadError('')
       const result = await getWhatsAppDashboard(schemeId)
       setCached(key, result)
       setDashboard(result)
     } catch (error) {
-      addToast(
-        error instanceof Error ? error.message : 'Failed to load WhatsApp dashboard',
-        'error',
-      )
+      const message = error instanceof Error ? error.message : 'Failed to load WhatsApp dashboard'
+      setDashboard(null)
+      setLoadError(message)
+      addToastRef.current(message, 'error')
     } finally {
       setLoading(false)
     }
-  }, [addToast, schemeId, user?.id])
+  }, [schemeId, user?.id])
 
   useEffect(() => {
     loadDashboard()
   }, [loadDashboard])
 
   if (loading || !dashboard) {
+    if (loadError) {
+      return (
+        <RetryState
+          title="Could not load WhatsApp data"
+          message={loadError}
+          onRetry={() => loadDashboard(true)}
+        />
+      )
+    }
     return (
       <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
         <div className="bg-surface border border-border rounded-lg px-6 py-12 text-center text-muted text-[14px]">

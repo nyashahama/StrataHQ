@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import Modal from '@/components/Modal'
 import ReconcileModal from '@/components/ReconcileModal'
 import BankStatementImportModal from '@/components/BankStatementImportModal'
+import CollectionExecutionModal from '@/components/CollectionExecutionModal'
 import RetryState from '@/components/RetryState'
 import { useAuth } from '@/lib/auth'
 import { invalidateCache } from '@/lib/data-cache'
@@ -46,6 +47,7 @@ export default function LevyPaymentsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [creatingPeriod, setCreatingPeriod] = useState(false)
   const [reconciling, setReconciling] = useState(false)
+  const [reminderAccountId, setReminderAccountId] = useState<string | null>(null)
   const [periodForm, setPeriodForm] = useState(EMPTY_PERIOD_FORM)
 
   const isResident = user?.role === 'resident'
@@ -319,7 +321,7 @@ export default function LevyPaymentsPage() {
                         {account.status.charAt(0).toUpperCase() + account.status.slice(1)}
                       </span>
                       {account.status === 'overdue' && (
-                        <button onClick={() => addToast(`Reminder delivery will be wired with communications. Unit ${account.unit_identifier} flagged for follow-up.`, 'info')} className="text-[11px] text-accent font-medium hover:underline">
+                        <button onClick={() => setReminderAccountId(account.id)} className="text-[11px] text-accent font-medium hover:underline">
                           Remind
                         </button>
                       )}
@@ -407,6 +409,16 @@ export default function LevyPaymentsPage() {
             refreshDashboard()
           }}
           onClose={() => setImportOpen(false)}
+        />
+      )}
+
+      {reminderAccountId && (
+        <CollectionExecutionModal
+          open={true}
+          schemeId={schemeId}
+          accountId={reminderAccountId}
+          onClose={() => setReminderAccountId(null)}
+          onSent={refreshDashboard}
         />
       )}
     </div>

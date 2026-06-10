@@ -120,6 +120,88 @@ func normalizeBankStatementReference(value string) string {
 	return strings.TrimSpace(cleaned)
 }
 
+func validateManualBankMatches(manualMatches []BankStatementManualMatchInput) error {
+	if len(manualMatches) == 0 {
+		return ErrInvalidInput
+	}
+	seen := make(map[string]struct{}, len(manualMatches))
+	for _, match := range manualMatches {
+		if match.RowID == "" || match.AccountID == "" {
+			return ErrInvalidInput
+		}
+		if _, dup := seen[match.RowID]; dup {
+			return ErrInvalidInput
+		}
+		seen[match.RowID] = struct{}{}
+	}
+	return nil
+}
+
+func parseCurrencyToCents(amount string) (int64, error) {
+	cleaned := strings.TrimSpace(amount)
+	if cleaned == "" {
+		return 0, fmt.Errorf("empty amount")
+	}
+	negative := false
+	if strings.HasPrefix(cleaned, "-") {
+		negative = true
+		cleaned = cleaned[1:]
+	} else if strings.HasPrefix(cleaned, "+") {
+		cleaned = cleaned[1:]
+	}
+
+	var sign int64 = 1
+	if negative {
+		sign = -1
+	}
+
+	randPart, centsPart, hasCents := strings.Cut(cleaned, ".")
+	if randPart == "" && centsPart == "" {
+		return 0, fmt.Errorf("invalid amount %q", amount)
+	}
+	if strings.ContainsRune(randPart, '.') || strings.ContainsRune(centsPart, '.') {
+		return 0, fmt.Errorf("invalid amount %q", amount)
+	}
+	if randPart == "" {
+		randPart = "0"
+	}
+	if hasCents && centsPart == "" {
+		return 0, fmt.Errorf("invalid amount %q: missing cents digits", amount)
+	}
+
+	for _, r := range randPart {
+		if r < '0' || r > '9' {
+			return 0, fmt.Errorf("invalid amount %q: non-numeric characters", amount)
+		}
+	}
+	if hasCents {
+		if len(centsPart) > 2 {
+			return 0, fmt.Errorf("invalid amount %q: more than two decimal places", amount)
+		}
+		for _, r := range centsPart {
+			if r < '0' || r > '9' {
+				return 0, fmt.Errorf("invalid amount %q: non-numeric decimal", amount)
+			}
+		}
+	} else {
+		centsPart = "00"
+	}
+	if hasCents && len(centsPart) == 1 {
+		centsPart = centsPart + "0"
+	}
+
+	randVal, err := strconv.ParseInt(randPart, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid amount %q: %w", amount, err)
+	}
+	centsVal, err := strconv.ParseInt(centsPart, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid amount %q: %w", amount, err)
+	}
+
+	return sign * (randVal*100 + centsVal), nil
+}
+
 func parseFNBStatementCSV(data []byte) ([]ParsedBankStatementRow, error) {
 	reader := csv.NewReader(bytes.NewReader(data))
 	records, err := reader.ReadAll()
@@ -170,14 +252,13 @@ func parseFNBStatementCSV(data []byte) ([]ParsedBankStatementRow, error) {
 
 		amountStr := strings.TrimSpace(record[amountIdx])
 		cleanAmount := strings.NewReplacer(",", "", "R", "").Replace(amountStr)
-		floatVal, err := strconv.ParseFloat(cleanAmount, 64)
+		cents, err := parseCurrencyToCents(cleanAmount)
 		if err != nil {
 			return nil, fmt.Errorf("row %d: cannot parse amount %q", row.RowNumber, amountStr)
 		}
-		if floatVal <= 0 {
+		if cents <= 0 {
 			continue
 		}
-		cents := int64(floatVal * 100)
 		row.AmountCents = cents
 
 		if hasRef && refIdx < len(record) {
@@ -467,6 +548,13 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 		}
 		return nil, err
 	}
+	if import_.Status != dbgen.BankStatementImportStatusReviewRequired {
+		return nil, ErrInvalidInput
+	}
+
+	if vErr := validateManualBankMatches(manualMatches); vErr != nil {
+		return nil, vErr
+	}
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -483,11 +571,18 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 		return nil, err
 	}
 
+	if len(dbRows) == 0 {
+		return nil, ErrInvalidInput
+	}
+
 	rowMap := make(map[string]dbgen.BankStatementRow)
 	for _, r := range dbRows {
 		rowMap[r.ID.String()] = r
 	}
 
+	matchedDelta := int32(0)
+	ambiguousDelta := int32(0)
+	unmatchedDelta := int32(0)
 	appliedCount := int32(0)
 	for _, match := range manualMatches {
 		row, ok := rowMap[match.RowID]
@@ -496,6 +591,15 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 		}
 		if row.Status == dbgen.BankStatementRowStatusApplied || row.Status == dbgen.BankStatementRowStatusSkipped {
 			continue
+		}
+
+		switch row.Status {
+		case dbgen.BankStatementRowStatusMatched:
+			matchedDelta++
+		case dbgen.BankStatementRowStatusAmbiguous:
+			ambiguousDelta++
+		case dbgen.BankStatementRowStatusUnmatched:
+			unmatchedDelta++
 		}
 
 		accountID, parseErr := uuid.Parse(match.AccountID)
@@ -559,10 +663,24 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 			return nil, err
 		}
 
+		row.Status = dbgen.BankStatementRowStatusApplied
+		rowMap[match.RowID] = row
 		appliedCount++
 	}
 
 	newApplied := import_.AppliedRows + appliedCount
+	newMatched := import_.MatchedRows - matchedDelta
+	newAmbiguous := import_.AmbiguousRows - ambiguousDelta
+	newUnmatched := import_.UnmatchedRows - unmatchedDelta
+	if newMatched < 0 {
+		newMatched = 0
+	}
+	if newAmbiguous < 0 {
+		newAmbiguous = 0
+	}
+	if newUnmatched < 0 {
+		newUnmatched = 0
+	}
 	finalStatus := dbgen.BankStatementImportStatusReviewRequired
 	if newApplied >= import_.TotalRows && import_.TotalRows > 0 {
 		finalStatus = dbgen.BankStatementImportStatusApplied
@@ -578,9 +696,9 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 		ID:            importUUID,
 		Status:        finalStatus,
 		TotalRows:     import_.TotalRows,
-		MatchedRows:   import_.MatchedRows,
-		AmbiguousRows: import_.AmbiguousRows,
-		UnmatchedRows: import_.UnmatchedRows,
+		MatchedRows:   newMatched,
+		AmbiguousRows: newAmbiguous,
+		UnmatchedRows: newUnmatched,
 		AppliedRows:   newApplied,
 		ParsedAt:      import_.ParsedAt,
 		AppliedAt:     appliedAt,
@@ -600,9 +718,9 @@ func (s *Service) ApplyBankStatementImport(ctx context.Context, identity auth.Id
 		BankName:      import_.BankName,
 		Status:        string(finalStatus),
 		TotalRows:     int64(import_.TotalRows),
-		MatchedRows:   int64(import_.MatchedRows),
-		AmbiguousRows: int64(import_.AmbiguousRows),
-		UnmatchedRows: int64(import_.UnmatchedRows),
+		MatchedRows:   int64(newMatched),
+		AmbiguousRows: int64(newAmbiguous),
+		UnmatchedRows: int64(newUnmatched),
 		AppliedRows:   int64(newApplied),
 	}, nil
 }

@@ -120,3 +120,27 @@ func TestMapMaintenanceRedactsContractorName(t *testing.T) {
 		t.Fatalf("mapMaintenance() leaked contractor_name: %+v", items[0])
 	}
 }
+
+func TestMapFinancialsScopesTotalsToCurrentBudgetPeriod(t *testing.T) {
+	lines := []dbgen.BudgetLine{
+		{PeriodLabel: "October 2025", Category: "Maintenance", BudgetedCents: 1000, ActualCents: 250},
+		{PeriodLabel: "September 2026", Category: "Maintenance", BudgetedCents: 5000, ActualCents: 1000},
+		{PeriodLabel: "September 2026", Category: "Insurance", BudgetedCents: 7000, ActualCents: 3000},
+	}
+
+	payload := mapFinancials(lines, false, dbgen.ReserveFund{})
+
+	if payload["selected_period"] != "September 2026" {
+		t.Fatalf("selected_period = %v, want September 2026", payload["selected_period"])
+	}
+	if payload["total_budgeted_cents"] != int64(12000) || payload["total_actual_cents"] != int64(4000) {
+		t.Fatalf("totals = (%v, %v), want (12000, 4000)", payload["total_budgeted_cents"], payload["total_actual_cents"])
+	}
+	budgetLines, ok := payload["budget_lines"].([]map[string]any)
+	if !ok {
+		t.Fatalf("budget_lines type = %T", payload["budget_lines"])
+	}
+	if len(budgetLines) != 2 {
+		t.Fatalf("budget_lines len = %d, want 2: %#v", len(budgetLines), budgetLines)
+	}
+}

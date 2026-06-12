@@ -487,20 +487,22 @@ func mapNotices(notices []dbgen.Notice, limit int) []map[string]any {
 func mapFinancials(lines []dbgen.BudgetLine, hasReserve bool, reserve dbgen.ReserveFund) map[string]any {
 	periods := make([]string, 0, len(lines))
 	seen := map[string]struct{}{}
-	var totalBudgeted int64
-	var totalActual int64
 	for _, line := range lines {
-		totalBudgeted += line.BudgetedCents
-		totalActual += line.ActualCents
 		if _, ok := seen[line.PeriodLabel]; !ok {
 			seen[line.PeriodLabel] = struct{}{}
 			periods = append(periods, line.PeriodLabel)
 		}
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(periods)))
+	sortPeriodLabelsDesc(periods)
+	selected := ""
+	if len(periods) > 0 {
+		selected = periods[0]
+	}
+	selectedLines, totalBudgeted, totalActual := budgetLinesForPeriod(lines, selected, 8)
 	payload := map[string]any{
 		"budget_periods":       periods,
-		"budget_lines":         mapBudgetLines(lines, 8),
+		"selected_period":      selected,
+		"budget_lines":         selectedLines,
 		"total_budgeted_cents": totalBudgeted,
 		"total_actual_cents":   totalActual,
 	}
@@ -512,6 +514,21 @@ func mapFinancials(lines []dbgen.BudgetLine, hasReserve bool, reserve dbgen.Rese
 		}
 	}
 	return payload
+}
+
+func budgetLinesForPeriod(lines []dbgen.BudgetLine, period string, limit int) ([]map[string]any, int64, int64) {
+	filtered := make([]dbgen.BudgetLine, 0, len(lines))
+	var totalBudgeted int64
+	var totalActual int64
+	for _, line := range lines {
+		if line.PeriodLabel != period {
+			continue
+		}
+		filtered = append(filtered, line)
+		totalBudgeted += line.BudgetedCents
+		totalActual += line.ActualCents
+	}
+	return mapBudgetLines(filtered, limit), totalBudgeted, totalActual
 }
 
 func mapBudgetLines(lines []dbgen.BudgetLine, limit int) []map[string]any {
@@ -529,6 +546,35 @@ func mapBudgetLines(lines []dbgen.BudgetLine, limit int) []map[string]any {
 		})
 	}
 	return items
+}
+
+func sortPeriodLabelsDesc(periods []string) {
+	sort.Slice(periods, func(i, j int) bool {
+		aDate, aOK := parsePeriodLabel(periods[i])
+		bDate, bOK := parsePeriodLabel(periods[j])
+		switch {
+		case aOK && bOK:
+			return aDate.After(bDate)
+		case aOK:
+			return true
+		case bOK:
+			return false
+		default:
+			return periods[i] > periods[j]
+		}
+	})
+}
+
+func parsePeriodLabel(label string) (time.Time, bool) {
+	label = strings.TrimSpace(label)
+	layouts := []string{"January 2006", "Jan 2006", "2006-01", "2006"}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, label)
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func mapResolutions(resolutions []dbgen.AgmResolution, limit int) []map[string]any {

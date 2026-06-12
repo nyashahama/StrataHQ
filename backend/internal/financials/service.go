@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -147,34 +148,13 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 	}
 
 	if len(allLines) > 0 {
-		periods := make([]string, 0, len(allLines))
-		seen := make(map[string]struct{}, len(allLines))
-		for _, line := range allLines {
-			if _, ok := seen[line.PeriodLabel]; ok {
-				continue
-			}
-			seen[line.PeriodLabel] = struct{}{}
-			periods = append(periods, line.PeriodLabel)
-		}
-		slices.Sort(periods)
-		slices.Reverse(periods)
+		periods := budgetPeriods(allLines)
 		resp.AvailablePeriods = periods
 
-		selected := periodLabel
-		if selected == "" && len(periods) > 0 {
-			selected = periods[0]
-		}
+		selected := selectBudgetPeriod(periods, periodLabel)
 		resp.SelectedPeriod = selected
 
-		for _, line := range allLines {
-			if line.PeriodLabel != selected {
-				continue
-			}
-			mapped := mapBudgetLine(line)
-			resp.BudgetLines = append(resp.BudgetLines, mapped)
-			resp.TotalBudgetedCents += mapped.BudgetedCents
-			resp.TotalActualCents += mapped.ActualCents
-		}
+		resp.BudgetLines, resp.TotalBudgetedCents, resp.TotalActualCents = budgetLinesForPeriod(allLines, selected)
 		resp.SurplusCents = resp.TotalBudgetedCents - resp.TotalActualCents
 	}
 
@@ -203,6 +183,84 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 	}
 
 	return resp, nil
+}
+
+func budgetPeriods(lines []dbgen.BudgetLine) []string {
+	periods := make([]string, 0, len(lines))
+	seen := make(map[string]struct{}, len(lines))
+	for _, line := range lines {
+		label := strings.TrimSpace(line.PeriodLabel)
+		if label == "" {
+			continue
+		}
+		if _, ok := seen[label]; ok {
+			continue
+		}
+		seen[label] = struct{}{}
+		periods = append(periods, label)
+	}
+	sortPeriodLabelsDesc(periods)
+	return periods
+}
+
+func selectBudgetPeriod(periods []string, requested string) string {
+	if len(periods) == 0 {
+		return ""
+	}
+	requested = strings.TrimSpace(requested)
+	if requested != "" {
+		for _, period := range periods {
+			if period == requested {
+				return requested
+			}
+		}
+	}
+	return periods[0]
+}
+
+func budgetLinesForPeriod(lines []dbgen.BudgetLine, period string) ([]BudgetLineInfo, int64, int64) {
+	items := []BudgetLineInfo{}
+	var totalBudgeted int64
+	var totalActual int64
+	for _, line := range lines {
+		if line.PeriodLabel != period {
+			continue
+		}
+		mapped := mapBudgetLine(line)
+		items = append(items, mapped)
+		totalBudgeted += mapped.BudgetedCents
+		totalActual += mapped.ActualCents
+	}
+	return items, totalBudgeted, totalActual
+}
+
+func sortPeriodLabelsDesc(periods []string) {
+	slices.SortFunc(periods, func(a, b string) int {
+		aDate, aOK := parsePeriodLabel(a)
+		bDate, bOK := parsePeriodLabel(b)
+		switch {
+		case aOK && bOK:
+			return bDate.Compare(aDate)
+		case aOK:
+			return -1
+		case bOK:
+			return 1
+		default:
+			return strings.Compare(b, a)
+		}
+	})
+}
+
+func parsePeriodLabel(label string) (time.Time, bool) {
+	label = strings.TrimSpace(label)
+	layouts := []string{"January 2006", "Jan 2006", "2006-01", "2006"}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, label)
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func (s *Service) UpsertBudgetLine(ctx context.Context, identity auth.Identity, schemeID string, input UpsertBudgetLineInput) (*BudgetLineInfo, error) {

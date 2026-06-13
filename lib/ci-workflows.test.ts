@@ -8,9 +8,9 @@ describe("CI workflows", () => {
     expect(workflow).toContain("govulncheck ./...");
   });
 
-  it("runs npm audit in frontend CI", () => {
+  it("runs pnpm audit in frontend CI", () => {
     const workflow = readFileSync(".github/workflows/frontend-ci.yml", "utf8");
 
-    expect(workflow).toContain("npm audit --omit=dev --audit-level=high");
+    expect(workflow).toContain("pnpm audit --audit-level=high");
   });
 });

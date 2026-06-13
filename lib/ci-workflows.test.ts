@@ -13,4 +13,10 @@ describe("CI workflows", () => {
 
     expect(workflow).toContain("pnpm audit --audit-level=high");
   });
+
+  it("installs pnpm via pnpm/action-setup", () => {
+    const workflow = readFileSync(".github/workflows/frontend-ci.yml", "utf8");
+
+    expect(workflow).toContain("pnpm/action-setup@v4");
+  });
 });

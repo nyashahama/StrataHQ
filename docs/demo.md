@@ -71,7 +71,7 @@ Captured screenshots:
 Start the stack:
 
 ```bash
-npm ci
+pnpm install --frozen-lockfile
 cp .env.example .env.local
 cd backend
 cp .env.example .env
@@ -85,7 +85,7 @@ make run
 In another terminal:
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 Save screenshots manually into `docs/assets/screenshots/` using your browser or OS screenshot tool:

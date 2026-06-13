@@ -51,7 +51,7 @@ Captured from the local seeded demo app on 2026-05-07.
 1. Install dependencies from the repository root:
 
    ```bash
-   npm ci
+   pnpm install --frozen-lockfile
    ```
 
 2. Create frontend environment variables:
@@ -89,7 +89,7 @@ Captured from the local seeded demo app on 2026-05-07.
 5. In another terminal, run the frontend:
 
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
 Frontend: `http://localhost:3000`
@@ -160,9 +160,9 @@ Current beta milestone: `v0.2.0-beta.0`
 Run the checks that match your change before opening a PR or deploying:
 
 ```bash
-npm run lint
-npm run typecheck
-npm test
+pnpm run lint
+pnpm run typecheck
+pnpm test
 ```
 
 For backend changes:
@@ -179,7 +179,7 @@ Integration tests require local PostgreSQL and Redis services. Start them with
 ## Prerequisites
 
 - Node.js 22 or newer
-- npm
+- pnpm
 - Go 1.26.4 or newer
 - Docker and Docker Compose
 - sqlc
@@ -192,13 +192,13 @@ Frontend commands run from the repository root.
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Build the production frontend |
+| `pnpm run dev` | Start the Next.js development server |
+| `pnpm run build` | Build the production frontend |
 | `npm run start` | Start the built frontend |
-| `npm run lint` | Run ESLint with zero warnings allowed |
-| `npm run typecheck` | Run TypeScript checks |
-| `npm test` | Run Vitest once |
-| `npm run test:watch` | Run Vitest in watch mode |
+| `pnpm run lint` | Run ESLint with zero warnings allowed |
+| `pnpm run typecheck` | Run TypeScript checks |
+| `pnpm test` | Run Vitest once |
+| `pnpm run test:watch` | Run Vitest in watch mode |
 
 Backend commands run from `backend/`.
 

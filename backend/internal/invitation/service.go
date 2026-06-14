@@ -324,6 +324,9 @@ func (s *Service) Revoke(ctx context.Context, orgID, invitationID string) error 
 	if existing.OrgID != oid {
 		return ErrForbidden
 	}
+	if existing.Status != "pending" {
+		return ErrInvalidToken
+	}
 
 	if err := s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
 		Status: "revoked",
@@ -421,10 +424,7 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 		if txErr != nil {
 			return txErr
 		}
-		return q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
-			Status: "accepted",
-			ID:     inv.ID,
-		})
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -440,6 +440,12 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 	}
 	err = s.storeRefreshToken(ctx, user.ID, refreshToken)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
+		Status: "accepted",
+		ID:     inv.ID,
+	}); err != nil {
 		return nil, err
 	}
 

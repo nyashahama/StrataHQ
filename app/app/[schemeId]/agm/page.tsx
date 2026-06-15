@@ -78,7 +78,12 @@ export default function AgmVotingPage() {
   const upcomingMeeting = dashboard?.upcoming ?? null
   const hasAssignedProxy = Boolean(upcomingMeeting?.user_proxy_grantee_id)
 
-  const { data: members = [], isLoading: loadingMembers } = useAuthenticatedQuery<Array<{ user_id: string; full_name: string; role: string }>>({
+  const {
+    data: members = [],
+    isLoading: loadingMembers,
+    error: membersError,
+    refetch: refetchMembers,
+  } = useAuthenticatedQuery<Array<{ user_id: string; full_name: string; role: string }>>({
     queryKey: schemeKeys.agmMembers(schemeId),
     queryFn: () => listSchemeMembers(schemeId),
     staleTime: 60_000,
@@ -285,28 +290,43 @@ export default function AgmVotingPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <select
-                    value={proxyUserId}
-                    onChange={event => setProxyUserId(event.target.value)}
-                    disabled={loadingMembers || assigningProxy || !!upcomingMeeting.user_proxy_grantee_id}
-                    className="border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:opacity-50"
-                  >
-                    <option value="">Select proxy member</option>
-                    {members
-                      .filter(candidate => candidate.user_id !== user?.id)
-                      .map(candidate => (
-                        <option key={candidate.user_id} value={candidate.user_id}>
-                          {candidate.full_name} · {candidate.role}
-                        </option>
-                      ))}
-                  </select>
-                  <button
-                    onClick={handleAssignProxy}
-                    disabled={!proxyUserId || assigningProxy || !!upcomingMeeting.user_proxy_grantee_id}
-                    className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {assigningProxy ? 'Assigning…' : upcomingMeeting.user_proxy_grantee_id ? 'Proxy assigned' : 'Assign proxy'}
-                  </button>
+                  {membersError ? (
+                    <div className="flex flex-col gap-1 text-[12px] text-red">
+                      <span>Could not load scheme members for proxy selection.</span>
+                      <button
+                        type="button"
+                        onClick={() => refetchMembers()}
+                        className="text-[11px] font-semibold text-accent hover:underline self-start"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={proxyUserId}
+                        onChange={event => setProxyUserId(event.target.value)}
+                        disabled={loadingMembers || assigningProxy || !!upcomingMeeting.user_proxy_grantee_id}
+                        className="border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent disabled:opacity-50"
+                      >
+                        <option value="">Select proxy member</option>
+                        {members
+                          .filter(candidate => candidate.user_id !== user?.id)
+                          .map(candidate => (
+                            <option key={candidate.user_id} value={candidate.user_id}>
+                              {candidate.full_name} · {candidate.role}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        onClick={handleAssignProxy}
+                        disabled={!proxyUserId || assigningProxy || !!upcomingMeeting.user_proxy_grantee_id}
+                        className="text-[12px] font-semibold bg-accent text-white px-4 py-2 rounded hover:opacity-90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {assigningProxy ? 'Assigning…' : upcomingMeeting.user_proxy_grantee_id ? 'Proxy assigned' : 'Assign proxy'}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,6 +1,38 @@
 import type { CollectionEvent } from "@/lib/attention";
 
-export function CollectionActivityLog({ events }: { events: CollectionEvent[] }) {
+export function CollectionActivityLog({
+  events,
+  error,
+  onRetry,
+  loading,
+}: {
+  events: CollectionEvent[];
+  error?: string | null;
+  onRetry?: () => void;
+  loading?: boolean;
+}) {
+  if (loading && events.length === 0) {
+    return <p className="text-xs text-muted">Loading collection activity…</p>;
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red/30 bg-red-bg px-3 py-2 text-xs text-red">
+        <p className="font-semibold">Could not load collection activity</p>
+        <p className="mt-1 text-[11px]">{error}</p>
+        {onRetry ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-2 text-[11px] font-semibold text-red underline"
+          >
+            Retry
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
   if (events.length === 0) {
     return <p className="text-xs text-muted">No collection activity yet.</p>;
   }

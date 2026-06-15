@@ -49,12 +49,14 @@ type DashboardResponse struct {
 }
 
 type Service struct {
-	db                    *database.Pool
-	listSchemesByOrgFn    func(context.Context, uuid.UUID) ([]dbgen.Scheme, error)
-	dashboardForSchemeFn  func(context.Context, uuid.UUID) (*DashboardResponse, error)
-	dashboardFn           func(context.Context, auth.Identity, string) (*DashboardResponse, error)
-	resolveSchemeAccessFn func(context.Context, auth.Identity, string) (dbgen.Scheme, string, error)
-	createAssessmentFn    func(context.Context, dbgen.CreateComplianceAssessmentParams) (dbgen.ComplianceAssessment, error)
+	db                          *database.Pool
+	listSchemesByOrgFn          func(context.Context, uuid.UUID) ([]dbgen.Scheme, error)
+	dashboardForSchemeFn        func(context.Context, uuid.UUID) (*DashboardResponse, error)
+	dashboardFn                 func(context.Context, auth.Identity, string) (*DashboardResponse, error)
+	resolveSchemeAccessFn       func(context.Context, auth.Identity, string) (dbgen.Scheme, string, error)
+	createAssessmentFn          func(context.Context, dbgen.CreateComplianceAssessmentParams) (dbgen.ComplianceAssessment, error)
+	listComplianceItemsByScheme func(context.Context, uuid.UUID) ([]dbgen.ComplianceItem, error)
+	countUpcomingDeadlines      func(context.Context, uuid.UUID) (int64, error)
 }
 
 func NewService(db *database.Pool) *Service {
@@ -63,6 +65,8 @@ func NewService(db *database.Pool) *Service {
 	svc.dashboardFn = svc.Dashboard
 	svc.resolveSchemeAccessFn = svc.resolveSchemeAccess
 	svc.createAssessmentFn = svc.db.Q.CreateComplianceAssessment
+	svc.listComplianceItemsByScheme = svc.db.Q.ListComplianceItemsByScheme
+	svc.countUpcomingDeadlines = svc.db.Q.CountUpcomingDeadlinesByScheme
 	return svc
 }
 
@@ -75,7 +79,7 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		return nil, ErrForbidden
 	}
 
-	rows, err := s.db.Q.ListComplianceItemsByScheme(ctx, scheme.ID)
+	rows, err := s.listComplianceItemsByScheme(ctx, scheme.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -129,10 +133,11 @@ func (s *Service) Dashboard(ctx context.Context, identity auth.Identity, schemeI
 		resp.Score = int(float64(earnedPoints) / float64(totalPoints) * 100)
 	}
 
-	deadlines, err := s.db.Q.CountUpcomingDeadlinesByScheme(ctx, scheme.ID)
-	if err == nil {
-		resp.UpcomingDeadlines = int(deadlines)
+	deadlines, err := s.countUpcomingDeadlines(ctx, scheme.ID)
+	if err != nil {
+		return nil, err
 	}
+	resp.UpcomingDeadlines = int(deadlines)
 
 	return resp, nil
 }
@@ -474,7 +479,7 @@ func (s *Service) PortfolioDashboard(ctx context.Context, identity auth.Identity
 }
 
 func (s *Service) dashboardForScheme(ctx context.Context, schemeID uuid.UUID) (*DashboardResponse, error) {
-	rows, err := s.db.Q.ListComplianceItemsByScheme(ctx, schemeID)
+	rows, err := s.listComplianceItemsByScheme(ctx, schemeID)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +516,10 @@ func (s *Service) dashboardForScheme(ctx context.Context, schemeID uuid.UUID) (*
 		resp.Score = int(float64(earnedPoints) / float64(totalPoints) * 100)
 	}
 
-	deadlines, _ := s.db.Q.CountUpcomingDeadlinesByScheme(ctx, schemeID)
+	deadlines, err := s.countUpcomingDeadlines(ctx, schemeID)
+	if err != nil {
+		return nil, err
+	}
 	resp.UpcomingDeadlines = int(deadlines)
 
 	return resp, nil

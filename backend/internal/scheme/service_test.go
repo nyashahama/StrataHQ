@@ -1,7 +1,11 @@
 package scheme
 
 import (
+	"context"
+	"errors"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/stratahq/backend/internal/audit"
 )
@@ -198,3 +202,61 @@ func TestMemberUpdatedAuditEventOmitsEmptyUnitID(t *testing.T) {
 }
 
 var _ audit.ResourceEvent
+
+func TestComputeHealthScorePropagatesFactorError(t *testing.T) {
+	t.Helper()
+
+	schemeID := uuid.New()
+	factorErr := errors.New("reserve fund query failed")
+
+	svc := &Service{
+		healthFactorFns: []func(context.Context, uuid.UUID) (int, error){
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 0, factorErr },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
+		},
+	}
+
+	score, breakdown, err := svc.computeHealthScore(context.Background(), schemeID)
+	if !errors.Is(err, factorErr) {
+		t.Fatalf("expected reserve fund factor error, got score=%d breakdown=%+v err=%v", score, breakdown, err)
+	}
+	if score != 0 {
+		t.Fatalf("expected zero score on factor error, got %d", score)
+	}
+	if breakdown != nil {
+		t.Fatalf("expected nil breakdown on factor error, got %+v", breakdown)
+	}
+}
+
+func TestComputeHealthScoreAggregatesFactors(t *testing.T) {
+	t.Helper()
+
+	schemeID := uuid.New()
+	svc := &Service{
+		healthFactorFns: []func(context.Context, uuid.UUID) (int, error){
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 80, nil },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 60, nil },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 40, nil },
+			func(_ context.Context, _ uuid.UUID) (int, error) { return 20, nil },
+		},
+	}
+
+	score, breakdown, err := svc.computeHealthScore(context.Background(), schemeID)
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	want := int(100*0.35 + 80*0.25 + 60*0.20 + 40*0.15 + 20*0.05)
+	if score != want {
+		t.Fatalf("expected weighted score %d, got %d", want, score)
+	}
+	if got := breakdown["levy_collection"]; got != 100 {
+		t.Fatalf("expected levy_collection 100, got %d", got)
+	}
+	if got := breakdown["agm_recency"]; got != 20 {
+		t.Fatalf("expected agm_recency 20, got %d", got)
+	}
+}

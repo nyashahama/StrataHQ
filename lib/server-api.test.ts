@@ -68,4 +68,33 @@ describe("fetchBackendJson", () => {
     expect(refreshAuthSession).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("passes an abort signal to each backend GET", async () => {
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      return new Response(
+        JSON.stringify({ data: { id: "scheme-1" } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchBackendJson } = await import("./server-api");
+    const data = await fetchBackendJson<{ id: string }>("/api/v1/schemes/abc");
+
+    expect(data).toEqual({ id: "scheme-1" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("translates a fetch failure into a retryable temporary error", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("network down");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { fetchBackendJson } = await import("./server-api");
+    await expect(fetchBackendJson("/api/v1/schemes")).rejects.toThrow(
+      "Temporary service issue. Please retry.",
+    );
+  });
 });

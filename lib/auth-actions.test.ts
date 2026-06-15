@@ -243,4 +243,51 @@ describe("auth actions", () => {
     await action;
     expect(resolved).toBe(true);
   });
+
+  it("logout sends a timeout signal and clears cookies on the backend call", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_refresh") return { value: "refresh-token" };
+      return undefined;
+    });
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      expect(init.signal).toBeInstanceOf(AbortSignal);
+      return new Response(null, { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { logoutAction } = await import("./auth-actions");
+    await logoutAction();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(clearAuthCookies).toHaveBeenCalledTimes(1);
+  });
+
+  it("logout still clears cookies when the backend logout call fails", async () => {
+    cookieGet.mockImplementation((name: string) => {
+      if (name === "sh_refresh") return { value: "refresh-token" };
+      return undefined;
+    });
+    const fetchMock = vi.fn(async () => {
+      throw new Error("network");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { logoutAction } = await import("./auth-actions");
+    await logoutAction();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(clearAuthCookies).toHaveBeenCalledTimes(1);
+  });
+
+  it("logout clears cookies when no refresh token is present", async () => {
+    cookieGet.mockImplementation(() => undefined);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { logoutAction } = await import("./auth-actions");
+    await logoutAction();
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(clearAuthCookies).toHaveBeenCalledTimes(1);
+  });
 });

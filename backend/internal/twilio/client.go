@@ -1,6 +1,7 @@
 package twilio
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -9,7 +10,10 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 )
+
+const requestTimeout = 15 * time.Second
 
 type Client struct {
 	httpClient *http.Client
@@ -23,11 +27,17 @@ func NewClient(accountSID, authToken, fromNumber string) *Client {
 		accountSID: accountSID,
 		authToken:  authToken,
 		fromNumber: fromNumber,
-		httpClient: &http.Client{},
+		httpClient: &http.Client{Timeout: requestTimeout},
 	}
 }
 
 func (c *Client) SendWhatsAppMessage(to, body string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+	return c.sendWhatsAppMessage(ctx, to, body)
+}
+
+func (c *Client) sendWhatsAppMessage(ctx context.Context, to, body string) error {
 	endpoint := fmt.Sprintf(
 		"https://api.twilio.com/2010-04-01/Accounts/%s/Messages.json",
 		c.accountSID,
@@ -38,7 +48,7 @@ func (c *Client) SendWhatsAppMessage(to, body string) error {
 	data.Set("To", "whatsapp:"+to)
 	data.Set("Body", body)
 
-	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(data.Encode()))
 	if err != nil {
 		return fmt.Errorf("create request: %w", err)
 	}

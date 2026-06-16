@@ -1173,6 +1173,13 @@ func (s *Service) SendReminder(ctx context.Context, identity auth.Identity, sche
 		return nil, err
 	}
 
+	if input.Email.Enabled && account.ownerEmail == "" {
+		return nil, ErrInvalidInput
+	}
+	if input.WhatsApp.Enabled && account.whatsAppPhone == "" {
+		return nil, ErrInvalidInput
+	}
+
 	eventInput := RecordCollectionEventInput{
 		EventType: "reminder_sent",
 		Email:     buildDeliveryRecord(input.Email, account.ownerEmail),

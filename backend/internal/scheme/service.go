@@ -1036,16 +1036,23 @@ func (s *Service) agmRecencyFactor(ctx context.Context, schemeID uuid.UUID) (int
 	if len(meetings) == 0 {
 		return 0, nil
 	}
-	var latestDate time.Time
+	now := time.Now()
+	var latestPastDate time.Time
 	for _, m := range meetings {
-		if m.MeetingDate.Valid && m.MeetingDate.Time.After(latestDate) {
-			latestDate = m.MeetingDate.Time
+		if !m.MeetingDate.Valid {
+			continue
+		}
+		if m.MeetingDate.Time.After(now) {
+			continue
+		}
+		if m.MeetingDate.Time.After(latestPastDate) {
+			latestPastDate = m.MeetingDate.Time
 		}
 	}
-	if latestDate.IsZero() {
+	if latestPastDate.IsZero() {
 		return 0, nil
 	}
-	monthsSince := int(time.Since(latestDate).Hours() / (24 * 30))
+	monthsSince := int(now.Sub(latestPastDate).Hours() / (24 * 30))
 	if monthsSince <= 12 {
 		return 100, nil
 	}

@@ -324,6 +324,10 @@ func (s *Service) CastVote(ctx context.Context, identity auth.Identity, schemeID
 	choice := input.Choice
 	item.UserVote = &choice
 
+	if quorumErr := s.recalculateQuorum(ctx, meeting.ID); quorumErr != nil {
+		return nil, quorumErr
+	}
+
 	if s.auditor != nil {
 		_ = s.auditor.RecordResourceEvent(ctx, agmVoteAuditEvent(agmVoteAuditInput{
 			SchemeID:     access.scheme.ID.String(),
@@ -425,6 +429,10 @@ func (s *Service) AssignProxy(ctx context.Context, identity auth.Identity, schem
 	})
 	if err != nil {
 		return err
+	}
+
+	if quorumErr := s.recalculateQuorum(ctx, meeting.ID); quorumErr != nil {
+		return quorumErr
 	}
 
 	if s.auditor != nil {
@@ -678,6 +686,37 @@ func (s *Service) userHasMeetingVote(ctx context.Context, meetingID, userID uuid
 		}
 	}
 	return false, nil
+}
+
+func (s *Service) recalculateQuorum(ctx context.Context, meetingID uuid.UUID) error {
+	assignments, err := s.db.Q.ListProxyAssignmentsByMeeting(ctx, meetingID)
+	if err != nil {
+		return err
+	}
+	resolutions, err := s.db.Q.ListAgmResolutionsByMeeting(ctx, meetingID)
+	if err != nil {
+		return err
+	}
+
+	participants := make(map[uuid.UUID]struct{})
+	for _, a := range assignments {
+		participants[a.GrantorUserID] = struct{}{}
+	}
+	for _, r := range resolutions {
+		votes, voteErr := s.db.Q.ListAgmVotesByResolution(ctx, r.ID)
+		if voteErr != nil {
+			return voteErr
+		}
+		for _, v := range votes {
+			participants[v.VoterUserID] = struct{}{}
+		}
+	}
+
+	_, err = s.db.Q.UpdateAgmQuorumPresent(ctx, dbgen.UpdateAgmQuorumPresentParams{
+		ID:            meetingID,
+		QuorumPresent: int32(len(participants)),
+	})
+	return err
 }
 
 type agmVoteAuditInput struct {

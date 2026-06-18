@@ -167,6 +167,7 @@ export default function CompliancePage() {
 
   const [dashboard, setDashboard] = useState<ComplianceDashboard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (user?.role === 'resident') {
@@ -174,31 +175,65 @@ export default function CompliancePage() {
       return
     }
 
+    let cancelled = false
+
     async function load() {
       const key = `scheme:${schemeId}:compliance`
       const cached = getCached<ComplianceDashboard>(key)
       if (cached) {
-        setDashboard(cached)
-        setLoading(false)
+        if (!cancelled) {
+          setDashboard(cached)
+          setLoading(false)
+        }
         return
       }
       try {
-        setLoading(true)
+        if (!cancelled) setLoading(true)
         const result = await getComplianceDashboard(schemeId)
-        setCached(key, result)
-        setDashboard(result)
-      } catch (error) {
-        addToast(
-          error instanceof Error ? error.message : 'Failed to load compliance dashboard',
-          'error',
-        )
+        if (!cancelled) {
+          setCached(key, result)
+          setDashboard(result)
+          setError(null)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : 'Failed to load compliance dashboard'
+          setError(message)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     load()
-  }, [addToast, schemeId, user?.role])
+
+    return () => {
+      cancelled = true
+    }
+  }, [schemeId, user?.role])
+
+  function retry() {
+    setError(null)
+    setLoading(true)
+    const key = `scheme:${schemeId}:compliance`
+    const cached = getCached<ComplianceDashboard>(key)
+    if (cached) {
+      setDashboard(cached)
+      setLoading(false)
+      return
+    }
+    getComplianceDashboard(schemeId)
+      .then(result => {
+        setCached(key, result)
+        setDashboard(result)
+      })
+      .catch(err => {
+        setError(err instanceof Error ? err.message : 'Failed to load compliance dashboard')
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }
 
   const groupedItems = useMemo(() => {
     if (!dashboard) return new Map<ComplianceCategory, ComplianceItem[]>()
@@ -218,6 +253,23 @@ export default function CompliancePage() {
         <p className="text-[12px] text-muted mb-4">Scheme › Compliance</p>
         <h1 className="font-serif text-[28px] font-semibold text-ink mb-1">Compliance</h1>
         <p className="text-[14px] text-muted">Compliance information is managed by your scheme&apos;s trustees and managing agent.</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 py-6 sm:px-8 sm:py-8 max-w-[900px]">
+        <div className="bg-red-bg border border-red/20 rounded-lg px-6 py-12 text-center">
+          <p className="text-[14px] font-semibold text-red mb-2">Could not load compliance dashboard</p>
+          <p className="text-[12px] text-red/80 mb-5">{error}</p>
+          <button
+            onClick={retry}
+            className="text-[12px] font-semibold bg-red text-white px-4 py-2 rounded hover:opacity-90 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }

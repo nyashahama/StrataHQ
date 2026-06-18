@@ -545,7 +545,7 @@ func timestamptzPointer(value pgtype.Timestamptz) *time.Time {
 }
 
 func isSlaBreached(createdAt time.Time, slaHours int32, status dbgen.MaintenanceStatus, now time.Time) bool {
-	if status == dbgen.MaintenanceStatusResolved {
+	if status == dbgen.MaintenanceStatusResolved || status == dbgen.MaintenanceStatusPendingApproval {
 		return false
 	}
 	return createdAt.Add(time.Duration(slaHours) * time.Hour).Before(now)

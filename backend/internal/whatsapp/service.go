@@ -702,6 +702,9 @@ func (s *Service) DismissMaintenanceIntake(ctx context.Context, identity auth.Id
 	if intake.SchemeID != access.scheme.ID {
 		return nil, ErrForbidden
 	}
+	if intake.Status != "candidate" {
+		return nil, ErrInvalidInput
+	}
 	dismissed, err := s.db.Q.DismissWhatsAppMaintenanceIntake(ctx, id)
 	if err != nil {
 		return nil, err

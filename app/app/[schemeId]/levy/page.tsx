@@ -207,8 +207,11 @@ export default function LevyPaymentsPage() {
           </div>
         )}
 
-        <button onClick={() => addToast('Statement downloads will ship with the documents slice.', 'info')} className="text-[12px] text-accent font-medium border border-accent rounded px-4 py-2 hover:bg-accent-dim transition-colors">
-          Download statement (PDF)
+        <button
+          disabled
+          className="text-[12px] text-muted font-medium border border-border rounded px-4 py-2 opacity-50 cursor-not-allowed"
+        >
+          Download statement (PDF) — coming soon
         </button>
       </div>
     )

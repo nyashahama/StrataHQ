@@ -26,9 +26,17 @@ func NewClient(accountSID, authToken, fromNumber string) *Client {
 	return &Client{
 		accountSID: accountSID,
 		authToken:  authToken,
-		fromNumber: fromNumber,
+		fromNumber: stripWhatsAppPrefix(fromNumber),
 		httpClient: &http.Client{Timeout: requestTimeout},
 	}
+}
+
+func stripWhatsAppPrefix(num string) string {
+	const prefix = "whatsapp:"
+	for strings.HasPrefix(num, prefix) {
+		num = strings.TrimPrefix(num, prefix)
+	}
+	return num
 }
 
 func (c *Client) SendWhatsAppMessage(to, body string) error {

@@ -39,33 +39,41 @@ function withAuthHeader(headers: HeadersInit | undefined, token: string): Record
 }
 
 async function fetchAdmin(path: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
+
   const send = (token: string) => {
     const { headers, ...rest } = init
     return fetch(`${BACKEND()}${path}`, {
       ...rest,
       headers: withAuthHeader(headers, token),
+      signal: controller.signal,
     })
   }
 
-  const token = await getAccessToken()
-  if (!token) return apiErrorResponse(401, NOT_AUTHENTICATED)
+  try {
+    const token = await getAccessToken()
+    if (!token) return apiErrorResponse(401, NOT_AUTHENTICATED)
 
-  const res = await send(token)
-  if (res.status !== 401) return res
+    const res = await send(token)
+    if (res.status !== 401) return res
 
-  const refreshed = await refreshAuthSession()
-  if (refreshed.kind === 'invalid') {
-    await clearAuthCookies()
-    return apiErrorResponse(401, NOT_AUTHENTICATED)
+    const refreshed = await refreshAuthSession()
+    if (refreshed.kind === 'invalid') {
+      await clearAuthCookies()
+      return apiErrorResponse(401, NOT_AUTHENTICATED)
+    }
+    if (refreshed.kind !== 'success') {
+      return apiErrorResponse(503, TEMPORARY_UNAVAILABLE)
+    }
+
+    const refreshedToken = await getAccessToken()
+    if (!refreshedToken) return apiErrorResponse(401, NOT_AUTHENTICATED)
+
+    return send(refreshedToken)
+  } finally {
+    clearTimeout(timeout)
   }
-  if (refreshed.kind !== 'success') {
-    return apiErrorResponse(503, TEMPORARY_UNAVAILABLE)
-  }
-
-  const refreshedToken = await getAccessToken()
-  if (!refreshedToken) return apiErrorResponse(401, NOT_AUTHENTICATED)
-
-  return send(refreshedToken)
 }
 
 export async function listEarlyAccessRequests(): Promise<EarlyAccessRequest[]> {

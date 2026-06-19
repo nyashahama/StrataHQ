@@ -540,13 +540,8 @@ func TestWhatsAppMaintenanceInboxManualCreateAndDismiss(t *testing.T) {
 	dismissReq = dismissReq.WithContext(auth.ContextWithIdentity(dismissReq.Context(), trusteeUserID, orgID, string(auth.RoleTrustee)))
 	dismissW := httptest.NewRecorder()
 	h.DismissMaintenanceIntake(dismissW, dismissReq)
-	if dismissW.Code != http.StatusOK {
-		t.Fatalf("trustee dismiss maintenance intake: status=%d body=%s", dismissW.Code, dismissW.Body)
-	}
-
-	dismissed := decodeSuccess[whatsapp.MaintenanceIntakeInfo](t, dismissW)
-	if dismissed.Status != "dismissed" {
-		t.Fatalf("expected dismissed status, got %q", dismissed.Status)
+	if dismissW.Code != http.StatusBadRequest {
+		t.Fatalf("trustee dismiss ticket_created intake should fail: status=%d body=%s", dismissW.Code, dismissW.Body)
 	}
 
 	createReq = httptest.NewRequest(http.MethodPost, "/whatsapp/"+schemeID+"/messages/"+msgID+"/maintenance-request", bytes.NewReader(createBody))
@@ -554,8 +549,8 @@ func TestWhatsAppMaintenanceInboxManualCreateAndDismiss(t *testing.T) {
 	createReq = createReq.WithContext(auth.ContextWithIdentity(createReq.Context(), trusteeUserID, orgID, string(auth.RoleTrustee)))
 	createW = httptest.NewRecorder()
 	h.CreateMaintenanceFromMessage(createW, createReq)
-	if createW.Code != http.StatusBadRequest {
-		t.Fatalf("trustee create maintenance after dismissal should be rejected: status=%d body=%s", createW.Code, createW.Body)
+	if createW.Code != http.StatusOK {
+		t.Fatalf("trustee re-create maintenance from same message should return existing intake: status=%d body=%s", createW.Code, createW.Body)
 	}
 
 	dismissReq = httptest.NewRequest(http.MethodPatch, "/whatsapp/"+schemeID+"/maintenance-intakes/"+created.ID, nil)

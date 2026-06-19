@@ -841,13 +841,14 @@ func pointerToUnit(unit UnitInfo) *UnitInfo {
 
 func nextAgm(meetings []dbgen.AgmMeeting) (*string, *int) {
 	now := time.Now().UTC()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 	var next *time.Time
 	for _, meeting := range meetings {
 		if !meeting.MeetingDate.Valid {
 			continue
 		}
 		meetingTime := meeting.MeetingDate.Time
-		if meetingTime.Before(now) {
+		if meetingTime.Before(today) {
 			continue
 		}
 		if next == nil || meetingTime.Before(*next) {
@@ -860,7 +861,7 @@ func nextAgm(meetings []dbgen.AgmMeeting) (*string, *int) {
 	}
 
 	date := next.Format("2006-01-02")
-	days := int(math.Ceil(next.Sub(now).Hours() / 24))
+	days := int(math.Ceil(next.Sub(today).Hours() / 24))
 	return &date, &days
 }
 

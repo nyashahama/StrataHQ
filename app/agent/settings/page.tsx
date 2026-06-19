@@ -278,8 +278,11 @@ export default function AgentSettingsPage() {
           </div>
           <div className="pt-2 border-t border-border">
             <p className="text-[12px] text-muted mb-2">Danger zone</p>
-            <button className="text-[12px] font-medium text-red hover:underline">
-              Delete account
+            <button
+              disabled
+              className="text-[12px] font-medium text-muted opacity-50 cursor-not-allowed"
+            >
+              Delete account (coming soon)
             </button>
           </div>
         </div>

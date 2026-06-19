@@ -169,6 +169,11 @@ func (s *Service) List(ctx context.Context, identity auth.Identity, filters Cont
 	if err != nil {
 		return nil, ErrInvalidInput
 	}
+	if filters.SchemeID != "" {
+		if _, parseErr := uuid.Parse(filters.SchemeID); parseErr != nil {
+			return nil, ErrInvalidInput
+		}
+	}
 	if !auth.IsAdminRole(identity.Role) {
 		if filters.SchemeID == "" {
 			return nil, ErrForbidden

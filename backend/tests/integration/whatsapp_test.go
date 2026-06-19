@@ -549,7 +549,7 @@ func TestWhatsAppMaintenanceInboxManualCreateAndDismiss(t *testing.T) {
 	createReq = createReq.WithContext(auth.ContextWithIdentity(createReq.Context(), trusteeUserID, orgID, string(auth.RoleTrustee)))
 	createW = httptest.NewRecorder()
 	h.CreateMaintenanceFromMessage(createW, createReq)
-	if createW.Code != http.StatusOK {
+	if createW.Code != http.StatusCreated {
 		t.Fatalf("trustee re-create maintenance from same message should return existing intake: status=%d body=%s", createW.Code, createW.Body)
 	}
 

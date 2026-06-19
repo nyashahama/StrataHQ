@@ -57,6 +57,7 @@ func (h *CollectionReminderEmailHandler) Handle(ctx context.Context, raw json.Ra
 		EmailError:  pgtype.Text{},
 	}); err != nil {
 		h.logger.Error("failed to mark collection event email delivery as sent", "collectionEventId", payload.CollectionEventID, "error", err)
+		return err
 	}
 	return nil
 }
@@ -95,6 +96,7 @@ func (h *CollectionReminderWhatsAppHandler) Handle(ctx context.Context, raw json
 		WhatsappError:  pgtype.Text{},
 	}); err != nil {
 		h.logger.Error("failed to mark collection event whatsapp delivery as sent", "collectionEventId", payload.CollectionEventID, "error", err)
+		return err
 	}
 	return nil
 }

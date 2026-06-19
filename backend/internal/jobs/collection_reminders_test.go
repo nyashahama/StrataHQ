@@ -40,21 +40,29 @@ func (f *fakeWhatsAppSender) SendWhatsAppMessage(to, body string) error {
 }
 
 type fakeCollectionDeliveryStore struct {
-	emailStatus    pgtype.Text
-	emailError     pgtype.Text
-	whatsappStatus pgtype.Text
-	whatsappError  pgtype.Text
+	emailStatus      pgtype.Text
+	emailError       pgtype.Text
+	whatsappStatus   pgtype.Text
+	whatsappError    pgtype.Text
+	emailMarkErr     error
+	whatsappMarkErr  error
 }
 
 func (f *fakeCollectionDeliveryStore) MarkCollectionEventEmailDelivery(ctx context.Context, arg dbgen.MarkCollectionEventEmailDeliveryParams) (dbgen.CollectionEvent, error) {
 	f.emailStatus = arg.EmailStatus
 	f.emailError = arg.EmailError
+	if f.emailMarkErr != nil {
+		return dbgen.CollectionEvent{}, f.emailMarkErr
+	}
 	return dbgen.CollectionEvent{ID: arg.ID}, nil
 }
 
 func (f *fakeCollectionDeliveryStore) MarkCollectionEventWhatsAppDelivery(ctx context.Context, arg dbgen.MarkCollectionEventWhatsAppDeliveryParams) (dbgen.CollectionEvent, error) {
 	f.whatsappStatus = arg.WhatsappStatus
 	f.whatsappError = arg.WhatsappError
+	if f.whatsappMarkErr != nil {
+		return dbgen.CollectionEvent{}, f.whatsappMarkErr
+	}
 	return dbgen.CollectionEvent{ID: arg.ID}, nil
 }
 
@@ -121,6 +129,43 @@ func TestCollectionReminderWhatsAppHandlerMarksSent(t *testing.T) {
 	require.Equal(t, "Please pay", sender.body)
 	require.Equal(t, pgtype.Text{String: "sent", Valid: true}, store.whatsappStatus)
 	require.False(t, store.whatsappError.Valid)
+}
+
+func TestCollectionReminderEmailHandlerReturnsStoreErrorAfterSend(t *testing.T) {
+	eventID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	store := &fakeCollectionDeliveryStore{emailMarkErr: errors.New("db unavailable")}
+	sender := &fakeEmailSender{}
+	handler := NewCollectionReminderEmailHandler(store, sender)
+	payload, err := json.Marshal(CollectionReminderEmailPayload{
+		CollectionEventID: eventID,
+		To:                "owner@example.com",
+		Subject:           "Reminder",
+		HTMLBody:          "<p>Pay</p>",
+	})
+	require.NoError(t, err)
+
+	err = handler.Handle(context.Background(), payload)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "db unavailable")
+}
+
+func TestCollectionReminderWhatsAppHandlerReturnsStoreErrorAfterSend(t *testing.T) {
+	eventID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+	store := &fakeCollectionDeliveryStore{whatsappMarkErr: errors.New("db unavailable")}
+	sender := &fakeWhatsAppSender{}
+	handler := NewCollectionReminderWhatsAppHandler(store, sender)
+	payload, err := json.Marshal(CollectionReminderWhatsAppPayload{
+		CollectionEventID: eventID,
+		To:                "+27820000000",
+		Body:              "Please pay",
+	})
+	require.NoError(t, err)
+
+	err = handler.Handle(context.Background(), payload)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "db unavailable")
 }
 
 func TestCollectionReminderWhatsAppHandlerRejectsBadPayload(t *testing.T) {

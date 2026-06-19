@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 
 import RetryState from "@/components/RetryState";
@@ -21,6 +21,13 @@ export default function ContractorsPage() {
   const [query, setQuery] = useState("");
 
   const isResident = user?.role === "resident";
+  const isAdmin = user?.role === "admin";
+
+  useEffect(() => {
+    if (mode === "all" && !isAdmin) {
+      setMode("directory");
+    }
+  }, [mode, isAdmin]);
 
   const { data, isLoading, error, refetch } = useAuthenticatedQuery<ContractorInfo[]>({
     queryKey: [...schemeKeys.contractors(schemeId), mode, trade, query] as const,
@@ -69,10 +76,12 @@ export default function ContractorsPage() {
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-4 border-b border-border flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
           <div className="flex gap-2">
-            {(["directory", "marketplace", "all"] as const).map(item => (
+            {(["directory", "marketplace", "all"] as const)
+              .filter(item => item !== "all" || isAdmin)
+              .map(item => (
               <button
                 key={item}
-                onClick={() => setMode(item)}
+                onClick={() => { setMode(item); if (item === "marketplace") setQuery(""); }}
                 className={`text-[12px] font-semibold px-3 py-1.5 rounded border ${mode === item ? "bg-accent text-white border-accent" : "border-border text-muted"}`}
               >
                 {item === "directory" ? "Scheme directory" : item === "marketplace" ? "Marketplace" : "All"}

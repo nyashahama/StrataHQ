@@ -11,7 +11,7 @@ describe("CI workflows", () => {
   it("runs pnpm audit in frontend CI", () => {
     const workflow = readFileSync(".github/workflows/frontend-ci.yml", "utf8");
 
-    expect(workflow).toContain("pnpm audit --audit-level=high");
+    expect(workflow).toContain("pnpm audit --prod --audit-level=high");
   });
 
   it("installs pnpm via pnpm/action-setup", () => {

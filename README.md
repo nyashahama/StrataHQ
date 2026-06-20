@@ -194,7 +194,7 @@ Frontend commands run from the repository root.
 | --- | --- |
 | `pnpm run dev` | Start the Next.js development server |
 | `pnpm run build` | Build the production frontend |
-| `npm run start` | Start the built frontend |
+| `pnpm run start` | Start the built frontend |
 | `pnpm run lint` | Run ESLint with zero warnings allowed |
 | `pnpm run typecheck` | Run TypeScript checks |
 | `pnpm test` | Run Vitest once |

@@ -2,10 +2,21 @@ import { cookies } from 'next/headers'
 import { NextRequest } from 'next/server'
 
 import { readApiData, readApiError } from '@/lib/api-contract'
-import { clearAuthCookies, refreshAuthSession } from '@/lib/server-auth'
+import { withAuthRetry } from '@/lib/server-auth'
 
 const BACKEND = () => process.env.BACKEND_URL ?? 'http://localhost:8080'
 const COPILOT_TIMEOUT_MS = 15_000;
+
+function unauthorized(): Response {
+  return new Response('Unauthorized', { status: 401, headers: { 'Content-Type': 'text/plain' } });
+}
+
+function upstreamUnavailable(): Response {
+  return new Response("Copilot temporarily unavailable. Please retry.", {
+    status: 503,
+    headers: { 'Content-Type': 'text/plain' },
+  });
+}
 
 async function callCopilot(
   accessToken: string,
@@ -23,12 +34,39 @@ async function callCopilot(
   });
 }
 
+async function callCopilotWithTimeout(
+  accessToken: string,
+  body: unknown,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), COPILOT_TIMEOUT_MS);
+  try {
+    return await callCopilot(accessToken, body, controller.signal);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// CopilotTimeoutError signals that the upstream call exceeded the per-attempt
+// deadline. We surface it as 503 to the client instead of throwing.
+class CopilotTimeoutError extends Error {}
+
+async function callCopilotOrTimeout(
+  accessToken: string,
+  body: unknown,
+): Promise<Response> {
+  try {
+    return await callCopilotWithTimeout(accessToken, body);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new CopilotTimeoutError();
+    }
+    throw error;
+  }
+}
+
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies()
-  const accessToken = cookieStore.get('sh_access')?.value
-  if (!accessToken) {
-    return new Response('Missing access token.', { status: 401, headers: { 'Content-Type': 'text/plain' } })
-  }
 
   const csrfCookie = cookieStore.get('sh_csrf')?.value
   const csrfHeader = request.headers.get('x-csrf-token')
@@ -49,60 +87,20 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), COPILOT_TIMEOUT_MS);
-  let response: Response;
+  let result
   try {
-    response = await callCopilot(accessToken, body, controller.signal);
+    result = await withAuthRetry((token) => callCopilotOrTimeout(token, body))
   } catch (error) {
-    clearTimeout(timeout);
-    if (error instanceof DOMException && error.name === "AbortError") {
-      return new Response("Copilot temporarily unavailable. Please retry.", {
-        status: 503,
-        headers: { "Content-Type": "text/plain" },
-      });
+    if (error instanceof CopilotTimeoutError) {
+      return upstreamUnavailable();
     }
     throw error;
   }
-  clearTimeout(timeout);
 
-  if (response.status === 401) {
-    const refreshed = await refreshAuthSession();
-    if (refreshed.kind === "invalid") {
-      await clearAuthCookies();
-      return new Response('Unauthorized', { status: 401, headers: { 'Content-Type': 'text/plain' } });
-    }
-    if (refreshed.kind === "unavailable") {
-      return new Response("Copilot temporarily unavailable. Please retry.", {
-        status: 503,
-        headers: { "Content-Type": "text/plain" },
-      });
-    }
-    const updatedAccessToken = cookieStore.get("sh_access")?.value;
-    if (!updatedAccessToken) {
-      await clearAuthCookies();
-      return new Response('Unauthorized', { status: 401, headers: { 'Content-Type': 'text/plain' } });
-    }
-    const retryController = new AbortController();
-    const retryTimeout = setTimeout(() => retryController.abort(), COPILOT_TIMEOUT_MS);
-    try {
-      response = await callCopilot(updatedAccessToken, body, retryController.signal);
-    } catch (error) {
-      clearTimeout(retryTimeout);
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return new Response("Copilot temporarily unavailable. Please retry.", {
-          status: 503,
-          headers: { "Content-Type": "text/plain" },
-        });
-      }
-      throw error;
-    }
-    clearTimeout(retryTimeout);
-    if (response.status === 401) {
-      await clearAuthCookies();
-    }
-  }
+  if (result.kind === 'unauthorized') return unauthorized();
+  if (result.kind === 'unavailable') return upstreamUnavailable();
 
+  const response = result.response;
   if (!response.ok) {
     return new Response(
       await readApiError(response, 'Failed to generate copilot response.'),

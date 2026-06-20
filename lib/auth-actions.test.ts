@@ -5,6 +5,23 @@ const cookieSet = vi.fn();
 const writeAuthCookies = vi.fn();
 const clearAuthCookies = vi.fn();
 
+// Mirror the real withAuthRetry: pass the access token from the cookie to the
+// caller, retry once if the response is 401 by re-reading the cookie. For
+// these tests the retry branch is never exercised, so this is just a thin
+// pass-through to the supplied call function.
+async function withAuthRetry(
+  call: (accessToken: string) => Promise<Response>,
+): Promise<
+  | { kind: "ok"; response: Response; retried: boolean }
+  | { kind: "unauthorized" }
+  | { kind: "unavailable" }
+> {
+  const accessToken = cookieGet("sh_access")?.value;
+  if (!accessToken) return { kind: "unauthorized" };
+  const response = await call(accessToken);
+  return { kind: "ok", response, retried: false };
+}
+
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({
     get: cookieGet,
@@ -15,6 +32,7 @@ vi.mock("next/headers", () => ({
 vi.mock("./server-auth", () => ({
   writeAuthCookies,
   clearAuthCookies,
+  withAuthRetry,
 }));
 
 function encodedSession(overrides: Record<string, unknown> = {}): string {

@@ -122,7 +122,8 @@ type Servicer interface {
 	IssuePasswordResetURL(ctx context.Context, email, appBaseURL string) (string, error)
 	UpdateProfile(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error)
 	UpdateOrg(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error)
-	ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error)
+	ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error
+	ReissueSession(ctx context.Context, userID string) (*RefreshResponse, error)
 }
 
 // Service implements Servicer.
@@ -447,24 +448,52 @@ func (s *Service) UpdateOrg(ctx context.Context, orgID, name string, contactEmai
 	}, nil
 }
 
-func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error) {
+// ChangePassword verifies the current password, replaces it, and revokes every
+// refresh token so a stolen token can't outlive the credential rotation. The
+// caller (handler) follows up with ReissueSession to keep the user signed in
+// across the change; the two are separate functions so the auth handler does
+// not need a refresh token to issue a new session.
+func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error {
 	uid, err := uuid.Parse(userID)
 	if err != nil {
-		return nil, ErrInvalidToken
+		return ErrInvalidToken
 	}
 
 	user, err := s.db.Q.GetUserByID(ctx, uid)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if compareErr := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); compareErr != nil {
-		return nil, ErrWrongPassword
+		return ErrWrongPassword
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(nextPassword), 12)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	return database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		if txErr := q.UpdateUserPassword(ctx, dbgen.UpdateUserPasswordParams{
+			ID:           uid,
+			PasswordHash: string(hash),
+		}); txErr != nil {
+			return txErr
+		}
+		return q.RevokeAllUserRefreshTokens(ctx, uid)
+	})
+}
+
+// ReissueSession issues a fresh access token, refresh token, and session for an
+// already-authenticated user. Used by the change-password flow so the user is
+// not kicked back to the login page after rotating their password. The token
+// and session are built inside a single transaction so a failure mid-flight
+// rolls back the new refresh token and leaves the user logged in with their
+// existing session.
+func (s *Service) ReissueSession(ctx context.Context, userID string) (*RefreshResponse, error) {
+	uid, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, ErrInvalidToken
 	}
 
 	memberships, err := s.db.Q.ListOrgMembershipsByUser(ctx, uid)
@@ -486,16 +515,10 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 
 	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
 		var txErr error
-		if txErr = q.UpdateUserPassword(ctx, dbgen.UpdateUserPasswordParams{
-			ID:           uid,
-			PasswordHash: string(hash),
-		}); txErr != nil {
-			return txErr
-		}
-		if txErr = q.RevokeAllUserRefreshTokens(ctx, uid); txErr != nil {
-			return txErr
-		}
-		accessToken, txErr = GenerateAccessToken(uid.String(), membership.OrgID.String(), membership.Role, s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry)
+		accessToken, txErr = GenerateAccessToken(
+			uid.String(), membership.OrgID.String(), membership.Role,
+			s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry,
+		)
 		if txErr != nil {
 			return txErr
 		}
@@ -503,14 +526,12 @@ func (s *Service) ChangePassword(ctx context.Context, userID, currentPassword, n
 		if txErr != nil {
 			return txErr
 		}
-		if _, txErr = q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
+		_, txErr = q.CreateRefreshToken(ctx, dbgen.CreateRefreshTokenParams{
 			Token:     HashRefreshToken(newRefreshToken),
 			UserID:    uid,
 			ExpiresAt: time.Now().Add(s.refreshExpiry),
-		}); txErr != nil {
-			return txErr
-		}
-		return nil
+		})
+		return txErr
 	})
 	if err != nil {
 		return nil, err

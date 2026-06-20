@@ -209,15 +209,12 @@ func TestComputeHealthScorePropagatesFactorError(t *testing.T) {
 	schemeID := uuid.New()
 	factorErr := errors.New("reserve fund query failed")
 
-	svc := &Service{
-		healthFactorFns: []func(context.Context, uuid.UUID) (int, error){
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 0, factorErr },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
-		},
-	}
+	svc := &Service{}
+	svc.healthFactorLevy = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	svc.healthFactorMaintenance = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	svc.healthFactorCompliance = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	svc.healthFactorReserve = func(context.Context, uuid.UUID) (int, error) { return 0, factorErr }
+	svc.healthFactorAGM = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
 
 	score, breakdown, err := svc.computeHealthScore(context.Background(), schemeID)
 	if !errors.Is(err, factorErr) {
@@ -235,15 +232,12 @@ func TestComputeHealthScoreAggregatesFactors(t *testing.T) {
 	t.Helper()
 
 	schemeID := uuid.New()
-	svc := &Service{
-		healthFactorFns: []func(context.Context, uuid.UUID) (int, error){
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 100, nil },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 80, nil },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 60, nil },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 40, nil },
-			func(_ context.Context, _ uuid.UUID) (int, error) { return 20, nil },
-		},
-	}
+	svc := &Service{}
+	svc.healthFactorLevy = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	svc.healthFactorMaintenance = func(context.Context, uuid.UUID) (int, error) { return 80, nil }
+	svc.healthFactorCompliance = func(context.Context, uuid.UUID) (int, error) { return 60, nil }
+	svc.healthFactorReserve = func(context.Context, uuid.UUID) (int, error) { return 40, nil }
+	svc.healthFactorAGM = func(context.Context, uuid.UUID) (int, error) { return 20, nil }
 
 	score, breakdown, err := svc.computeHealthScore(context.Background(), schemeID)
 	if err != nil {
@@ -258,5 +252,22 @@ func TestComputeHealthScoreAggregatesFactors(t *testing.T) {
 	}
 	if got := breakdown["agm_recency"]; got != 20 {
 		t.Fatalf("expected agm_recency 20, got %d", got)
+	}
+}
+
+func TestComputeHealthScoreFailsWhenFactorUninitialised(t *testing.T) {
+	t.Helper()
+
+	schemeID := uuid.New()
+	svc := &Service{} // no healthFactor* fields set
+	svc.healthFactorLevy = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	svc.healthFactorMaintenance = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	svc.healthFactorCompliance = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	svc.healthFactorReserve = func(context.Context, uuid.UUID) (int, error) { return 100, nil }
+	// healthFactorAGM deliberately nil
+
+	_, _, err := svc.computeHealthScore(context.Background(), schemeID)
+	if err == nil {
+		t.Fatal("expected error for uninitialised factor, got nil")
 	}
 }

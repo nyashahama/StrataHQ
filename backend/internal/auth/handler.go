@@ -365,14 +365,22 @@ func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.service.ChangePassword(r.Context(), identity.UserID, req.CurrentPassword, req.NewPassword)
-	if err != nil {
+	if err := h.service.ChangePassword(r.Context(), identity.UserID, req.CurrentPassword, req.NewPassword); err != nil {
 		switch err {
 		case ErrWrongPassword:
 			response.Error(w, http.StatusUnauthorized, response.CodeUnauthorized, "current password is incorrect")
 		default:
 			response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to update password")
 		}
+		return
+	}
+
+	// Password change revokes all refresh tokens, so the old access token is
+	// now useless. Issue a fresh session in one go so the user is not kicked
+	// to the login page after rotating their credentials.
+	res, err := h.service.ReissueSession(r.Context(), identity.UserID)
+	if err != nil {
+		response.Error(w, http.StatusInternalServerError, response.CodeInternalError, "failed to issue new session")
 		return
 	}
 	response.JSON(w, http.StatusOK, res)

@@ -22,7 +22,8 @@ type mockService struct {
 	resetFn          func(ctx context.Context, token, password string) error
 	updateProfileFn  func(ctx context.Context, userID, orgID, email, fullName string, phone *string) (*MeResponse, error)
 	updateOrgFn      func(ctx context.Context, orgID, name string, contactEmail, contactPhone *string) (*OrgInfo, error)
-	changePasswordFn func(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error)
+	changePasswordFn func(ctx context.Context, userID, currentPassword, nextPassword string) error
+	reissueSessionFn func(ctx context.Context, userID string) (*RefreshResponse, error)
 }
 
 func (m *mockService) Register(ctx context.Context, email, password, fullName string) (*AuthResponse, error) {
@@ -85,11 +86,18 @@ func (m *mockService) UpdateOrg(ctx context.Context, orgID, name string, contact
 	}
 	return m.updateOrgFn(ctx, orgID, name, contactEmail, contactPhone)
 }
-func (m *mockService) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) (*RefreshResponse, error) {
+func (m *mockService) ChangePassword(ctx context.Context, userID, currentPassword, nextPassword string) error {
 	if m.changePasswordFn == nil {
-		return nil, nil
+		return nil
 	}
 	return m.changePasswordFn(ctx, userID, currentPassword, nextPassword)
+}
+
+func (m *mockService) ReissueSession(ctx context.Context, userID string) (*RefreshResponse, error) {
+	if m.reissueSessionFn == nil {
+		return nil, nil
+	}
+	return m.reissueSessionFn(ctx, userID)
 }
 
 func (m *mockService) IssuePasswordResetURL(_ context.Context, _, _ string) (string, error) {
@@ -674,8 +682,8 @@ func TestUpdateOrg_ForbiddenForNonAdmin(t *testing.T) {
 
 func TestChangePassword_WrongPassword(t *testing.T) {
 	svc := &mockService{
-		changePasswordFn: func(_ context.Context, _, _, _ string) (*RefreshResponse, error) {
-			return nil, ErrWrongPassword
+		changePasswordFn: func(_ context.Context, _, _, _ string) error {
+			return ErrWrongPassword
 		},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/change-password", body(t, map[string]string{
@@ -688,6 +696,67 @@ func TestChangePassword_WrongPassword(t *testing.T) {
 	NewHandler(svc).ChangePassword(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", w.Code)
+	}
+}
+
+func TestChangePassword_SuccessIssuesNewSession(t *testing.T) {
+	changeCalled := false
+	svc := &mockService{
+		changePasswordFn: func(_ context.Context, _, _, _ string) error {
+			changeCalled = true
+			return nil
+		},
+		reissueSessionFn: func(_ context.Context, _ string) (*RefreshResponse, error) {
+			return &RefreshResponse{
+				AccessToken:  "new-access",
+				RefreshToken: "new-refresh",
+				ExpiresIn:    900,
+				Session:      MeResponse{ID: "u1", Email: "u1@example.com", Role: "admin"},
+			}, nil
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/change-password", body(t, map[string]string{
+		"current_password": "OldPass_1", "new_password": "NewSecret_1",
+	}))
+	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
+	w := httptest.NewRecorder()
+
+	NewHandler(svc).ChangePassword(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	if !changeCalled {
+		t.Fatal("expected ChangePassword to be called")
+	}
+	var body map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	data, ok := body["data"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected data envelope, got %v", body)
+	}
+	if data["access_token"] != "new-access" {
+		t.Fatalf("expected new access token, got %v", data["access_token"])
+	}
+}
+
+func TestChangePassword_ReissueFailureReturns500(t *testing.T) {
+	svc := &mockService{
+		changePasswordFn: func(_ context.Context, _, _, _ string) error { return nil },
+		reissueSessionFn: func(_ context.Context, _ string) (*RefreshResponse, error) {
+			return nil, errors.New("token store down")
+		},
+	}
+	req := httptest.NewRequest(http.MethodPost, "/change-password", body(t, map[string]string{
+		"current_password": "OldPass_1", "new_password": "NewSecret_1",
+	}))
+	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
+	w := httptest.NewRecorder()
+
+	NewHandler(svc).ChangePassword(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500", w.Code)
 	}
 }
 

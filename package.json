@@ -11,10 +11,13 @@
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "overrides": {
-    "postcss": "8.5.14",
-    "vite": "8.0.10",
-    "picomatch": "4.0.4"
+  "packageManager": "pnpm@10.10.0",
+  "pnpm": {
+    "overrides": {
+      "postcss": "8.5.14",
+      "vite": "8.0.10",
+      "picomatch": "4.0.4"
+    }
   },
   "dependencies": {
     "@tanstack/react-query": "^5.99.1",

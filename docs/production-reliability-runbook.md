@@ -173,10 +173,10 @@ Run these before deploying to staging:
 
 ```bash
 # Frontend lint
-npm run lint
+pnpm run lint
 
 # Frontend tests
-npm test
+pnpm test
 
 # Backend unit tests
 cd backend && make test
@@ -193,9 +193,9 @@ cd backend && go test ./internal/middleware ./internal/platform/response ./inter
 Run this full matrix for release approval:
 
 ```bash
-npm run lint
-npm test
-npm run build
+pnpm run lint
+pnpm test
+pnpm run build
 cd backend && go test ./internal/... -v -race
 cd backend && go test ./tests/integration/... -v -race -tags=integration
 LOAD_VUS=10 LOAD_DURATION=2m k6 run backend/tests/load/auth-and-dashboard.js

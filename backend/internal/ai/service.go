@@ -312,7 +312,7 @@ func (s *Service) buildAgmSummary(ctx context.Context, meetings []dbgen.AgmMeeti
 		return map[string]any{}, nil
 	}
 	sort.Slice(meetings, func(i, j int) bool {
-		return meetings[i].MeetingDate.Time.After(meetings[j].MeetingDate.Time)
+		return meetings[i].MeetingDate.Time.Before(meetings[j].MeetingDate.Time)
 	})
 
 	var latest map[string]any
@@ -330,7 +330,7 @@ func (s *Service) buildAgmSummary(ctx context.Context, meetings []dbgen.AgmMeeti
 			"quorum_present":  meeting.QuorumPresent,
 			"resolutions":     mapResolutions(resolutions, 6),
 		}
-		if (meeting.MeetingDate.Time.Before(now) || meeting.Status == dbgen.AgmStatusClosed) && latest == nil {
+		if meeting.MeetingDate.Time.Before(now) || meeting.Status == dbgen.AgmStatusClosed {
 			latest = item
 			continue
 		}

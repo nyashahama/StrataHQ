@@ -72,7 +72,7 @@ export default function ContractorsPage() {
             {(["directory", "marketplace", "all"] as const).map(item => (
               <button
                 key={item}
-                onClick={() => setMode(item)}
+                onClick={() => { setMode(item); if (item === "marketplace") setQuery(""); }}
                 className={`text-[12px] font-semibold px-3 py-1.5 rounded border ${mode === item ? "bg-accent text-white border-accent" : "border-border text-muted"}`}
               >
                 {item === "directory" ? "Scheme directory" : item === "marketplace" ? "Marketplace" : "All"}
@@ -80,7 +80,9 @@ export default function ContractorsPage() {
             ))}
           </div>
           <div className="flex gap-2">
-            <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search contractors" className="border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent" />
+            {mode !== "marketplace" && (
+              <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search contractors" className="border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent" />
+            )}
             <select value={trade} onChange={e => setTrade(e.target.value)} className="border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent">
               {TRADES.map(item => <option key={item} value={item}>{item === "all" ? "All trades" : item}</option>)}
             </select>

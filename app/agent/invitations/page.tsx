@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { readApiData, readApiError } from "@/lib/api-contract";
 import { useAuth } from "@/lib/auth";
 import { queryClient } from "@/lib/query-client";
+import { listSchemeUnits, type UnitInfo } from "@/lib/scheme-api";
 import { useToast } from "@/lib/toast";
 
 interface Invitation {
@@ -70,6 +71,8 @@ export default function InvitationsPage() {
   const [showCompose, setShowCompose] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState<InviteForm>(INITIAL_FORM);
+  const [units, setUnits] = useState<UnitInfo[]>([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
 
   const schemes = useMemo(() => user?.scheme_memberships ?? [], [user?.scheme_memberships]);
   const schemeNameById = Object.fromEntries(
@@ -119,6 +122,27 @@ export default function InvitationsPage() {
       setForm((current) => ({ ...current, scheme_id: firstScheme.scheme_id }));
     }
   }, [showCompose, schemes, form.scheme_id]);
+
+  useEffect(() => {
+    if (form.role !== "resident" || !form.scheme_id) {
+      setUnits([]);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      setLoadingUnits(true);
+      try {
+        const fetched = await listSchemeUnits(form.scheme_id);
+        if (!cancelled) setUnits(fetched);
+      } catch {
+        if (!cancelled) setUnits([]);
+      } finally {
+        if (!cancelled) setLoadingUnits(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [form.role, form.scheme_id]);
 
   async function handleAction(id: string, type: "resend" | "revoke") {
     setActiveAction({ id, type });
@@ -279,11 +303,6 @@ export default function InvitationsPage() {
             ) : null}
           </div>
         ))}
-      </div>
-
-      <div className="bg-page border border-border rounded-lg px-4 py-3 text-[12px] text-muted mb-6">
-        Resident invitations currently require the target unit ID from the
-        backend data model. Trustee invitations only need a scheme.
       </div>
 
       {error ? (
@@ -504,24 +523,33 @@ export default function InvitationsPage() {
           {form.role === "resident" ? (
             <div>
               <label className="text-[12px] font-semibold text-ink block mb-1">
-                Unit ID *
+                Unit *
               </label>
-              <input
-                type="text"
-                value={form.unit_id}
-                onChange={(e) =>
-                  setForm((current) => ({
-                    ...current,
-                    unit_id: e.target.value,
-                  }))
-                }
-                placeholder="Paste the resident unit UUID"
-                className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
-              />
-              <p className="text-[11px] text-muted mt-1">
-                The current backend contract requires the unit UUID for resident
-                invitations.
-              </p>
+              {loadingUnits ? (
+                <div className="text-[11px] text-muted py-2">Loading units…</div>
+              ) : units.length === 0 ? (
+                <div className="text-[11px] text-muted py-2">
+                  No units found for this scheme. Create units in the scheme first.
+                </div>
+              ) : (
+                <select
+                  value={form.unit_id}
+                  onChange={(e) =>
+                    setForm((current) => ({
+                      ...current,
+                      unit_id: e.target.value,
+                    }))
+                  }
+                  className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
+                >
+                  <option value="">Select a unit</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      Unit {unit.identifier} — {unit.owner_name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           ) : null}
 

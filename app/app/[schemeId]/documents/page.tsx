@@ -59,6 +59,7 @@ function groupByCategory(docs: SchemeDocumentInfo[]): Record<string, SchemeDocum
 const EMPTY_FORM = {
   name: '',
   category: 'other' as DocumentCategory,
+  visibility: 'all' as 'all' | 'trustee' | 'admin',
 }
 
 export default function DocumentsPage() {
@@ -95,6 +96,7 @@ export default function DocumentsPage() {
         file_type: fileType,
         category: form.category,
         size_bytes: selectedFile.size,
+        visibility: form.visibility,
       })
       invalidateCache(`scheme:${schemeId}:documents`)
       await queryClient.invalidateQueries({ queryKey: schemeKeys.documentsBase(schemeId) })
@@ -258,6 +260,18 @@ export default function DocumentsPage() {
               {(Object.entries(CATEGORY_LABELS) as [DocumentCategory, string][]).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-[12px] font-semibold text-ink block mb-1">Visibility</label>
+            <select
+              value={form.visibility}
+              onChange={event => setForm(current => ({ ...current, visibility: event.target.value as 'all' | 'trustee' | 'admin' }))}
+              className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
+            >
+              <option value="all">All members</option>
+              <option value="trustee">Trustees only</option>
+              <option value="admin">Admins only</option>
             </select>
           </div>
           <div>

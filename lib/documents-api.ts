@@ -37,6 +37,7 @@ export async function createDocument(
     file_type: string;
     category: string;
     size_bytes: number;
+    visibility?: string;
   },
 ): Promise<SchemeDocumentInfo> {
   return parse(

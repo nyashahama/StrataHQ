@@ -340,6 +340,16 @@ func (s *Service) Update(ctx context.Context, identity auth.Identity, schemeID s
 		return nil, ErrForbidden
 	}
 
+	if input.UnitCount != scheme.UnitCount {
+		existingUnits, countErr := s.db.Q.ListUnitsByScheme(ctx, scheme.ID)
+		if countErr != nil {
+			return nil, countErr
+		}
+		if input.UnitCount < int32(len(existingUnits)) {
+			return nil, ErrInvalidInput
+		}
+	}
+
 	updated, err := s.db.Q.UpdateScheme(ctx, dbgen.UpdateSchemeParams{
 		ID:        scheme.ID,
 		Name:      input.Name,
@@ -442,6 +452,14 @@ func (s *Service) CreateUnit(ctx context.Context, identity auth.Identity, scheme
 	}
 	if int32(existingTotal)+input.SectionValueBps > 10000 {
 		return nil, errors.New("section value total would exceed 10000 basis points")
+	}
+
+	existingUnits, err := s.db.Q.ListUnitsByScheme(ctx, scheme.ID)
+	if err != nil {
+		return nil, err
+	}
+	if int32(len(existingUnits)) >= scheme.UnitCount {
+		return nil, errors.New("cannot create more units than the scheme unit count")
 	}
 
 	unit, err := s.db.Q.CreateUnit(ctx, dbgen.CreateUnitParams{

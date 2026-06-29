@@ -227,6 +227,9 @@ func (s *Service) Assign(ctx context.Context, identity auth.Identity, schemeID, 
 	if request.SchemeID != access.scheme.ID {
 		return nil, ErrForbidden
 	}
+	if request.Status != dbgen.MaintenanceStatusOpen && request.Status != dbgen.MaintenanceStatusPendingApproval {
+		return nil, ErrInvalidInput
+	}
 
 	beforeInfo, err := s.enrichRequest(ctx, request)
 	if err != nil {

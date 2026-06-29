@@ -100,22 +100,30 @@ func (s *Service) CreateAPIClient(ctx context.Context, identity auth.Identity, i
 	if input.ExpiresAt != nil {
 		expiresAt = pgtype.Timestamptz{Time: *input.ExpiresAt, Valid: true}
 	}
-	created, err := s.db.Q.CreateIntegrationAPIClient(ctx, dbgen.CreateIntegrationAPIClientParams{
-		OrgID:           orgID,
-		Name:            input.Name,
-		KeyPrefix:       generated.Prefix,
-		KeyHash:         generated.Hash,
-		Scopes:          scopeValues,
-		CreatedByUserID: pgtype.UUID{Bytes: userID, Valid: true},
-		ExpiresAt:       expiresAt,
+	var created dbgen.IntegrationApiClient
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		var txErr error
+		created, txErr = q.CreateIntegrationAPIClient(ctx, dbgen.CreateIntegrationAPIClientParams{
+			OrgID:           orgID,
+			Name:            input.Name,
+			KeyPrefix:       generated.Prefix,
+			KeyHash:         generated.Hash,
+			Scopes:          scopeValues,
+			CreatedByUserID: pgtype.UUID{Bytes: userID, Valid: true},
+			ExpiresAt:       expiresAt,
+		})
+		if txErr != nil {
+			return txErr
+		}
+		for _, schemeID := range schemeUUIDs {
+			if txErr = q.LinkIntegrationAPIClientScheme(ctx, dbgen.LinkIntegrationAPIClientSchemeParams{ClientID: created.ID, SchemeID: schemeID}); txErr != nil {
+				return txErr
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
-	}
-	for _, schemeID := range schemeUUIDs {
-		if linkErr := s.db.Q.LinkIntegrationAPIClientScheme(ctx, dbgen.LinkIntegrationAPIClientSchemeParams{ClientID: created.ID, SchemeID: schemeID}); linkErr != nil {
-			return nil, linkErr
-		}
 	}
 	info, err := s.mapClient(ctx, created)
 	if err != nil {

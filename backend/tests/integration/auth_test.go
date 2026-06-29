@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -18,6 +19,8 @@ import (
 	"github.com/stratahq/backend/internal/notification"
 )
 
+var testLogger = slog.New(slog.DiscardHandler)
+
 const (
 	testJWTSigningKey = "for-integration-tests-only"
 	testPassword      = "Tr0ub4dor&3-test-only"
@@ -27,7 +30,7 @@ func newAuthHandler(t *testing.T) *auth.Handler {
 	t.Helper()
 	sender := &notification.NoopSender{}
 	svc := auth.NewService(testPool, testRedis, sender, testJWTSigningKey, "http://localhost:3000", "http://localhost:3000", "stratahq-api", 15*time.Minute, 7*24*time.Hour)
-	return auth.NewHandler(svc)
+	return auth.NewHandler(svc, testLogger)
 }
 
 func uniqueEmail(t *testing.T) string {
@@ -343,7 +346,7 @@ func TestAuth_ForgotResetPassword(t *testing.T) {
 		15*time.Minute,
 		7*24*time.Hour,
 	)
-	h = auth.NewHandler(svc)
+	h = auth.NewHandler(svc, testLogger)
 
 	email := uniqueEmail(t)
 

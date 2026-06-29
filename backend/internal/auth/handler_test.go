@@ -5,10 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
+
+var discardLogger = slog.New(slog.DiscardHandler)
 
 // mockService is a test double for Servicer.
 type mockService struct {
@@ -117,7 +120,7 @@ func strPtr(s string) *string {
 }
 
 func TestRegister_UnknownFields(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBufferString(`{"email":"a@b.com","password":"Pass_1234","full_name":"A B","extra":"field"}`))
 	w := httptest.NewRecorder()
 	h.Register(w, req)
@@ -129,7 +132,7 @@ func TestRegister_UnknownFields(t *testing.T) {
 // --- Register ---
 
 func TestRegister_BadJSON(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/register", bytes.NewBufferString("not-json"))
 	w := httptest.NewRecorder()
 	h.Register(w, req)
@@ -139,7 +142,7 @@ func TestRegister_BadJSON(t *testing.T) {
 }
 
 func TestRegister_MissingFields(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{"email": "a@b.com"}))
 	w := httptest.NewRecorder()
 	h.Register(w, req)
@@ -158,7 +161,7 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Register(w, req)
+	NewHandler(svc, discardLogger).Register(w, req)
 	if w.Code != http.StatusConflict {
 		t.Errorf("status = %d, want 409", w.Code)
 	}
@@ -183,7 +186,7 @@ func TestRegister_TrimsLeadingAndTrailingWhitespace(t *testing.T) {
 		"email": "  A@B.COM  ", "password": "Pass_1234", "full_name": "  New Name  ",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Register(w, req)
+	NewHandler(svc, discardLogger).Register(w, req)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201", w.Code)
 	}
@@ -207,7 +210,7 @@ func TestRegister_RejectsDisplayNameEmail(t *testing.T) {
 		"email": "User Example <user@example.com>", "password": "Pass_1234", "full_name": "User Example",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Register(w, req)
+	NewHandler(svc, discardLogger).Register(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", w.Code)
 	}
@@ -228,7 +231,7 @@ func TestRegister_RejectsWhitespaceOnlyRequiredFields(t *testing.T) {
 		"email": "   ", "password": "Pass_1234", "full_name": "   ",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Register(w, req)
+	NewHandler(svc, discardLogger).Register(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", w.Code)
 	}
@@ -254,7 +257,7 @@ func TestRegister_Success(t *testing.T) {
 		"email": "a@b.com", "password": "Pass_1234", "full_name": "A B",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Register(w, req)
+	NewHandler(svc, discardLogger).Register(w, req)
 	if w.Code != http.StatusCreated {
 		t.Errorf("status = %d, want 201", w.Code)
 	}
@@ -305,7 +308,7 @@ func TestSetup_TrimsRequiredFieldsAndCallsService(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
 
-	NewHandler(svc).Setup(w, req)
+	NewHandler(svc, discardLogger).Setup(w, req)
 	if w.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201", w.Code)
 	}
@@ -343,7 +346,7 @@ func TestSetup_RejectsWhitespaceOnlyRequiredFields(t *testing.T) {
 	}))
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Setup(w, req)
+	NewHandler(svc, discardLogger).Setup(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", w.Code)
 	}
@@ -355,7 +358,7 @@ func TestSetup_RejectsWhitespaceOnlyRequiredFields(t *testing.T) {
 // --- Login ---
 
 func TestLogin_BadJSON(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewBufferString("bad"))
 	w := httptest.NewRecorder()
 	h.Login(w, req)
@@ -387,7 +390,7 @@ func TestLogin_ReturnsSession(t *testing.T) {
 		"email": " A@B.COM ", "password": "pass",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Login(w, req)
+	NewHandler(svc, discardLogger).Login(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)
 	}
@@ -421,7 +424,7 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 		"email": "a@b.com", "password": "wrong",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Login(w, req)
+	NewHandler(svc, discardLogger).Login(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want 401", w.Code)
 	}
@@ -440,7 +443,7 @@ func TestLogin_Success(t *testing.T) {
 		"email": "a@b.com", "password": "pass",
 	}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Login(w, req)
+	NewHandler(svc, discardLogger).Login(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)
 	}
@@ -449,7 +452,7 @@ func TestLogin_Success(t *testing.T) {
 // --- Refresh ---
 
 func TestRefresh_MissingToken(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/refresh", body(t, map[string]string{}))
 	w := httptest.NewRecorder()
 	h.Refresh(w, req)
@@ -466,7 +469,7 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/refresh", body(t, map[string]string{"refresh_token": "bad"}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Refresh(w, req)
+	NewHandler(svc, discardLogger).Refresh(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want 401", w.Code)
 	}
@@ -488,7 +491,7 @@ func TestRefresh_Success(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/refresh", body(t, map[string]string{"refresh_token": "old"}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Refresh(w, req)
+	NewHandler(svc, discardLogger).Refresh(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)
 	}
@@ -509,7 +512,7 @@ func TestLogout_NoContent(t *testing.T) {
 	svc := &mockService{logoutFn: func(_ context.Context, _ string) error { return nil }}
 	req := httptest.NewRequest(http.MethodPost, "/logout", body(t, map[string]string{"refresh_token": "tok"}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Logout(w, req)
+	NewHandler(svc, discardLogger).Logout(w, req)
 	if w.Code != http.StatusNoContent {
 		t.Errorf("status = %d, want 204", w.Code)
 	}
@@ -521,7 +524,7 @@ func TestLogout_Idempotent(t *testing.T) {
 	}}
 	req := httptest.NewRequest(http.MethodPost, "/logout", body(t, map[string]string{"refresh_token": "gone"}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Logout(w, req)
+	NewHandler(svc, discardLogger).Logout(w, req)
 	if w.Code != http.StatusNoContent {
 		t.Errorf("status = %d, want 204 even on service error", w.Code)
 	}
@@ -533,7 +536,7 @@ func TestLogout_ReturnsServerErrorWhenRevocationFails(t *testing.T) {
 	}}
 	req := httptest.NewRequest(http.MethodPost, "/logout", body(t, map[string]string{"refresh_token": "tok"}))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Logout(w, req)
+	NewHandler(svc, discardLogger).Logout(w, req)
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500", w.Code)
 	}
@@ -542,7 +545,7 @@ func TestLogout_ReturnsServerErrorWhenRevocationFails(t *testing.T) {
 // --- Me ---
 
 func TestMe_MissingContext(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodGet, "/me", nil)
 	w := httptest.NewRecorder()
 	h.Me(w, req)
@@ -563,7 +566,7 @@ func TestMe_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/me", nil)
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
-	NewHandler(svc).Me(w, req)
+	NewHandler(svc, discardLogger).Me(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want 200", w.Code)
 	}
@@ -609,7 +612,7 @@ func TestUpdateProfile_Success(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleResident)))
 	w := httptest.NewRecorder()
 
-	NewHandler(svc).UpdateProfile(w, req)
+	NewHandler(svc, discardLogger).UpdateProfile(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
@@ -631,7 +634,7 @@ func TestUpdateOrg_RejectsInvalidContactEmail(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
 
-	NewHandler(svc).UpdateOrg(w, req)
+	NewHandler(svc, discardLogger).UpdateOrg(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", w.Code)
 	}
@@ -658,7 +661,7 @@ func TestUpdateOrg_NormalizesContactEmail(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
 
-	NewHandler(svc).UpdateOrg(w, req)
+	NewHandler(svc, discardLogger).UpdateOrg(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
@@ -674,7 +677,7 @@ func TestUpdateOrg_ForbiddenForNonAdmin(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleResident)))
 	w := httptest.NewRecorder()
 
-	NewHandler(&mockService{}).UpdateOrg(w, req)
+	NewHandler(&mockService{}, discardLogger).UpdateOrg(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", w.Code)
 	}
@@ -693,7 +696,7 @@ func TestChangePassword_WrongPassword(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
 
-	NewHandler(svc).ChangePassword(w, req)
+	NewHandler(svc, discardLogger).ChangePassword(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", w.Code)
 	}
@@ -721,7 +724,7 @@ func TestChangePassword_SuccessIssuesNewSession(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
 
-	NewHandler(svc).ChangePassword(w, req)
+	NewHandler(svc, discardLogger).ChangePassword(w, req)
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
@@ -754,14 +757,14 @@ func TestChangePassword_ReissueFailureReturns500(t *testing.T) {
 	req = req.WithContext(ContextWithIdentity(req.Context(), "u1", "o1", string(RoleAdmin)))
 	w := httptest.NewRecorder()
 
-	NewHandler(svc).ChangePassword(w, req)
+	NewHandler(svc, discardLogger).ChangePassword(w, req)
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", w.Code)
 	}
 }
 
 func TestRegister_WeakPassword(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/register", body(t, map[string]string{
 		"email": "a@b.com", "password": "short", "full_name": "A B",
 	}))
@@ -773,7 +776,7 @@ func TestRegister_WeakPassword(t *testing.T) {
 }
 
 func TestResetPassword_WeakPassword(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/reset-password", body(t, map[string]string{
 		"token": "tok", "password": "short",
 	}))
@@ -785,7 +788,7 @@ func TestResetPassword_WeakPassword(t *testing.T) {
 }
 
 func TestChangePassword_WeakNewPassword(t *testing.T) {
-	h := NewHandler(&mockService{})
+	h := NewHandler(&mockService{}, discardLogger)
 	req := httptest.NewRequest(http.MethodPost, "/change-password", body(t, map[string]string{
 		"current_password": "OldPass_1", "new_password": "short",
 	}))

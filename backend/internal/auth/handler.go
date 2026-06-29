@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -10,10 +11,11 @@ import (
 
 type Handler struct {
 	service Servicer
+	logger  *slog.Logger
 }
 
-func NewHandler(service Servicer) *Handler {
-	return &Handler{service: service}
+func NewHandler(service Servicer, logger *slog.Logger) *Handler {
+	return &Handler{service: service, logger: logger}
 }
 
 type registerRequest struct {
@@ -143,7 +145,9 @@ func (h *Handler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 			req.Email = normalized
 		}
 	}
-	_ = h.service.ForgotPassword(r.Context(), req.Email)
+	if err := h.service.ForgotPassword(r.Context(), req.Email); err != nil {
+		h.logger.Error("forgot-password infrastructure failure", "error", err)
+	}
 	response.JSON(w, http.StatusOK, map[string]string{
 		"message": "if that email is registered, a reset link has been sent",
 	})

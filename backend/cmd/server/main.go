@@ -126,7 +126,7 @@ func main() {
 	// Handlers
 	handlers := server.Handlers{
 		Health:          health.New(db, &redisChecker{rdb}, db),
-		Auth:            auth.NewHandler(authService),
+		Auth:            auth.NewHandler(authService, logger),
 		Audit:           audit.NewHandler(resourceAuditService),
 		Agm:             agm.NewHandler(agmService),
 		AI:              ai.NewHandler(aiService),

@@ -382,71 +382,76 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 		return nil, ErrInvalidToken
 	}
 
-	_, err = s.q.GetUserByEmail(ctx, inv.Email)
-	if err == nil {
-		return nil, ErrEmailExists
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
-	if err != nil {
-		return nil, err
-	}
-
-	var user dbgen.User
-
-	err = s.withTx(ctx, func(q txStore) error {
-		var txErr error
-		user, txErr = q.CreateUser(ctx, dbgen.CreateUserParams{
-			Email:        inv.Email,
-			PasswordHash: string(hash),
-			FullName:     inv.FullName,
-		})
-		if txErr != nil {
+	existingUser, existingErr := s.q.GetUserByEmail(ctx, inv.Email)
+	if existingErr == nil {
+		err = s.withTx(ctx, func(q txStore) error {
+			_, txErr := q.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+				UserID:   existingUser.ID,
+				SchemeID: inv.SchemeID,
+				UnitID:   inv.UnitID,
+				Role:     inv.Role,
+			})
 			return txErr
-		}
-		_, txErr = q.CreateOrgMembership(ctx, dbgen.CreateOrgMembershipParams{
-			UserID: user.ID,
-			OrgID:  inv.OrgID,
-			Role:   inv.Role,
 		})
-		if txErr != nil {
-			return txErr
+		if err != nil {
+			return nil, err
 		}
-		_, txErr = q.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
-			UserID:   user.ID,
-			SchemeID: inv.SchemeID,
-			UnitID:   inv.UnitID,
-			Role:     inv.Role,
+	} else if !errors.Is(existingErr, pgx.ErrNoRows) {
+		return nil, existingErr
+	} else {
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte(password), 12)
+		if hashErr != nil {
+			return nil, hashErr
+		}
+
+		err = s.withTx(ctx, func(q txStore) error {
+			var txErr error
+			existingUser, txErr = q.CreateUser(ctx, dbgen.CreateUserParams{
+				Email:        inv.Email,
+				PasswordHash: string(hash),
+				FullName:     inv.FullName,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			_, txErr = q.CreateOrgMembership(ctx, dbgen.CreateOrgMembershipParams{
+				UserID: existingUser.ID,
+				OrgID:  inv.OrgID,
+				Role:   inv.Role,
+			})
+			if txErr != nil {
+				return txErr
+			}
+			_, txErr = q.UpsertSchemeMembership(ctx, dbgen.UpsertSchemeMembershipParams{
+				UserID:   existingUser.ID,
+				SchemeID: inv.SchemeID,
+				UnitID:   inv.UnitID,
+				Role:     inv.Role,
+			})
+			return txErr
 		})
-		if txErr != nil {
-			return txErr
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
 	}
 
-	accessToken, err := auth.GenerateAccessToken(user.ID.String(), inv.OrgID.String(), inv.Role, s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry)
+	accessToken, authErr := auth.GenerateAccessToken(existingUser.ID.String(), inv.OrgID.String(), inv.Role, s.jwtIssuer, s.jwtAudience, s.jwtSecret, s.jwtExpiry)
+	if authErr != nil {
+		return nil, authErr
+	}
+	refreshToken, refreshErr := auth.GenerateRefreshToken()
+	if refreshErr != nil {
+		return nil, refreshErr
+	}
+	err = s.storeRefreshToken(ctx, existingUser.ID, refreshToken)
 	if err != nil {
 		return nil, err
 	}
-	refreshToken, err := auth.GenerateRefreshToken()
-	if err != nil {
-		return nil, err
-	}
-	err = s.storeRefreshToken(ctx, user.ID, refreshToken)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
+	if statErr := s.q.UpdateInvitationStatus(ctx, dbgen.UpdateInvitationStatusParams{
 		Status: "accepted",
 		ID:     inv.ID,
-	}); err != nil {
-		return nil, err
+	}); statErr != nil {
+		return nil, statErr
 	}
 
 	org, orgErr := s.q.GetOrg(ctx, inv.OrgID)
@@ -463,14 +468,14 @@ func (s *Service) Accept(ctx context.Context, token, password string) (*auth.Aut
 		RefreshToken: refreshToken,
 		ExpiresIn:    int(s.jwtExpiry.Seconds()),
 		User: auth.UserInfo{
-			ID:       user.ID.String(),
-			Email:    user.Email,
-			FullName: user.FullName,
+			ID:       existingUser.ID.String(),
+			Email:    existingUser.Email,
+			FullName: existingUser.FullName,
 		},
 		Session: auth.MeResponse{
-			ID:       user.ID.String(),
-			Email:    user.Email,
-			FullName: user.FullName,
+			ID:       existingUser.ID.String(),
+			Email:    existingUser.Email,
+			FullName: existingUser.FullName,
 			Role:     inv.Role,
 			Org: auth.OrgInfo{
 				ID:   org.ID.String(),

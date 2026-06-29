@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   timeout: 5m
 
@@ -10,12 +12,11 @@ linters:
     - ineffassign
     - bodyclose
     - nilerr
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-  govet:
-    enable-all: true
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable-all: true
 
 issues:
   exclude-dirs:

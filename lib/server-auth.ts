@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { readApiData } from "./api-contract";
+import { signPayload } from "./crypto";
 import type { SessionUser } from "./session";
 
 const BACKEND = () => process.env.BACKEND_URL ?? "http://localhost:8080";
@@ -59,7 +60,7 @@ export async function writeAuthCookies(
   cookieStore.set("sh_csrf", issueCSRFToken(), CSRF_OPTS);
   cookieStore.set(
     "sh_session",
-    encodeURIComponent(JSON.stringify(session)),
+    signPayload(JSON.stringify(session)),
     SESSION_OPTS,
   );
 

@@ -78,11 +78,15 @@ export function isSessionUser(value: unknown): value is SessionUser {
   );
 }
 
+import { verifyPayload } from "./crypto";
+
 export function parseSessionCookie(raw?: string | null): SessionUser | null {
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(decodeURIComponent(raw));
+    const payload = verifyPayload(raw);
+    if (!payload) return null;
+    const parsed = JSON.parse(payload);
     return isSessionUser(parsed) ? parsed : null;
   } catch {
     return null;

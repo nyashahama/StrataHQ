@@ -1,7 +1,12 @@
+import { createHmac } from "crypto";
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
+process.env.JWT_SECRET = "test-secret-change-me";
+
 import { proxy } from "@/proxy";
+
+const TEST_SECRET = process.env.JWT_SECRET;
 
 function base64Url(value: string): string {
   return Buffer.from(value)
@@ -14,11 +19,18 @@ function base64Url(value: string): string {
 function mintJwt(subject: string, expSeconds: number): string {
   const header = base64Url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = base64Url(JSON.stringify({ sub: subject, exp: expSeconds }));
-  return `${header}.${payload}.sig`;
+  const headerPayload = header + "." + payload;
+  const sig = createHmac("sha256", TEST_SECRET)
+    .update(headerPayload)
+    .digest("base64url");
+  return `${headerPayload}.${sig}`;
 }
 
 function encodedSessionCookie(session: Record<string, unknown>): string {
-  return `sh_session=${encodeURIComponent(JSON.stringify(session))}`;
+  const payload = JSON.stringify(session);
+  const hmac = createHmac("sha256", TEST_SECRET).update(payload).digest();
+  const signed = Buffer.from(hmac).toString("base64url") + "." + payload;
+  return `sh_session=${signed}`;
 }
 
 function getSetCookieValue(headers: Headers): string {

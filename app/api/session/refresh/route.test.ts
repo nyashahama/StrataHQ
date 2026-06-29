@@ -134,7 +134,7 @@ describe("POST /api/session/refresh", () => {
     });
     expect(cookieSet).toHaveBeenCalledWith(
       "sh_session",
-      expect.stringContaining("%22id%22%3A%22user-1%22"),
+      expect.stringContaining('"id":"user-1"'),
       expect.any(Object),
     );
   });
@@ -180,7 +180,7 @@ describe("POST /api/session/refresh", () => {
 
     expect(cookieSet).toHaveBeenCalledWith(
       "sh_session",
-      expect.stringContaining("%22role%22"),
+      expect.stringContaining('"role"'),
       expect.objectContaining({ httpOnly: true }),
     );
   });

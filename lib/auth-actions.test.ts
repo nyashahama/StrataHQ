@@ -1,4 +1,7 @@
+import { createHmac } from "crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+process.env.JWT_SECRET = "test-secret-change-me";
 
 const cookieGet = vi.fn();
 const cookieSet = vi.fn();
@@ -36,19 +39,19 @@ vi.mock("./server-auth", () => ({
 }));
 
 function encodedSession(overrides: Record<string, unknown> = {}): string {
-  return encodeURIComponent(
-    JSON.stringify({
-      id: "user-1",
-      email: "person@example.com",
-      full_name: "Person Example",
-      phone: null,
-      role: "admin",
-      wizard_complete: false,
-      scheme_memberships: [],
-      org: { id: "org-1", name: "" },
-      ...overrides,
-    }),
-  );
+  const payload = JSON.stringify({
+    id: "user-1",
+    email: "person@example.com",
+    full_name: "Person Example",
+    phone: null,
+    role: "admin",
+    wizard_complete: false,
+    scheme_memberships: [],
+    org: { id: "org-1", name: "" },
+    ...overrides,
+  });
+  const hmac = createHmac("sha256", process.env.JWT_SECRET!).update(payload).digest();
+  return Buffer.from(hmac).toString("base64url") + "." + payload;
 }
 
 describe("auth actions", () => {

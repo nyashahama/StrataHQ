@@ -183,7 +183,8 @@ func (s *Service) Approve(ctx context.Context, id string) (*RequestResponse, err
 		return nil, ErrAlreadyReviewed
 	}
 
-	if err := s.sendApproval(ctx, request); err != nil {
+	err = s.sendApproval(ctx, request)
+	if err != nil {
 		return nil, err
 	}
 
@@ -273,7 +274,8 @@ func (s *Service) approveWithoutContextAuth(ctx context.Context, id string) (*Re
 		return nil, ErrAlreadyReviewed
 	}
 
-	if err := s.sendApproval(ctx, request); err != nil {
+	err = s.sendApproval(ctx, request)
+	if err != nil {
 		return nil, err
 	}
 

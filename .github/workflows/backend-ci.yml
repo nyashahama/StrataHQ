@@ -69,12 +69,16 @@ jobs:
 
       - name: Install tools
         run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
           go install github.com/pressly/goose/v3/cmd/goose@latest
           go install golang.org/x/vuln/cmd/govulncheck@latest
 
       - name: Generate sqlc
         run: cd db && sqlc generate
+
+      - name: sqlc drift check
+        run: |
+          git diff --exit-code -- db/gen/ || (echo "ERROR: sqlc generate produced changes. Run 'make generate' and commit the result." && exit 1)
 
       - name: Run migrations
         run: goose -dir db/migrations postgres "postgres://stratahq:stratahq@localhost:5432/stratahq_test?sslmode=disable" up

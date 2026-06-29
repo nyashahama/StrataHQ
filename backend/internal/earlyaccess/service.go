@@ -306,8 +306,7 @@ func (s *Service) sendApproval(ctx context.Context, req dbgen.EarlyAccessRequest
 		return err
 	}
 
-	_ = s.notifier.SendEarlyAccessApproval(ctx, req.Email, req.FullName, setPasswordURL)
-	return nil
+	return s.notifier.SendEarlyAccessApproval(ctx, req.Email, req.FullName, setPasswordURL)
 }
 
 func toResponse(r dbgen.EarlyAccessRequest) *RequestResponse {

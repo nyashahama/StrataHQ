@@ -25,7 +25,7 @@ Go backend for [StrataHQ](https://stratahq.com) — property management software
 
 - [Go 1.26.4+](https://go.dev/dl/)
 - [Docker](https://docs.docker.com/get-docker/) & Docker Compose
-- [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html)
+- [sqlc](https://docs.sqlc.dev/en/latest/overview/install.html) v1.31.1 (`go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1`)
 - [goose](https://github.com/pressly/goose#install)
 - [golangci-lint](https://golangci-lint.run/welcome/install/)
 

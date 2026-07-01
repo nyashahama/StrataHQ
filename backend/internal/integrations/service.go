@@ -85,6 +85,7 @@ func (s *Service) CreateAPIClient(ctx context.Context, identity auth.Identity, i
 	if err != nil {
 		return nil, ErrInvalidInput
 	}
+	schemeUUIDs = dedupUUIDs(schemeUUIDs)
 	count, err := s.db.Q.CountSchemesByOrgAndIDs(ctx, dbgen.CountSchemesByOrgAndIDsParams{OrgID: orgID, SchemeIds: schemeUUIDs})
 	if err != nil {
 		return nil, err
@@ -181,6 +182,18 @@ func validScopes(scopes []string) bool {
 		}
 	}
 	return true
+}
+
+func dedupUUIDs(ids []uuid.UUID) []uuid.UUID {
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	result := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			result = append(result, id)
+		}
+	}
+	return result
 }
 
 func parseUUIDs(values []string) ([]uuid.UUID, error) {

@@ -344,6 +344,7 @@ func (s *Service) contractorParams(ctx context.Context, orgID uuid.UUID, input U
 	if err != nil {
 		return dbgen.CreateContractorParams{}, nil, ErrInvalidInput
 	}
+	schemeIDs = dedupUUIDs(schemeIDs)
 	if len(schemeIDs) > 0 {
 		count, countErr := s.db.Q.CountSchemesByOrgForContractorLinks(ctx, dbgen.CountSchemesByOrgForContractorLinksParams{
 			OrgID: orgID, SchemeIds: schemeIDs,
@@ -375,6 +376,18 @@ func validTrade(value string) bool {
 	default:
 		return false
 	}
+}
+
+func dedupUUIDs(ids []uuid.UUID) []uuid.UUID {
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	result := make([]uuid.UUID, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			result = append(result, id)
+		}
+	}
+	return result
 }
 
 func parseUUIDs(values []string) ([]uuid.UUID, error) {

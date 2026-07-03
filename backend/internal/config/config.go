@@ -12,6 +12,7 @@ type Config struct {
 	ConfigStrings
 	ConfigDurations
 	ConfigInts
+	AllowPublicMetrics bool
 }
 
 type ConfigStrings struct {
@@ -116,6 +117,11 @@ func load() (*Config, error) {
 	}
 
 	var err error
+	cfg.AllowPublicMetrics, err = parseBool("ALLOW_PUBLIC_METRICS", false)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg.ConfigDurations.JWTExpiry, err = parseDuration("JWT_EXPIRY", 15*time.Minute)
 	if err != nil {
 		return nil, err
@@ -181,7 +187,7 @@ func load() (*Config, error) {
 }
 
 func requiredConfigForAPI(c *Config) map[string]string {
-	return map[string]string{
+	required := map[string]string{
 		"DATABASE_URL":          c.DatabaseURL,
 		"REDIS_URL":             c.RedisURL,
 		"JWT_SECRET":            c.JWTSecret,
@@ -194,6 +200,13 @@ func requiredConfigForAPI(c *Config) map[string]string {
 		"STRIPE_WEBHOOK_SECRET": c.StripeWebhookSecret,
 		"STRIPE_PRICE_ID":       c.StripePriceID,
 	}
+	// In production the /metrics endpoint must be token-protected. Require
+	// METRICS_TOKEN unless the deployment explicitly opts into public metrics
+	// with ALLOW_PUBLIC_METRICS=true, so metrics are never exposed by omission.
+	if c.Env == "production" && !c.AllowPublicMetrics {
+		required["METRICS_TOKEN"] = c.MetricsToken
+	}
+	return required
 }
 
 func requiredConfigForWorker(c *Config) map[string]string {
@@ -242,6 +255,18 @@ func getEnv(key, fallback string) string {
 		return val
 	}
 	return fallback
+}
+
+func parseBool(key string, fallback bool) (bool, error) {
+	val := strings.TrimSpace(os.Getenv(key))
+	if val == "" {
+		return fallback, nil
+	}
+	b, err := strconv.ParseBool(val)
+	if err != nil {
+		return false, fmt.Errorf("invalid boolean for %s: %w", key, err)
+	}
+	return b, nil
 }
 
 func parseDuration(key string, fallback time.Duration) (time.Duration, error) {

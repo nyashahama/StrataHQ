@@ -25,6 +25,7 @@ func TestLoad_AllFieldsSet(t *testing.T) {
 		"AI_MODEL":              "deepseek-chat",
 		"ALLOWED_ORIGINS":       "http://localhost:3000,https://app.stratahq.com",
 		"APP_BASE_URL":          "http://localhost:3000",
+		"METRICS_TOKEN":         "metrics-secret",
 	}
 
 	for k, v := range envs {
@@ -301,6 +302,89 @@ func TestLoad_TwilioAuthTokenMustBeConfiguredWithOtherTwilioSettings(t *testing.
 		os.Setenv("TWILIO_AUTH_TOKEN", "token")
 		os.Setenv("TWILIO_ACCOUNT_SID", "AC123")
 		os.Setenv("TWILIO_WHATSAPP_NUMBER", "whatsapp:+2782")
+
+		if _, err := Load(); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
+func TestLoad_MetricsTokenRequiredInProduction(t *testing.T) {
+	base := map[string]string{
+		"ENV":                   "production",
+		"DATABASE_URL":          "postgres://user:pass@localhost:5432/db",
+		"REDIS_URL":             "redis://localhost:6379",
+		"JWT_SECRET":            "test-secret-that-is-long-enough-32ch",
+		"STRIPE_SECRET_KEY":     "sk_test_123",
+		"STRIPE_WEBHOOK_SECRET": "whsec_123",
+		"STRIPE_PRICE_ID":       "price_test_123",
+		"RESEND_API_KEY":        "re_123",
+		"AI_BASE_URL":           "https://api.deepseek.com/v1",
+		"AI_API_KEY":            "sk-ai-123",
+		"AI_MODEL":              "deepseek-chat",
+		"APP_BASE_URL":          "http://localhost:3000",
+	}
+
+	setBase := func() {
+		for k, v := range base {
+			os.Setenv(k, v)
+		}
+	}
+	defer func() {
+		for k := range base {
+			os.Unsetenv(k)
+		}
+		os.Unsetenv("METRICS_TOKEN")
+		os.Unsetenv("ALLOW_PUBLIC_METRICS")
+	}()
+
+	t.Run("missing token in production fails", func(t *testing.T) {
+		setBase()
+		os.Unsetenv("METRICS_TOKEN")
+		os.Unsetenv("ALLOW_PUBLIC_METRICS")
+
+		_, err := Load()
+		if err == nil {
+			t.Fatal("expected error when METRICS_TOKEN is unset in production")
+		}
+		if !strings.Contains(err.Error(), "METRICS_TOKEN") {
+			t.Fatalf("error = %q, want METRICS_TOKEN", err)
+		}
+	})
+
+	t.Run("token set in production passes", func(t *testing.T) {
+		setBase()
+		os.Setenv("METRICS_TOKEN", "metrics-secret")
+		os.Unsetenv("ALLOW_PUBLIC_METRICS")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.AllowPublicMetrics {
+			t.Error("AllowPublicMetrics = true, want false")
+		}
+	})
+
+	t.Run("explicit public opt-in passes without token", func(t *testing.T) {
+		setBase()
+		os.Unsetenv("METRICS_TOKEN")
+		os.Setenv("ALLOW_PUBLIC_METRICS", "true")
+
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !cfg.AllowPublicMetrics {
+			t.Error("AllowPublicMetrics = false, want true")
+		}
+	})
+
+	t.Run("development without token passes", func(t *testing.T) {
+		setBase()
+		os.Setenv("ENV", "development")
+		os.Unsetenv("METRICS_TOKEN")
+		os.Unsetenv("ALLOW_PUBLIC_METRICS")
 
 		if _, err := Load(); err != nil {
 			t.Fatalf("unexpected error: %v", err)

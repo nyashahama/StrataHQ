@@ -162,7 +162,7 @@ All API routes are prefixed with `/api/v1`.
 |--------|------|------|-------------|
 | `GET` | `/healthz` | No | Liveness probe |
 | `GET` | `/readyz` | No | Readiness probe (checks DB + Redis) |
-| `GET` | `/metrics` | No | Prometheus metrics |
+| `GET` | `/metrics` | Token required in production | Prometheus metrics |
 | `POST` | `/api/v1/auth/register` | No | Register a new user |
 | `POST` | `/api/v1/auth/login` | No | Login |
 | `POST` | `/api/v1/auth/refresh` | No | Refresh access token |

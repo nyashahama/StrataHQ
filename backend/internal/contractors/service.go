@@ -119,11 +119,26 @@ func (s *Service) Create(ctx context.Context, identity auth.Identity, input Upse
 		return nil, err
 	}
 	params.CreatedByUserID = pgtype.UUID{Bytes: userID, Valid: true}
-	row, err := s.db.Q.CreateContractor(ctx, params)
+	var row dbgen.Contractor
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		var txErr error
+		row, txErr = q.CreateContractor(ctx, params)
+		if txErr != nil {
+			return mapDBError(txErr)
+		}
+		if txErr = q.DeleteContractorSchemeLinks(ctx, row.ID); txErr != nil {
+			return txErr
+		}
+		for _, schemeID := range schemeIDs {
+			if txErr = q.UpsertSchemeContractor(ctx, dbgen.UpsertSchemeContractorParams{
+				SchemeID: schemeID, ContractorID: row.ID, Preferred: false,
+			}); txErr != nil {
+				return txErr
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		return nil, mapDBError(err)
-	}
-	if err := s.replaceSchemeLinks(ctx, row.ID, schemeIDs); err != nil {
 		return nil, err
 	}
 	return s.mapContractor(ctx, row, auth.IsAdminRole(identity.Role))
@@ -145,17 +160,32 @@ func (s *Service) Update(ctx context.Context, identity auth.Identity, contractor
 	if err != nil {
 		return nil, err
 	}
-	row, err := s.db.Q.UpdateContractor(ctx, dbgen.UpdateContractorParams{
-		ID: id, OrgID: orgID, Name: params.Name, Trade: params.Trade,
-		Phone: params.Phone, Email: params.Email, Suburb: params.Suburb,
-		City: params.City, Province: params.Province,
-		PublicProfile: params.PublicProfile, Vetted: params.Vetted,
-		Active: params.Active, Notes: params.Notes,
+	var row dbgen.Contractor
+	err = database.WithTxQueries(ctx, s.db, func(q *dbgen.Queries) error {
+		var txErr error
+		row, txErr = q.UpdateContractor(ctx, dbgen.UpdateContractorParams{
+			ID: id, OrgID: orgID, Name: params.Name, Trade: params.Trade,
+			Phone: params.Phone, Email: params.Email, Suburb: params.Suburb,
+			City: params.City, Province: params.Province,
+			PublicProfile: params.PublicProfile, Vetted: params.Vetted,
+			Active: params.Active, Notes: params.Notes,
+		})
+		if txErr != nil {
+			return mapDBError(txErr)
+		}
+		if txErr = q.DeleteContractorSchemeLinks(ctx, row.ID); txErr != nil {
+			return txErr
+		}
+		for _, schemeID := range schemeIDs {
+			if txErr = q.UpsertSchemeContractor(ctx, dbgen.UpsertSchemeContractorParams{
+				SchemeID: schemeID, ContractorID: row.ID, Preferred: false,
+			}); txErr != nil {
+				return txErr
+			}
+		}
+		return nil
 	})
 	if err != nil {
-		return nil, mapDBError(err)
-	}
-	if err := s.replaceSchemeLinks(ctx, row.ID, schemeIDs); err != nil {
 		return nil, err
 	}
 	return s.mapContractor(ctx, row, true)
@@ -400,20 +430,6 @@ func parseUUIDs(values []string) ([]uuid.UUID, error) {
 		ids = append(ids, id)
 	}
 	return ids, nil
-}
-
-func (s *Service) replaceSchemeLinks(ctx context.Context, contractorID uuid.UUID, schemeIDs []uuid.UUID) error {
-	if err := s.db.Q.DeleteContractorSchemeLinks(ctx, contractorID); err != nil {
-		return err
-	}
-	for _, schemeID := range schemeIDs {
-		if err := s.db.Q.UpsertSchemeContractor(ctx, dbgen.UpsertSchemeContractorParams{
-			SchemeID: schemeID, ContractorID: contractorID, Preferred: false,
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (s *Service) mapContractor(ctx context.Context, row dbgen.Contractor, includePrivate bool) (*ContractorInfo, error) {

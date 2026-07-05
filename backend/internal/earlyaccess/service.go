@@ -168,12 +168,28 @@ func (s *Service) Approve(ctx context.Context, id string) (*RequestResponse, err
 		return nil, err
 	}
 
-	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusApproved)
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	request, err := s.db.GetEarlyAccessRequest(ctx, uid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if request.Status != dbgen.EarlyAccessStatusPending {
+		return nil, ErrAlreadyReviewed
+	}
+
+	err = s.sendApproval(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.sendApproval(ctx, updated); err != nil {
+	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusApproved)
+	if err != nil {
 		return nil, err
 	}
 
@@ -243,12 +259,28 @@ func (s *Service) authorizeProtectedAdmin(ctx context.Context) error {
 }
 
 func (s *Service) approveWithoutContextAuth(ctx context.Context, id string) (*RequestResponse, error) {
-	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusApproved)
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	request, err := s.db.GetEarlyAccessRequest(ctx, uid)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if request.Status != dbgen.EarlyAccessStatusPending {
+		return nil, ErrAlreadyReviewed
+	}
+
+	err = s.sendApproval(ctx, request)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := s.sendApproval(ctx, updated); err != nil {
+	updated, err := s.transitionPendingReview(ctx, id, dbgen.EarlyAccessStatusApproved)
+	if err != nil {
 		return nil, err
 	}
 

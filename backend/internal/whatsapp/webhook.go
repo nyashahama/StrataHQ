@@ -89,6 +89,16 @@ func (h *WebhookHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	response.Error(w, http.StatusForbidden, response.CodeForbidden, "forbidden")
 }
 
+func schemeFromRequest(r *http.Request) string {
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		return proto
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
 func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 	if !h.skipSigVerify {
 		sig := r.Header.Get("X-Twilio-Signature")
@@ -104,14 +114,21 @@ func (h *WebhookHandler) Inbound(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if !verifyTwilioSignature(h.authToken, r.URL.Path, r.Form, sig) {
-			originalURL := r.Header.Get("X-Original-URL")
-			if originalURL != "" && verifyTwilioSignatureOriginalURL(h.authToken, originalURL, r.Form, sig) {
+		webhookURL := schemeFromRequest(r) + "://" + r.Host + r.URL.RequestURI()
+
+		valid := verifyTwilioSignature(h.authToken, webhookURL, r.Form, sig)
+		if !valid {
+			if originalURL := r.Header.Get("X-Original-URL"); originalURL != "" {
+				valid = verifyTwilioSignatureOriginalURL(h.authToken, originalURL, r.Form, sig)
 			} else {
-				h.logger.Warn("invalid Twilio signature", "path", r.URL.Path)
-				response.Error(w, http.StatusForbidden, response.CodeForbidden, "invalid signature")
-				return
+				valid = verifyTwilioSignature(h.authToken, r.URL.Path, r.Form, sig)
 			}
+		}
+
+		if !valid {
+			h.logger.Warn("invalid Twilio signature", "url", webhookURL)
+			response.Error(w, http.StatusForbidden, response.CodeForbidden, "invalid signature")
+			return
 		}
 	} else {
 		if err := r.ParseForm(); err != nil {

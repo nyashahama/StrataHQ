@@ -1,3 +1,4 @@
+import { createHmac } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { parseSessionCookie } from "@/lib/session";
@@ -48,11 +49,25 @@ function decodeBase64URL(input: string): string {
   return Buffer.from(normalized, "base64").toString("utf8");
 }
 
+function computeJwtSignature(headerPayload: string, secret: string): string {
+  return createHmac("sha256", secret)
+    .update(headerPayload)
+    .digest("base64url");
+}
+
 function isValidAccessToken(token: string, sessionId: string): boolean {
   const parts = token.split(".");
   if (parts.length !== 3) {
     return false;
   }
+
+  const secret = process.env.JWT_SECRET;
+  if (secret) {
+    const headerPayload = parts[0] + "." + parts[1];
+    const expectedSig = computeJwtSignature(headerPayload, secret);
+    if (parts[2] !== expectedSig) return false;
+  }
+
   const payload = parts[1];
   if (payload === undefined) {
     return false;

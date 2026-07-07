@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { readApiData, readApiError } from "./api-contract";
+import { signPayload } from "./crypto";
 import { writeAuthCookies, clearAuthCookies, withAuthRetry } from "./server-auth";
 import type { SessionUser } from "./session";
 import { APP_ROLES, parseSessionCookie } from "./session";
@@ -209,7 +210,7 @@ export async function setupAction(data: {
   ];
   cookieStore.set(
     "sh_session",
-    encodeURIComponent(JSON.stringify(session)),
+    signPayload(JSON.stringify(session)),
     SESSION_OPTS,
   );
   return { user: session };

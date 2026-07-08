@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   listEarlyAccessRequests,
   approveEarlyAccessRequest,
@@ -19,21 +19,30 @@ export default function AdminEarlyAccessPage() {
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const mountedRef = useRef(true)
 
   async function load() {
     setLoading(true)
     try {
       const data = await listEarlyAccessRequests()
+      if (!mountedRef.current) return
       setRequests(data)
     } catch (err) {
+      if (!mountedRef.current) return
       setError(err instanceof Error ? err.message : 'Failed to load early access requests')
       setRequests([])
     } finally {
-      setLoading(false)
+      if (mountedRef.current) setLoading(false)
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    mountedRef.current = true
+    load()
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   async function handleApprove(id: string) {
     setError('')

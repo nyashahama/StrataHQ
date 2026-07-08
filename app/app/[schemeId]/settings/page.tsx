@@ -65,9 +65,12 @@ export default function SchemeSettingsPage() {
   const canEdit = user?.role === 'admin'
 
   useEffect(() => {
+    let cancelled = false
+
     async function load() {
       try {
         const detail = await getScheme(schemeId)
+        if (cancelled) return
         setScheme(detail)
         setSchemeForm({
           name: detail.name,
@@ -75,16 +78,21 @@ export default function SchemeSettingsPage() {
           unit_count: String(detail.unit_count),
         })
       } catch (error) {
+        if (cancelled) return
         addToast(
           error instanceof Error ? error.message : 'Failed to load scheme',
           'error',
         )
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     load()
+
+    return () => {
+      cancelled = true
+    }
   }, [addToast, schemeId])
 
   async function handleSchemeSave() {

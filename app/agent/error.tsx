@@ -3,6 +3,7 @@
 import RetryState from "@/components/RetryState";
 
 export default function Error({
+  error,
   reset,
 }: {
   error: Error;
@@ -11,7 +12,7 @@ export default function Error({
   return (
     <RetryState
       title="Could not load portfolio overview"
-      message="Temporary service issue. Try again."
+      message={error.message || "Temporary service issue. Try again."}
       onRetry={() => reset()}
     />
   );

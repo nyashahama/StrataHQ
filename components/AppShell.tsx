@@ -29,8 +29,9 @@ export default function AppShell({ sidebar, children, headerLabel }: AppShellPro
 
   // Prevent body scroll when mobile sidebar is open
   useEffect(() => {
+    const original = document.body.style.overflow
     document.body.style.overflow = sidebarOpen ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    return () => { document.body.style.overflow = original }
   }, [sidebarOpen])
 
   return (

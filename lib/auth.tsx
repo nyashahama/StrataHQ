@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { logoutAction } from "./auth-actions";
 import { readBrowserCSRFToken } from "./csrf";
-import type { SessionUser } from "./session";
+import { isSessionUser, type SessionUser } from "./session";
 
 interface AuthContextValue {
   user: SessionUser | null;
@@ -47,7 +47,8 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
           return null;
         }
 
-        return (await refreshResponse.json()) as SessionUser | null;
+        const raw = await refreshResponse.json();
+        return isSessionUser(raw) ? raw : null;
       } catch {
         if (controller.signal.aborted) {
           return null;
@@ -64,7 +65,8 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
         const sessionResponse = await fetch("/api/session", {
           signal: controller.signal,
         });
-        const session = (await sessionResponse.json()) as SessionUser | null;
+        const raw = await sessionResponse.json();
+        const session = isSessionUser(raw) ? raw : null;
         if (session) {
           if (active) setUser(session);
           return;

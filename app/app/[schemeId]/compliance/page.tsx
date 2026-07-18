@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import { useAuth } from '@/lib/auth'
@@ -168,6 +168,14 @@ export default function CompliancePage() {
   const [dashboard, setDashboard] = useState<ComplianceDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (user?.role === 'resident') {
@@ -224,14 +232,16 @@ export default function CompliancePage() {
     }
     getComplianceDashboard(schemeId)
       .then(result => {
+        if (!mountedRef.current) return
         setCached(key, result)
         setDashboard(result)
       })
       .catch(err => {
+        if (!mountedRef.current) return
         setError(err instanceof Error ? err.message : 'Failed to load compliance dashboard')
       })
       .finally(() => {
-        setLoading(false)
+        if (mountedRef.current) setLoading(false)
       })
   }
 

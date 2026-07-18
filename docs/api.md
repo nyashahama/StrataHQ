@@ -38,7 +38,7 @@ Standard JSON API error responses use this shape. Example `400 BAD_REQUEST` body
 
 Exceptions outside the standard JSON API error envelope:
 - The signed-link early-access flows return HTML error pages instead of JSON error bodies.
-- `GET /metrics` can return a plain-text `401 unauthorized` response when a metrics token is configured and the request omits or mismatches it.
+- `GET /metrics` can return a plain-text `401 unauthorized` response when a metrics token is configured and the request omits or mismatches it. In production `METRICS_TOKEN` is required (the server refuses to start without it) unless `ALLOW_PUBLIC_METRICS=true` is set to intentionally expose metrics without auth. In development `/metrics` is public.
 - `GET /api/v1/whatsapp/webhooks` can return plain-text or bare non-JSON responses during provider verification flows.
 
 ## Platform
@@ -47,7 +47,7 @@ Exceptions outside the standard JSON API error envelope:
 | --- | --- | --- | --- |
 | `GET` | `/healthz` | No | Liveness check |
 | `GET` | `/readyz` | No | Readiness check for database and Redis |
-| `GET` | `/metrics` | Token when configured | Prometheus metrics |
+| `GET` | `/metrics` | Token required in production | Prometheus metrics |
 
 ## Auth/Account
 

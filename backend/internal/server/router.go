@@ -83,7 +83,7 @@ func NewRouter(cfg *config.Config, logger *slog.Logger, rdb *redis.Client, audit
 			})
 			r.Handle("/metrics", promhttp.Handler())
 		})
-	} else if cfg.Env == "development" {
+	} else if cfg.Env == "development" || cfg.AllowPublicMetrics {
 		r.Handle("/metrics", promhttp.Handler())
 	}
 

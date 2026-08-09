@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 
 import Modal from '@/components/Modal'
@@ -61,10 +61,11 @@ export default function AgmVotingPage() {
     date: '',
     quorum_required: '1',
     resolutions: [
-      { ...EMPTY_RESOLUTION },
-      { ...EMPTY_RESOLUTION },
+      { ...EMPTY_RESOLUTION, _key: 1 },
+      { ...EMPTY_RESOLUTION, _key: 2 },
     ],
   })
+  const nextResolutionKey = useRef(3)
 
   const { data: dashboard, isLoading, error, refetch } = useAuthenticatedQuery<AgmDashboard>({
     queryKey: schemeKeys.agm(schemeId),
@@ -159,7 +160,7 @@ export default function AgmVotingPage() {
       setScheduleForm({
         date: '',
         quorum_required: '1',
-        resolutions: [{ ...EMPTY_RESOLUTION }, { ...EMPTY_RESOLUTION }],
+        resolutions: [{ ...EMPTY_RESOLUTION, _key: 1 }, { ...EMPTY_RESOLUTION, _key: 2 }],
       })
       await refreshDashboard()
       addToast('AGM scheduled', 'success')
@@ -371,10 +372,13 @@ export default function AgmVotingPage() {
           <div className="flex items-center justify-between">
             <div className="text-[12px] font-semibold text-ink">Resolutions</div>
             <button
-              onClick={() => setScheduleForm(current => ({
-                ...current,
-                resolutions: [...current.resolutions, { ...EMPTY_RESOLUTION }],
-              }))}
+              onClick={() => {
+                const key = nextResolutionKey.current++
+                setScheduleForm(current => ({
+                  ...current,
+                  resolutions: [...current.resolutions, { ...EMPTY_RESOLUTION, _key: key }],
+                }))
+              }}
               className="text-[12px] font-semibold text-accent hover:underline"
             >
               + Add resolution
@@ -383,14 +387,14 @@ export default function AgmVotingPage() {
 
           <div className="flex flex-col gap-3">
             {scheduleForm.resolutions.map((resolution, index) => (
-              <div key={index} className="border border-border rounded-lg p-3 bg-page/40">
+              <div key={resolution._key} className="border border-border rounded-lg p-3 bg-page/40">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[12px] font-semibold text-ink">Resolution {index + 1}</span>
                   {scheduleForm.resolutions.length > 1 && (
                     <button
                       onClick={() => setScheduleForm(current => ({
                         ...current,
-                        resolutions: current.resolutions.filter((_, itemIndex) => itemIndex !== index),
+                        resolutions: current.resolutions.filter(item => item._key !== resolution._key),
                       }))}
                       className="text-[11px] text-muted hover:text-red"
                     >
@@ -404,7 +408,7 @@ export default function AgmVotingPage() {
                     value={resolution.title}
                     onChange={event => setScheduleForm(current => ({
                       ...current,
-                      resolutions: current.resolutions.map((item, itemIndex) => itemIndex === index ? { ...item, title: event.target.value } : item),
+                      resolutions: current.resolutions.map(item => item._key === resolution._key ? { ...item, title: event.target.value } : item),
                     }))}
                     placeholder="Resolution title"
                     className="w-full border border-border rounded px-3 py-2 text-[13px] text-ink bg-surface focus:outline-none focus:border-accent"
@@ -413,7 +417,7 @@ export default function AgmVotingPage() {
                     value={resolution.description}
                     onChange={event => setScheduleForm(current => ({
                       ...current,
-                      resolutions: current.resolutions.map((item, itemIndex) => itemIndex === index ? { ...item, description: event.target.value } : item),
+                      resolutions: current.resolutions.map(item => item._key === resolution._key ? { ...item, description: event.target.value } : item),
                     }))}
                     placeholder="Resolution description"
                     rows={3}

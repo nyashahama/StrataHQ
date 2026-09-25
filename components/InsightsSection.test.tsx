@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest'
 import InsightsSection from './InsightsSection'
 
 describe('InsightsSection', () => {
-  it('uses actionable links for predictive alert calls to action', () => {
+  it('uses actionable links for illustrative attention items', () => {
     render(<InsightsSection />)
 
     const actions = [
-      ['Refer to attorney →', '/early-access?focus=attorney'],
+      ['Review arrears →', '/early-access?focus=arrears'],
       ['Send reminders →', '/early-access?focus=collection-reminders'],
       ['Model scenarios →', '/early-access?focus=reserve-risk'],
     ] as const

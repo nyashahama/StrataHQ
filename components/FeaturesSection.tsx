@@ -80,9 +80,9 @@ export default function FeaturesSection() {
         items={[
           { check: 'Automated monthly statements per unit' },
           { check: 'Configurable arrears escalation rules' },
-          { check: 'PayFast and EFT reconciliation' },
+          { check: 'Bank-statement import with manual match review' },
           { check: 'Full debtors age analysis report' },
-          { check: 'Attorney handoff workflow built in' },
+          { check: 'Scheme-scoped levy follow-up' },
         ]}
         MockPanel={LevyMockPanel}
       />
@@ -105,14 +105,14 @@ export default function FeaturesSection() {
 
       <FeatureBlock
         tag="AGM & Voting"
-        heading={<>Run compliant AGMs<br />without the chaos.</>}
-        body="Digital proxy collection, automatic quorum calculation, secure live voting and instant results. Fully aligned with STSMA Act requirements."
+        heading={<>Coordinate AGMs<br />without the chaos.</>}
+        body="Bring proxy records, quorum tracking, voting, and resolutions into one scheme workspace."
         items={[
           { check: 'Digital notice and agenda distribution' },
           { check: 'Proxy form collection with audit trail' },
           { check: 'Automatic quorum tracking' },
           { check: 'Secure live vote casting per resolution' },
-          { check: 'Signed minutes generated automatically' },
+          { check: 'Recorded resolutions and voting history' },
         ]}
         MockPanel={AGMMockPanel}
       />

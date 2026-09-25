@@ -21,7 +21,7 @@ export default function CTASection() {
             </span>
           </h2>
           <p className="text-[16px] text-white/45 mb-10 leading-[1.7]">
-            We&apos;re onboarding a limited number of schemes. Request early access and we&apos;ll be in touch.
+            Request early access to explore the beta and discuss which workflows fit your scheme.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mb-5">
             <Link
@@ -33,8 +33,8 @@ export default function CTASection() {
               <span className="inline-block transition-transform duration-200 group-hover:translate-x-0.5">→</span>
             </Link>
           </div>
-          <p className="text-[13px] text-white/25 tracking-[0.02em]">
-            Limited spots · STSMA compliant · No credit card needed
+          <p className="text-[13px] text-white/70 tracking-[0.02em]">
+            Early access · Seeded beta demo · No card required
           </p>
         </div>
       </div>

@@ -56,8 +56,8 @@ export default function Hero() {
         </div>
 
         {/* Note */}
-        <p className="hero-enter hero-enter-5 text-[13px] text-white/30 tracking-[0.02em]">
-          Limited early access · STSMA compliant · Built in South Africa
+        <p className="hero-enter hero-enter-5 text-[13px] text-white/70 tracking-[0.02em]">
+          Early access · Seeded beta demo · Built in South Africa
         </p>
       </div>
 

@@ -11,15 +11,10 @@ describe('Footer', () => {
       Features: '/#features',
       Modules: '/#modules',
       Pricing: '/#pricing',
-      Changelog: '/#roles',
-      'Documentation': '/#features',
-      'STSMA guide': '/#problem',
-      'Blog': '/early-access',
-      'Help centre': '/auth/login',
+      'Demo sign in': '/auth/login',
+      'Source repository': 'https://github.com/nyashahama/StrataHQ',
       About: '/#roles',
-      Contact: '/#problem',
-      'Privacy policy': '/auth/login',
-      Terms: '/auth/login',
+      Contact: '/early-access',
     } as const
 
     for (const [label, href] of Object.entries(expected)) {

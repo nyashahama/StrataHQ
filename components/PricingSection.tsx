@@ -31,10 +31,10 @@ const tiers: PricingTier[] = [
       'Everything in Starter',
       'AGM & digital voting',
       'Full financial reporting',
-      'PayFast integration',
+      'Bank-statement review',
       'Priority support',
     ],
-    cta: 'Start free trial',
+    cta: 'Request early access',
     featured: true,
   },
   {
@@ -44,9 +44,9 @@ const tiers: PricingTier[] = [
     features: [
       'Everything in Professional',
       'Multi-scheme dashboard',
+      'Organisation-level portfolio overview',
+      'Scheme and unit administration',
       'Team access controls',
-      'Accounting integrations',
-      'Dedicated account manager',
     ],
     cta: 'Talk to sales',
   },
@@ -64,7 +64,7 @@ export default function PricingSection() {
             Simple, transparent pricing.
           </h2>
           <p className="reveal text-clamp-p text-ink-2 leading-[1.7]">
-            Per-unit pricing that scales with your scheme. No setup fees, no hidden costs.
+            Indicative plans for early-access discussions; final scope and terms are confirmed during onboarding.
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export default function PricingSection() {
             >
               {featured && (
                 <span className="absolute -top-[12px] left-1/2 -translate-x-1/2 text-[11px] font-semibold text-white bg-[var(--color-hero-accent)] px-4 py-1 rounded-full whitespace-nowrap tracking-[0.04em] shadow-[0_0_16px_rgba(91,156,246,0.3)]">
-                  Most popular
+                  Expanded plan
                 </span>
               )}
 

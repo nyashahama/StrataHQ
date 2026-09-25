@@ -1,8 +1,8 @@
 const stats = [
-  { num: '2,400+', label: 'Schemes managed' },
-  { num: '94%', label: 'Average levy collection rate' },
-  { num: '180K', label: 'Residents on platform' },
-  { num: '48h', label: 'Average maintenance resolution' },
+  { num: '01', label: 'Scheme-scoped access' },
+  { num: '02', label: 'Levy review and reconciliation' },
+  { num: '03', label: 'Maintenance workflows' },
+  { num: '04', label: 'Governance records' },
 ]
 
 export default function StatsBar() {

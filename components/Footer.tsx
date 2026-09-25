@@ -11,19 +11,14 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: 'Features', href: '/#features' },
     { label: 'Modules', href: '/#modules' },
     { label: 'Pricing', href: '/#pricing' },
-    { label: 'Changelog', href: '/#roles' },
   ],
   Resources: [
-    { label: 'Documentation', href: '/#features' },
-    { label: 'STSMA guide', href: '/#problem' },
-    { label: 'Blog', href: '/early-access' },
-    { label: 'Help centre', href: '/auth/login' },
+    { label: 'Demo sign in', href: '/auth/login' },
+    { label: 'Source repository', href: 'https://github.com/nyashahama/StrataHQ' },
   ],
   Company: [
     { label: 'About', href: '/#roles' },
-    { label: 'Contact', href: '/#problem' },
-    { label: 'Privacy policy', href: '/auth/login' },
-    { label: 'Terms', href: '/auth/login' },
+    { label: 'Contact', href: '/early-access' },
   ],
 }
 
@@ -74,7 +69,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-border pt-6 flex flex-wrap justify-between gap-3 text-[12px] text-muted-2">
           <span>&copy; 2026 StrataHQ. Built in South Africa</span>
-          <span>Compliant with STSMA Act 8 of 2011</span>
+          <span>Beta demo with seeded example data</span>
         </div>
       </div>
     </footer>

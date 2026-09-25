@@ -10,10 +10,10 @@ const alerts = [
     label: 'ARREARS INTELLIGENCE',
     labelColor: 'text-red',
     title: 'Unit 5C · Rosewood Estate',
-    body: 'R 9,300 outstanding · 90+ days · Payment probability 9%. Attorney referral window closing in ~10 days.',
-    action: 'Refer to attorney →',
+    body: 'Example account: R 9,300 outstanding after 90 days. Review the balance and follow-up history.',
+    action: 'Review arrears →',
     actionColor: 'bg-red-bg border-[rgba(155,44,44,0.25)] text-red hover:bg-[rgba(155,44,44,0.12)]',
-    actionHref: '/early-access?focus=attorney',
+    actionHref: '/early-access?focus=arrears',
   },
   {
     icon: '📉',
@@ -32,7 +32,7 @@ const alerts = [
     label: 'RESERVE FUND FORECAST',
     labelColor: 'text-accent',
     title: 'Seapoint Villas — fund depletion risk',
-    body: 'At current spend, reserve fund depletes in 7.4 years. Recommend R 120/unit/month increase to meet 10-year plan.',
+    body: 'Example scenario: planned maintenance would draw down the reserve. Review the budget assumptions.',
     action: 'Model scenarios →',
     actionColor: 'bg-page border-border-2 text-ink-2 hover:bg-hover-subtle',
     actionHref: '/early-access?focus=reserve-risk',
@@ -111,17 +111,16 @@ export default function InsightsSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end mb-[clamp(40px,5vw,56px)]">
           <div>
             <p className="reveal eyebrow text-[11px] font-semibold tracking-[0.14em] uppercase text-muted mb-3">
-              StrataHQ Intelligence
+              Seeded demo scenario
             </p>
             <h2 className="reveal font-serif text-clamp-section font-bold leading-[1.12] tracking-[-0.02em] text-ink max-w-[560px]">
-              Doesn&apos;t just store your data.{' '}
-              <span className="text-muted">Reads it for you.</span>
+              See the work that needs attention.{' '}
+              <span className="text-muted">Keep the context beside it.</span>
             </h2>
           </div>
           <p className="reveal text-[15px] text-ink-2 leading-[1.7] max-w-[420px]">
-            StrataHQ surfaces what needs your attention before it becomes a problem —
-            attorney windows, collection dips, reserve fund risk. Not dashboards to interpret.
-            Answers.
+            This illustrative example brings levy follow-up, maintenance, and
+            scheme context into one review surface. Figures shown here are seeded demo data.
           </p>
         </div>
 
@@ -131,7 +130,7 @@ export default function InsightsSection() {
           {/* Panel 1: Portfolio Health Score */}
           <div className="bg-surface border border-border rounded-xl p-5 card-lift">
             <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-muted mb-4">
-              Portfolio Health Score
+              Example portfolio score
             </p>
 
             <div className="flex items-center gap-4 mb-5">
@@ -145,7 +144,7 @@ export default function InsightsSection() {
               <div>
                 <div className="text-[15px] font-bold text-green mb-1">Strong</div>
                 <div className="text-[12px] text-muted leading-[1.55]">
-                  Composite score across levy collection, maintenance SLA, AGM compliance, and reserve health.
+                  Example score across levy collection, maintenance progress, meeting readiness, and reserve health.
                 </div>
               </div>
             </div>
@@ -158,7 +157,7 @@ export default function InsightsSection() {
                   <span className="text-[12px] font-semibold" style={{ color }}>{pct}%</span>
                 </div>
               ))}
-              <div className="text-[11px] text-muted mt-1">Updated daily · Benchmarked against 2,400+ schemes</div>
+              <div className="text-[11px] text-muted mt-1">Illustrative example · seeded demo schemes</div>
             </div>
           </div>
 
@@ -170,10 +169,10 @@ export default function InsightsSection() {
             <div className="relative">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-white/45">
-                  Predictive Alerts
+                  Attention examples
                 </p>
                 <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-red-bg text-red">
-                  3 active
+                  3 examples
                 </span>
               </div>
 
@@ -216,7 +215,7 @@ export default function InsightsSection() {
 
               <div className="mt-5 pt-4 border-t border-white/[0.06]">
                 <div className="text-[12px] text-white/35 leading-[1.6]">
-                  Alerts are generated from live scheme data — not static rules. StrataHQ learns from payment patterns, SLA history, and fund trajectories.
+                  These examples show possible review prompts. They do not represent live customer outcomes or a predictive model.
                 </div>
               </div>
             </div>
@@ -225,7 +224,7 @@ export default function InsightsSection() {
           {/* Panel 3: Portfolio Analytics preview */}
           <div className="bg-surface border border-border rounded-xl p-5 card-lift">
             <p className="text-[11px] font-semibold tracking-[0.08em] uppercase text-muted mb-4">
-              Portfolio Analytics
+              Example portfolio analytics
             </p>
 
             <div className="grid grid-cols-2 gap-2 mb-4">

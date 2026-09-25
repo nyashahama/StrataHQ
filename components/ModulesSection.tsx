@@ -57,7 +57,7 @@ const modules = [
   {
     iconKey: 'agm',
     name: 'AGM & Voting',
-    desc: 'Proxy collection, quorum tracking, live digital voting and auto-generated signed minutes.',
+    desc: 'Proxy records, quorum tracking, digital voting, and recorded resolutions.',
   },
   {
     iconKey: 'reporting',

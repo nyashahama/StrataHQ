@@ -29,7 +29,7 @@ const timeline = [
     color: 'bg-accent-bg border-[rgba(43,108,176,0.15)] text-accent',
     dotColor: 'bg-accent',
     event: 'AGM prep — proxy forms via WhatsApp photos',
-    detail: 'Counting proxies from blurry screenshots. Someone disputes the quorum. You don\'t have a signed audit trail. This is a legal liability.',
+    detail: 'Counting proxies from blurry screenshots. Someone disputes the quorum. The review history is difficult to reconstruct.',
   },
 ]
 
@@ -48,36 +48,27 @@ export default function ProblemSection() {
               A typical week <br className="hidden sm:block" />without StrataHQ.
             </h2>
             <p className="reveal text-clamp-p text-ink-2 leading-[1.7] mb-8">
-              Not a worst-case scenario. Just Tuesday.
+              An illustrative example of context spread across messages, spreadsheets, and handoffs.
             </p>
 
-            {/* Hours lost panel */}
+            {/* Workflow gaps in the illustrative scenario */}
             <div className="reveal hidden lg:block">
               <div className="bg-surface border border-border rounded-xl p-5 card-lift">
                 <div className="text-[11px] font-semibold text-muted uppercase tracking-[0.08em] mb-4">
-                  Hours lost per month (avg)
+                  Where context gets lost
                 </div>
                 {[
-                  { label: 'Levy reconciliation', hours: 14, max: 20 },
-                  { label: 'Maintenance follow-ups', hours: 8, max: 20 },
-                  { label: 'AGM admin', hours: 6, max: 20 },
-                  { label: 'Trustee reporting', hours: 7, max: 20 },
-                ].map(({ label, hours, max }) => (
-                  <div key={label} className="mb-3.5 last:mb-0">
-                    <div className="flex justify-between text-[12px] text-ink-2 mb-[6px]">
-                      <span>{label}</span>
-                      <span className="font-semibold text-ink">{hours}h</span>
-                    </div>
-                    <div className="h-[5px] bg-page rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-accent to-[var(--color-hero-accent)]"
-                        style={{ width: `${(hours / max) * 100}%` }}
-                      />
-                    </div>
+                  'Levy matching across separate records',
+                  'Maintenance follow-up in message threads',
+                  'AGM decisions without one shared view',
+                  'Trustee updates assembled by hand',
+                ].map((gap) => (
+                  <div key={gap} className="py-2.5 border-t border-border text-[13px] text-ink-2">
+                    {gap}
                   </div>
                 ))}
                 <div className="mt-5 pt-4 border-t border-border text-[12px] text-muted">
-                  <span className="font-semibold text-ink">35 hours/month</span> of recoverable admin — per managing agent.
+                  Scenario illustration, not a measured time-savings benchmark.
                 </div>
               </div>
             </div>
@@ -117,8 +108,8 @@ export default function ProblemSection() {
               <div className="flex gap-4 px-[18px] py-4">
                 <div className="flex-shrink-0 hidden sm:block w-[9px]" />
                 <div className="text-[13px] text-muted italic border-t border-border pt-5 w-full">
-                  This is the job right now. StrataHQ doesn&apos;t change what you manage —
-                  it changes how much of it needs you.
+                  This scenario shows why shared context matters across levy, maintenance,
+                  governance, and communication workflows.
                 </div>
               </div>
             </div>

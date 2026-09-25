@@ -126,7 +126,7 @@ const roles: Role[] = [
     features: [
       { iconKey: 'dashboard', title: 'Portfolio dashboard', desc: 'All schemes, arrears and open work orders at a glance.' },
       { iconKey: 'automation', title: 'Automated workflows', desc: 'Levy reminders, maintenance escalation and AGM notices run themselves.' },
-      { iconKey: 'reports', title: 'Trustee-ready reports', desc: 'STSMA-compliant financials and management packs in minutes.' },
+      { iconKey: 'reports', title: 'Trustee-ready reports', desc: 'Scheme financial views and management summaries for trustee review.' },
       { iconKey: 'access', title: 'Team access control', desc: 'Assign staff to schemes with role-based permissions.' },
     ],
   },
